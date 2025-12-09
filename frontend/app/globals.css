@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 210 40% 98%;
+  --foreground: 222 47% 11%;
+  --muted: 210 30% 96%;
+  --muted-foreground: 215 15% 45%;
+  --accent: 198 86% 48%;
+  --accent-foreground: 0 0% 100%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+  --border: 214 32% 91%;
+  --input: 214 32% 91%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --primary: 199 89% 48%;
+  --primary-foreground: 210 40% 98%;
+  --secondary: 200 25% 92%;
+  --secondary-foreground: 222 47% 11%;
+  --destructive: 0 100% 50%;
+  --destructive-foreground: 210 40% 98%;
+  --ring: 199 89% 48%;
+  --radius: 16px;
+}
+
+.dark {
+  --background: 222 47% 8%;
+  --foreground: 210 40% 98%;
+  --muted: 215 27% 16%;
+  --muted-foreground: 216 12% 65%;
+  --accent: 198 86% 48%;
+  --accent-foreground: 222 47% 8%;
+  --popover: 222 47% 8%;
+  --popover-foreground: 210 40% 98%;
+  --border: 217 19% 24%;
+  --input: 217 19% 24%;
+  --card: 222 47% 10%;
+  --card-foreground: 210 40% 98%;
+  --primary: 199 89% 48%;
+  --primary-foreground: 222 47% 8%;
+  --secondary: 217 19% 24%;
+  --secondary-foreground: 210 40% 98%;
+  --destructive: 0 62% 55%;
+  --destructive-foreground: 210 40% 98%;
+  --ring: 199 89% 48%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+}
+
+.grainy {
+  background-image: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.35) 1px, transparent 0);
+  background-size: 18px 18px;
+}

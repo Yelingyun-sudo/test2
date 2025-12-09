@@ -1,0 +1,31 @@
+[project]
+name = "website-analytics"
+version = "0.1.0"
+description = "Website Analytics automation app powered by OpenAI Agents and Playwright MCP."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+license = { text = "MIT" }
+authors = [{ name = "laidongmin@gmail.com" }]
+dependencies = [
+    "openai-agents>=0.6.1,<1.0",
+    "openai>=2.8,<3",
+    "pydantic>=2.10,<3",
+    "typing-extensions>=4.12,<5",
+    "python-dotenv",
+    "mcp>=1.11,<2",
+    "fastapi>=0.124,<1",
+    "uvicorn[standard]>=0.38,<1",
+    "pydantic-settings>=2.6,<3"
+]
+
+# Local dev install only; use `pip install -e .`, not intended for distribution.
+
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "core"}
+
+[tool.setuptools.packages.find]
+where = ["core"]

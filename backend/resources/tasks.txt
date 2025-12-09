@@ -1,0 +1,13 @@
+# 示例批次任务文件
+# 每行一个任务指令，支持以 # 开头的注释行
+# 空行将被自动忽略
+
+# 巡检任务示例
+登录 https://569520.xyz（账号和密码分别为209692804@qq.com和209692804@qq.com）并完成巡检
+登录 https://pozhan.songshucn.com（账号和密码分别为 xlkj2022@sina.com 和 qwaszx12 ）并完成巡检
+登录 https://api.778833.xyz（账号和密码分别为 mayorwang@163.com 和 Sh33024545 ）并完成巡检
+
+# 提取订阅地址任务示例
+登录 https://569520.xyz（账号和密码分别为209692804@qq.com和209692804@qq.com）并提取订阅地址
+登录 https://pozhan.songshucn.com（账号和密码分别为 xlkj2022@sina.com 和 qwaszx12 ）并提取订阅地址
+登录 https://api.778833.xyz（账号和密码分别为 mayorwang@163.com 和 Sh33024545 ）并提取订阅地址

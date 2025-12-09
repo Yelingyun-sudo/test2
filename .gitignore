@@ -1,0 +1,50 @@
+# Node / web
+node_modules/
+.pnpm-store/
+.next/
+.next-turbo/
+.turbo/
+dist/
+out/
+.vercel/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+
+# Frontend (Next.js)
+frontend/.next/
+frontend/.turbo/
+frontend/.vercel/
+frontend/.swc/
+
+# Env
+.env
+.env.*
+!*/.env.example
+!*/.env.local.example
+.envrc
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Backend (FastAPI)
+backend/.venv/
+backend/logs/
+backend/.pytest_cache/
+backend/.ruff_cache/
+backend/core/website_analytics.egg-info/
+
+# OS/editor
+.DS_Store
