@@ -1,8 +1,6 @@
 import type { ComponentType } from "react";
 import {
   CircleOff,
-  ClipboardCheck,
-  FilePieChart,
   LayoutDashboard,
   ListChecks,
   Settings,
@@ -38,20 +36,6 @@ export const dashboardNavItems: DashboardNavItem[] = [
     desc: "订阅列表，分页检索。",
     status: "可用",
     icon: ListChecks
-  },
-  {
-    title: "任务中心",
-    href: "/tasks",
-    desc: "任务列表、进度、操作入口。",
-    status: "可用",
-    icon: ClipboardCheck
-  },
-  {
-    title: "报表中心",
-    href: "/reports",
-    desc: "周报/月报模版，PDF 导出。",
-    status: "可用",
-    icon: FilePieChart
   },
   {
     title: "设置与权限",
