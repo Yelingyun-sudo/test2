@@ -24,4 +24,4 @@
 - 后端变更至少通过 `make lint` 和相关 `pytest`；格式化请运行 `make format`。
 - 前端变更至少通过 `pnpm lint`；涉及构建逻辑的改动补充 `pnpm build` 自检。
 - 生成或修改的中文文案保持简洁明确，避免与现有占位符或注入变量冲突。
-- Git 提交建议使用 `type(scope): message`（type 取 feat/fix/chore/docs/test/refactor/build/ci/revert 等），message可用中文，控制在 200 字符内。
+- Git 提交建议格式 `type: message`，type 取 feat/fix/chore/docs/test/refactor/build/ci/revert 等，message可用中文，控制在 180 个字符内。
