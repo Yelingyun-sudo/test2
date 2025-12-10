@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Convert backend/resources/subscribe.jsonl from pseudo-JSON (single quotes,
+Convert backend/resources/subscribed.jsonl from pseudo-JSON (single quotes,
 list-per-line) into proper JSONL (one JSON object per line).
 """
 
@@ -10,8 +10,8 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent.parent
-SRC = ROOT / "resources" / "subscribe.jsonl"
-DST = ROOT / "resources" / "subscribe_clean.jsonl"
+SRC = ROOT / "resources" / "subscribed.jsonl"
+DST = ROOT / "resources" / "subscribed_clean.jsonl"
 
 
 def parse_chunk(line: str, line_no: int):

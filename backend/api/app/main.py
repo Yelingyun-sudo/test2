@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routers import auth, health
+from .routers import auth, health, subscribed, unsubscribed
 from website_analytics.settings import get_settings
 
 
@@ -20,6 +20,8 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router, prefix=settings.api_prefix)
     app.include_router(auth.router, prefix=settings.api_prefix)
+    app.include_router(subscribed.router, prefix=settings.api_prefix)
+    app.include_router(unsubscribed.router, prefix=settings.api_prefix)
     return app
 
 
