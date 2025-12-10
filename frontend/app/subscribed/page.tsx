@@ -186,7 +186,6 @@ export default function SubscribedPage() {
   return (
     <DashboardShell
       title="已订阅网站"
-      description="读取数据库订阅任务，支持分页与简单检索。"
       actions={
         <div className="flex items-center gap-2">
           <div className="relative flex items-center">
