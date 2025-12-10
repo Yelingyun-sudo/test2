@@ -1,8 +1,15 @@
 from __future__ import annotations
 
-from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, Integer, String, UniqueConstraint, func
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    Integer,
+    String,
+    UniqueConstraint,
+    func,
+)
 
 from ..db import Base
 
@@ -16,9 +23,14 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     is_active = Column(Boolean, nullable=False, default=True)
     is_admin = Column(Boolean, nullable=False, default=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
     updated_at = Column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
     )
     last_login_at = Column(DateTime(timezone=True), nullable=True)
 

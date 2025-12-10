@@ -105,7 +105,9 @@ def main() -> None:
         raise SystemExit(2) from exc
 
 
-def run_single_instruction(instruction: str, *, headless: bool = False) -> ExecutionResult:
+def run_single_instruction(
+    instruction: str, *, headless: bool = False
+) -> ExecutionResult:
     """供内部调用的单任务执行入口，返回 ExecutionResult。"""
 
     # 确保 tracing 关闭（与 CLI 行为一致）

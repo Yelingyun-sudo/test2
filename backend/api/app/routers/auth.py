@@ -40,7 +40,9 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
     return LoginResponse(access_token=access_token)
 
 
-@router.post("/logout", response_model=LogoutResponse, summary="退出登录（撤销当前令牌）")
+@router.post(
+    "/logout", response_model=LogoutResponse, summary="退出登录（撤销当前令牌）"
+)
 def logout(
     credentials=Depends(bearer_scheme),
     current_user=Depends(get_current_user),
@@ -61,7 +63,11 @@ def logout(
             status_code=status.HTTP_400_BAD_REQUEST, detail="令牌缺少标识，请重新登录"
         )
 
-    expires_at = datetime.fromtimestamp(exp, tz=timezone.utc) if exp else datetime.now(timezone.utc)
+    expires_at = (
+        datetime.fromtimestamp(exp, tz=timezone.utc)
+        if exp
+        else datetime.now(timezone.utc)
+    )
     revoke_token(db, jti=jti, user_id=current_user.id, expires_at=expires_at)
 
     return LogoutResponse()

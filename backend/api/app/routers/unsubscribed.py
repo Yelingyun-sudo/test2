@@ -10,7 +10,9 @@ from ..schemas.unsubscribed import UnsubscribedItem, UnsubscribedListResponse
 
 router = APIRouter(prefix="/unsubscribed", tags=["unsubscribed"])
 
-_DATA_PATH = Path(__file__).resolve().parents[3] / "resources" / "unsubscribed_clean.jsonl"
+_DATA_PATH = (
+    Path(__file__).resolve().parents[3] / "resources" / "unsubscribed_clean.jsonl"
+)
 
 
 def _load_data() -> List[UnsubscribedItem]:

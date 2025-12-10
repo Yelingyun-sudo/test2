@@ -11,6 +11,7 @@ import bcrypt as _bcrypt
 
 # 某些 bcrypt 版本缺少 __about__，为 passlib 兼容性补齐
 if not hasattr(_bcrypt, "__about__"):
+
     class _About:
         __version__ = getattr(_bcrypt, "__version__", "0")
 
@@ -39,7 +40,9 @@ def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
 
-def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
+def create_access_token(
+    data: Dict[str, Any], expires_delta: Optional[timedelta] = None
+) -> str:
     settings = get_settings()
     to_encode = data.copy()
     to_encode.setdefault("jti", uuid4().hex)

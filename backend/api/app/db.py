@@ -52,7 +52,9 @@ def _create_engine() -> tuple[Engine, URL]:
 
 
 engine, _engine_url = _create_engine()
-SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False, expire_on_commit=False)
+SessionLocal = sessionmaker(
+    bind=engine, autocommit=False, autoflush=False, expire_on_commit=False
+)
 
 
 def get_db() -> Generator[Session, None, None]:
@@ -90,7 +92,11 @@ def _seed_admin_user() -> None:
     if not settings.admin_seed_username or not settings.admin_seed_password:
         return
 
-    from .repositories.users import get_user_by_username, normalize_username, create_user
+    from .repositories.users import (
+        get_user_by_username,
+        normalize_username,
+        create_user,
+    )
     from .security import get_password_hash
 
     username = normalize_username(settings.admin_seed_username)

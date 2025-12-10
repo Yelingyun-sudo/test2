@@ -33,3 +33,6 @@ package-dir = {"" = "core"}
 
 [tool.setuptools.packages.find]
 where = ["core"]
+
+[tool.ruff]
+line-length = 88

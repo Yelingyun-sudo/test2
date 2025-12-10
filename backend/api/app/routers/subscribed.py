@@ -33,7 +33,7 @@ def list_subscribed(
             func.lower(SubscribedTask.url).like(keyword)
             | func.lower(SubscribedTask.account).like(keyword)
             | func.lower(SubscribedTask.password).like(keyword)
-    )
+        )
 
     total = query.count()
 
@@ -74,4 +74,6 @@ def list_subscribed(
             )
         )
 
-    return SubscribedListResponse(items=items, total=total, page=page, page_size=page_size)
+    return SubscribedListResponse(
+        items=items, total=total, page=page, page_size=page_size
+    )

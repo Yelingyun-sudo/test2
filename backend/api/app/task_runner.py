@@ -19,9 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 def _build_instruction(task: SubscribedTask) -> str:
-    return (
-        f"登录 {task.url}（账号和密码分别为 {task.account} 和 {task.password}）并提取订阅地址"
-    )
+    return f"登录 {task.url}（账号和密码分别为 {task.account} 和 {task.password}）并提取订阅地址"
 
 
 def _read_task_summary(task_dir: Path) -> dict[str, Any] | None:
@@ -51,7 +49,9 @@ def _extract_success_result(summary: dict[str, Any] | None) -> str:
         return f"解析任务总结失败: {exc}"
 
 
-def _extract_failure_result(summary: dict[str, Any] | None, fallback: str | None = None) -> str:
+def _extract_failure_result(
+    summary: dict[str, Any] | None, fallback: str | None = None
+) -> str:
     if not summary:
         return fallback or "任务总结不存在"
     try:
@@ -80,7 +80,9 @@ def _mark_running(db: Session, task: SubscribedTask) -> None:
     db.refresh(task)
 
 
-def _update_task_success(db: Session, task: SubscribedTask, *, duration: float, result: str) -> None:
+def _update_task_success(
+    db: Session, task: SubscribedTask, *, duration: float, result: str
+) -> None:
     task.status = TaskStatus.SUCCESS
     task.duration_seconds = int(duration)
     task.history_extract_count = (task.history_extract_count or 0) + 1
@@ -125,7 +127,11 @@ async def _run_task(task_id: int, instruction: str) -> None:
     try:
         timeout = settings.task_runner_timeout_seconds
         exec_result = await asyncio.wait_for(
-            asyncio.to_thread(run_single_instruction, instruction, headless=settings.task_runner_headless),
+            asyncio.to_thread(
+                run_single_instruction,
+                instruction,
+                headless=settings.task_runner_headless,
+            ),
             timeout=timeout,
         )
     except asyncio.TimeoutError:
@@ -147,13 +153,22 @@ async def _run_task(task_id: int, instruction: str) -> None:
             summary = _read_task_summary(exec_result.task_dir)
             result_text = _extract_success_result(summary)
             _update_task_success(db, task_obj, duration=duration, result=result_text)
-            logger.info("任务成功: id=%s, url=%s, result=%s", task_obj.id, task_obj.url, result_text)
+            logger.info(
+                "任务成功: id=%s, url=%s, result=%s",
+                task_obj.id,
+                task_obj.url,
+                result_text,
+            )
         else:
             if exec_result and exec_result.task_dir:
                 summary = _read_task_summary(exec_result.task_dir)
-                result_text = _extract_failure_result(summary, getattr(exec_result, "message", None))
+                result_text = _extract_failure_result(
+                    summary, getattr(exec_result, "message", None)
+                )
             else:
-                fallback_msg = getattr(exec_result, "message", None) if exec_result else None
+                fallback_msg = (
+                    getattr(exec_result, "message", None) if exec_result else None
+                )
                 result_text = _extract_failure_result(None, fallback_msg)
             failure_type = _format_failure_type(exec_error, timed_out)
             _update_task_failure(
