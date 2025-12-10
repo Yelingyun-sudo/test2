@@ -32,7 +32,7 @@ from website_analytics.batch_reporter import (
     print_task_start,
     save_task_summary,
 )
-from website_analytics.config import INSPECT_MAX_MENU_ENTRIES
+from website_analytics.config import INSPECT_MAX_MENU_ENTRIES, PROJECT_ROOT
 from website_analytics.filters import build_call_model_input_filter
 from website_analytics.formatter import format_execution_result
 from website_analytics.llm_logging import LLMTranscriptLoggerHooks
@@ -69,6 +69,13 @@ class ExplorerRunContext:
     task_dir: Path
 
 
+def _bool_env(var: str, default: bool = False) -> bool:
+    value = os.getenv(var)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
 async def execute(
     instruction: str,
     *,
@@ -83,7 +90,13 @@ async def execute(
     if enable_logging:
         enable_verbose_stdout_logging()
 
-    llm_hooks: RunHooks = LLMTranscriptLoggerHooks(working_dir / "llm")
+    capture_llm_state = _bool_env("LLM_SNAPSHOT", True)
+    capture_llm_full_page = _bool_env("LLM_SNAPSHOT_FULLPAGE", True)
+    llm_hooks: RunHooks = LLMTranscriptLoggerHooks(
+        working_dir / "llm",
+        capture_browser_state=capture_llm_state,
+        capture_full_page=capture_llm_full_page,
+    )
 
     run_context = ExplorerRunContext(task_dir=working_dir)
     call_model_filter = build_call_model_input_filter(compact_enabled=True)
@@ -124,6 +137,8 @@ async def execute(
             params=playwright_params,
             client_session_timeout_seconds=120,
         ) as playwright_server:
+            if hasattr(llm_hooks, "set_playwright_server"):
+                llm_hooks.set_playwright_server(playwright_server)
             inspect_entry_agent = build_inspect_entry_agent(
                 playwright_server,
                 load_instruction("inspect_entry_agent.md"),
@@ -353,7 +368,7 @@ async def execute_batch(
 
     # 生成批次任务目录
     batch_id = f"batch_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-    batch_dir = Path("logs") / batch_id
+    batch_dir = PROJECT_ROOT / "logs" / batch_id
     batch_dir.mkdir(parents=True, exist_ok=True)
 
     # 启用日志

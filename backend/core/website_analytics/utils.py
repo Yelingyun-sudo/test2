@@ -5,7 +5,11 @@ import string
 from datetime import datetime
 from pathlib import Path
 
-from website_analytics.config import INSTRUCTIONS_DIR, PLAYWRIGHT_ARGS_TEMPLATE
+from website_analytics.config import (
+    INSTRUCTIONS_DIR,
+    PLAYWRIGHT_ARGS_TEMPLATE,
+    PROJECT_ROOT,
+)
 
 
 def load_instruction(filename: str, replacements: dict[str, str] | None = None) -> str:
@@ -41,7 +45,7 @@ def build_playwright_args(output_dir: Path, headless: bool = False) -> list[str]
 
 
 def generate_task_directory(root: Path | None = None) -> Path:
-    base_dir = root if root is not None else Path("logs")
+    base_dir = root if root is not None else PROJECT_ROOT / "logs"
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=4))
     task_dir = base_dir / f"task_{timestamp}_{suffix}"

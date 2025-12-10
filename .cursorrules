@@ -1,0 +1,27 @@
+# Website Analytics 项目协作规范
+
+## 通用
+- 文件统一使用 UTF-8；代码注释、文档字符串和界面文案用中文（英文专有名词除外），变量/类型命名保持英文。
+- 遵循现有包管理与目录结构：后端依赖在 `backend/pyproject.toml`，核心代码位于 `backend/core/website_analytics/`，API 在 `backend/api/`，提示词在 `backend/instructions/`，日志输出到 `backend/logs/`。
+- 仅在必要位置添加注释，解释“为什么”而不是“是什么”；保持注释简洁。
+- 不混用包管理器：后端使用 `uv`/`pip`（Makefile 已提供命令），前端使用 `pnpm`（锁定在 `pnpm-lock.yaml`）。
+
+## Python / Backend
+- Python 3.12；遵循 PEP 8，使用 Ruff 进行格式化与检查（默认行长 88）。常用命令：`make format`、`make lint`、`make test`。
+- 新模块添加中文模块文档字符串；函数和类使用中文 Google 风格文档字符串，补全类型注解、参数/返回值/异常说明。
+- 默认引入 `from __future__ import annotations`，优先使用 `pathlib.Path`、`dataclass` 等现代写法。
+- 日志优先使用标准 `logging.getLogger(__name__)`；已有场景引用 `agents.logger.logger` 时保持一致即可；CLI 场景可使用 `print` 输出中文信息。
+- 配置与环境变量加载集中在 `backend/core/website_analytics/config.py`，保持现有查找优先级和占位符格式（如提示词中的 `{...}`）。
+
+## Frontend / Next.js
+- 技术栈：Next.js App Router（14.x）+ React 18 + TypeScript。默认使用 Server Component，只有需要状态/事件时才添加 `"use client"`。
+- 样式使用 Tailwind + shadcn/Radix 组件；合并类名使用 `cn`。保持现有浅蓝/青色渐变和数据分析控制台的视觉风格。
+- 表单与校验：使用 React Hook Form + Zod；通知使用 `sonner`；图标使用 `lucide-react`。
+- 导入路径使用 `@/` 别名；组件放在 `frontend/components/`，工具函数放在 `frontend/lib/`。
+- 质量检查使用 `pnpm lint`（Next 官方 ESLint 规则），必要时执行 `pnpm build` 验证。
+
+## 交付与测试
+- 后端变更至少通过 `make lint` 和相关 `pytest`；格式化请运行 `make format`。
+- 前端变更至少通过 `pnpm lint`；涉及构建逻辑的改动补充 `pnpm build` 自检。
+- 生成或修改的中文文案保持简洁明确，避免与现有占位符或注入变量冲突。
+- Git 提交建议使用 `type(scope): message`（type 取 feat/fix/chore/docs/test/refactor/build/ci/revert 等），message可用中文，控制在 200 字符内。

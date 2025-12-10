@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import json
+import logging
 import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -27,12 +28,25 @@ class _TurnMetadata:
 class LLMTranscriptLoggerHooks(RunHooks[TContext]):
     """Persist LLM requests and responses to markdown files for easier inspection."""
 
-    def __init__(self, output_directory: Path) -> None:
+    def __init__(
+        self,
+        output_directory: Path,
+        *,
+        capture_browser_state: bool = False,
+        capture_full_page: bool = True,
+    ) -> None:
         self._output_directory = Path(output_directory)
         self._output_directory.mkdir(parents=True, exist_ok=True)
         self._turn_counters: dict[str, int] = {}
         self._pending_turns: dict[str, _TurnMetadata] = {}
         self._global_sequence_counter: int = 0
+        self._capture_browser_state = capture_browser_state
+        self._capture_full_page = capture_full_page
+        self._playwright_server: Any | None = None
+
+    def set_playwright_server(self, server: Any | None) -> None:
+        """注入 Playwright MCP server，便于在每个回合捕获截图/DOM。"""
+        self._playwright_server = server
 
     async def on_llm_start(
         self,
@@ -66,6 +80,7 @@ class LLMTranscriptLoggerHooks(RunHooks[TContext]):
 
         content = _render_markdown_request(agent, metadata, payload)
         await _write_text(file_path, content)
+        await self._capture_state(metadata, "request")
 
     async def on_llm_end(
         self,
@@ -90,6 +105,54 @@ class LLMTranscriptLoggerHooks(RunHooks[TContext]):
 
         content = _render_markdown_response(agent, metadata, response)
         await _write_text(file_path, content)
+
+    async def _capture_state(self, metadata: _TurnMetadata, kind: str) -> None:
+        """可选：在每个回合的 request/response 旁保存截图和 DOM."""
+
+        if not self._capture_browser_state or not self._playwright_server:
+            return
+
+        base = Path(_build_filename(metadata, kind)).with_suffix("")
+        screenshot_path = self._output_directory / base.with_suffix(".png")
+        dom_path = self._output_directory / base.with_suffix(".dom.yaml")
+        screenshot_path.parent.mkdir(parents=True, exist_ok=True)
+        dom_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # DOM snapshot
+        try:
+            result = await self._playwright_server.call_tool("browser_snapshot", {})
+            text_blocks = [
+                getattr(item, "text", "")
+                for item in getattr(result, "content", []) or []
+                if getattr(item, "type", "") == "text"
+            ]
+            dom_text = "\n".join(text_blocks).strip()
+            if dom_text:
+                await _write_text(dom_path, dom_text)
+        except Exception as exc:  # noqa: BLE001 - 只记录，不影响主流程
+            logging.getLogger(__name__).warning(
+                "Failed to capture DOM snapshot (%s %s): %s",
+                metadata.agent_name,
+                kind,
+                exc,
+            )
+
+        # Screenshot
+        try:
+            await self._playwright_server.call_tool(
+                "browser_take_screenshot",
+                {
+                    "filename": str(screenshot_path),
+                    "fullPage": self._capture_full_page,
+                },
+            )
+        except Exception as exc:  # noqa: BLE001 - 只记录，不影响主流程
+            logging.getLogger(__name__).warning(
+                "Failed to capture screenshot (%s %s): %s",
+                metadata.agent_name,
+                kind,
+                exc,
+            )
 
 
 def _slugify(value: str) -> str:

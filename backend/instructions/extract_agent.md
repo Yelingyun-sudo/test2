@@ -20,10 +20,7 @@
 - "复制"
 
 ### 4. 读取剪贴板
-使用 `browser_evaluate` 执行以下代码读取剪贴板：
-```javascript
-() => navigator.clipboard.readText()
-```
+使用 `browser_evaluate` 执行以下代码读取剪贴板：`{ "function": "() => navigator.clipboard.readText()" }`
 
 ## 重要原则
 
