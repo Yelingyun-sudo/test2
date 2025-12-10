@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+from datetime import timedelta, timezone
 from typing import List
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func
+from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from ..db import get_db
-from ..models import SubscribedTask
+from ..models import SubscribedTask, TaskStatus
 from ..schemas.subscribed import SubscribedItem, SubscribedListResponse
 
 router = APIRouter(prefix="/subscribed", tags=["subscribed"])
@@ -32,18 +33,30 @@ def list_subscribed(
             func.lower(SubscribedTask.url).like(keyword)
             | func.lower(SubscribedTask.account).like(keyword)
             | func.lower(SubscribedTask.password).like(keyword)
-        )
+    )
 
     total = query.count()
+
+    tz_cn = timezone(timedelta(hours=8))
+    status_priority = case(
+        (SubscribedTask.status == TaskStatus.RUNNING, 0),
+        (SubscribedTask.status.in_([TaskStatus.SUCCESS, TaskStatus.FAILED]), 1),
+        else_=2,
+    )
+
     records: List[SubscribedTask] = (
-        query.order_by(SubscribedTask.id.asc())
+        query.order_by(status_priority, SubscribedTask.id.asc())
         .offset((page - 1) * page_size)
         .limit(page_size)
         .all()
     )
 
     def _format_dt(dt):
-        return dt.isoformat() if dt else None
+        if not dt:
+            return None
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(tz_cn).isoformat()
 
     items = []
     for rec in records:

@@ -38,11 +38,33 @@ export default function SubscribedPage() {
   const [pageInput, setPageInput] = useState("1");
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<SubscribedItem | null>(null);
 
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(total / PAGE_SIZE)),
     [total]
   );
+
+  const getPageItems = (current: number, totalCount: number): Array<number | string> => {
+    if (totalCount <= 7) {
+      return Array.from({ length: totalCount }, (_, idx) => idx + 1);
+    }
+
+    const items: Array<number | string> = [1];
+    const start = Math.max(2, current - 1);
+    const end = Math.min(totalCount - 1, current + 1);
+
+    if (start > 2) items.push("...");
+    for (let p = start; p <= end; p += 1) {
+      items.push(p);
+    }
+    if (end < totalCount - 1) items.push("...");
+    items.push(totalCount);
+
+    return items;
+  };
+
+  const pageItems = useMemo(() => getPageItems(page, totalPages), [page, totalPages]);
 
   const fetchData = async (params?: { page?: number; q?: string }) => {
     const currentPage = params?.page ?? page;
@@ -118,10 +140,28 @@ export default function SubscribedPage() {
 
   const formatDateTime = (value?: string | null) => {
     if (!value) return "-";
-    const d = new Date(value);
+    const normalized = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?$/.test(value)
+      ? `${value}Z`
+      : value;
+
+    const d = new Date(normalized);
     if (Number.isNaN(d.getTime())) return value;
-    const pad = (n: number) => String(n).padStart(2, "0");
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+
+    const formatter = new Intl.DateTimeFormat("zh-CN", {
+      timeZone: "Asia/Shanghai",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false
+    });
+
+    const parts = formatter.formatToParts(d);
+    const pick = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+
+    return `${pick("year")}-${pick("month")}-${pick("day")} ${pick("hour")}:${pick("minute")}:${pick("second")}`;
   };
 
   const handlePageChange = (nextPage: number) => {
@@ -134,6 +174,12 @@ export default function SubscribedPage() {
     const target = Math.min(Math.max(1, value), totalPages);
     fetchData({ page: target });
   };
+
+  const handleRowClick = (item: SubscribedItem) => {
+    setSelectedItem(item);
+  };
+
+  const handleCloseModal = () => setSelectedItem(null);
 
   return (
     <DashboardShell
@@ -167,11 +213,11 @@ export default function SubscribedPage() {
       }
     >
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="grid grid-cols-[80px_2fr_1fr_1fr_1fr_1fr_1.4fr_1.5fr] bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
+        <div className="grid grid-cols-[70px_1.4fr_0.65fr_0.6fr_0.6fr_0.6fr_1.1fr_2fr] bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
           <div>ID</div>
           <div>网址</div>
           <div>任务状态</div>
-          <div>任务时长(s)</div>
+          <div>任务时长</div>
           <div>重试次数</div>
           <div>历史提取次数</div>
           <div>最后一次提取时间</div>
@@ -190,9 +236,11 @@ export default function SubscribedPage() {
               <div
                 key={`${item.id}-${idx}`}
                 className={cn(
-                  "grid grid-cols-[80px_2fr_1fr_1fr_1fr_1fr_1.4fr_1.5fr] items-center px-4 py-3 text-sm text-slate-700",
-                  idx % 2 === 0 ? "bg-white" : "bg-slate-50/70"
+                  "grid grid-cols-[70px_1.4fr_0.65fr_0.6fr_0.6fr_0.6fr_1.1fr_2fr] items-center px-4 py-3 text-sm text-slate-700",
+                  idx % 2 === 0 ? "bg-white" : "bg-slate-50/70",
+                  "cursor-pointer transition-colors hover:bg-slate-100/80"
                 )}
+                onClick={() => handleRowClick(item)}
               >
                 <div className="font-mono text-xs text-slate-500">
                   {item.id ?? (page - 1) * PAGE_SIZE + idx + 1}
@@ -222,7 +270,48 @@ export default function SubscribedPage() {
         <div>
           共 {total} 条 · 第 {page}/{totalPages} 页
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(Math.max(1, page - 1))}
+              disabled={page === 1 || loading}
+            >
+              {"<"}
+            </Button>
+            {pageItems.map((item, idx) =>
+              typeof item === "string" ? (
+                <span key={`ellipsis-${idx}`} className="px-2 text-slate-400">
+                  {item}
+                </span>
+              ) : (
+                <Button
+                  key={item}
+                  variant={item === page ? "default" : "outline"}
+                  size="sm"
+                  className={cn(
+                    "min-w-9",
+                    item === page
+                      ? "bg-emerald-500 text-white shadow hover:bg-emerald-500"
+                      : "bg-white text-slate-700"
+                  )}
+                  onClick={() => handlePageChange(item)}
+                  disabled={loading}
+                >
+                  {item}
+                </Button>
+              )
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(Math.min(totalPages, page + 1))}
+              disabled={page === totalPages || loading}
+            >
+              {">"}
+            </Button>
+          </div>
           <div className="flex items-center gap-1">
             <Input
               type="number"
@@ -236,24 +325,70 @@ export default function SubscribedPage() {
               跳转
             </Button>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handlePageChange(Math.max(1, page - 1))}
-            disabled={page === 1 || loading}
-          >
-            上一页
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handlePageChange(Math.min(totalPages, page + 1))}
-            disabled={page === totalPages || loading}
-          >
-            下一页
-          </Button>
         </div>
       </div>
+
+      {selectedItem && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={handleCloseModal}
+        >
+          <div
+            className="relative w-full max-w-4xl rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="订阅任务详情"
+          >
+            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+              <div className="space-y-1">
+                <h3 className="text-lg font-semibold text-slate-900">订阅任务详情</h3>
+                <p className="text-sm text-slate-500">ID: {selectedItem.id ?? "-"}</p>
+              </div>
+              <Button variant="outline" size="sm" onClick={handleCloseModal}>
+                关闭
+              </Button>
+            </div>
+
+            <div className="grid gap-4 px-6 py-5 text-sm text-slate-700 sm:grid-cols-2">
+              <div className="space-y-1">
+                <div className="text-slate-500">网址</div>
+                <div className="break-all font-medium text-slate-800">{selectedItem.url}</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-slate-500">任务状态</div>
+                <div className="flex items-center gap-2">{renderStatus(selectedItem.status)}</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-slate-500">任务时长 (s)</div>
+                <div className="font-medium">{selectedItem.duration_seconds}</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-slate-500">重试次数</div>
+                <div className="font-medium">{selectedItem.retry_count}</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-slate-500">历史提取次数</div>
+                <div className="font-medium">{selectedItem.history_extract_count}</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-slate-500">最后一次提取时间</div>
+                <div className="font-medium">{formatDateTime(selectedItem.last_extracted_at)}</div>
+              </div>
+            </div>
+
+            <div className="px-6 pb-6">
+              <div className="mb-2 text-sm font-semibold text-slate-700">任务结果</div>
+              <textarea
+                readOnly
+                value={selectedItem.result ?? ""}
+                placeholder="暂无结果"
+                className="h-64 w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-mono text-sm leading-relaxed text-slate-800 shadow-inner focus:outline-none"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardShell>
   );
 }

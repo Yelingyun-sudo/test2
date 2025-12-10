@@ -57,6 +57,13 @@ class Settings(BaseSettings):
     llm_snapshot: bool = True
     llm_snapshot_fullpage: bool = True
 
+    # 任务调度
+    task_runner_enabled: bool = True
+    task_runner_interval_seconds: int = 5
+    task_runner_headless: bool = True
+    task_runner_timeout_seconds: int = 600
+    task_runner_max_concurrent: int = 1
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:

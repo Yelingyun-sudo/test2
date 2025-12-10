@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import date, datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from sqlalchemy.exc import IntegrityError
@@ -40,7 +40,8 @@ def main() -> None:
     init_db()
     session = SessionLocal()
     now = datetime.now(timezone.utc)
-    today = date.today()
+    tz_china = timezone(timedelta(hours=8))
+    today = now.astimezone(tz_china).date()
 
     inserted = 0
     skipped = 0

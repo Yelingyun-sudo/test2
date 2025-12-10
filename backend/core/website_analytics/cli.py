@@ -98,13 +98,22 @@ def main() -> None:
             )
         else:
             # 单任务模式
-            result = asyncio.run(
-                execute(
-                    args.instruction,
-                    headless=args.headless,
-                )
-            )
+            result = run_single_instruction(args.instruction, headless=args.headless)
             _handle_result(result)
     except Exception as exc:  # pragma: no cover - defensive guard for event loop errors
         print(f"执行失败：{exc}", file=sys.stderr)
         raise SystemExit(2) from exc
+
+
+def run_single_instruction(instruction: str, *, headless: bool = False) -> ExecutionResult:
+    """供内部调用的单任务执行入口，返回 ExecutionResult。"""
+
+    # 确保 tracing 关闭（与 CLI 行为一致）
+    set_tracing_disabled(True)
+
+    return asyncio.run(
+        execute(
+            instruction,
+            headless=headless,
+        )
+    )

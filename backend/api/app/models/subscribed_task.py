@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 
 from sqlalchemy import (
@@ -15,6 +16,9 @@ from sqlalchemy import (
 )
 
 from ..db import Base
+
+
+TZ_CHINA = timezone(timedelta(hours=8))
 
 
 class TaskStatus(str, Enum):
@@ -45,7 +49,7 @@ class SubscribedTask(Base):
     failure_type = Column(String(255), nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    created_date = Column(Date, server_default=func.date(func.now()), nullable=False)
+    created_date = Column(Date, nullable=False, default=lambda: datetime.now(TZ_CHINA).date())
 
     def __repr__(self) -> str:  # pragma: no cover - 调试辅助
         return f"<SubscribedTask id={self.id} url={self.url}>"
