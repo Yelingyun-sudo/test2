@@ -72,6 +72,7 @@ const retentionData = [
 
 export default function Page() {
   const [isAuthed, setIsAuthed] = useState(false);
+  const [account, setAccount] = useState<string | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -82,10 +83,11 @@ export default function Page() {
   });
 
   useEffect(() => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
-    if (token) {
-      setIsAuthed(true);
-    }
+    if (typeof window === "undefined") return;
+    const token = localStorage.getItem("access_token");
+    const savedAccount = localStorage.getItem("account_name");
+    if (token) setIsAuthed(true);
+    if (savedAccount) setAccount(savedAccount);
   }, []);
 
   const handleSubmit = async (values: FormValues) => {
@@ -109,6 +111,8 @@ export default function Page() {
 
       if (data?.access_token) {
         localStorage.setItem("access_token", data.access_token);
+        localStorage.setItem("account_name", values.username);
+        setAccount(values.username);
         setIsAuthed(true);
       }
 
@@ -124,13 +128,15 @@ export default function Page() {
 
   const handleLogout = () => {
     localStorage.removeItem("access_token");
+    localStorage.removeItem("account_name");
     setIsAuthed(false);
+    setAccount(null);
     toast.success("已退出登录");
   };
 
   if (isAuthed) {
     return (
-      <Dashboard onLogout={handleLogout} />
+      <Dashboard onLogout={handleLogout} account={account ?? undefined} />
     );
   }
 
@@ -223,9 +229,10 @@ export default function Page() {
 
 type DashboardProps = {
   onLogout: () => void;
+  account?: string;
 };
 
-function Dashboard({ onLogout }: DashboardProps) {
+function Dashboard({ onLogout, account }: DashboardProps) {
   const highlightCards = useMemo(
     () => [
       {
@@ -252,6 +259,7 @@ function Dashboard({ onLogout }: DashboardProps) {
 
   return (
     <DashboardShell
+      account={account}
       title="概览仪表板"
       description="左侧为常驻导航，右侧展示首页组件。登录后可浏览报表、漏斗、留存、设置等页面。"
       actions={
