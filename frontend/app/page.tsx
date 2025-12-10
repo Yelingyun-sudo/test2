@@ -52,6 +52,9 @@ const features = [
   }
 ];
 
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api";
+
 type FormValues = z.infer<typeof schema>;
 
 export default function Page() {
@@ -64,10 +67,38 @@ export default function Page() {
   });
 
   const handleSubmit = async (values: FormValues) => {
-    await new Promise((resolve) => setTimeout(resolve, 700));
-    toast.success("登录请求已提交", {
-      description: "当前为静态表单，后端接入后将完成真实登录流程。"
-    });
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(values)
+      });
+
+      const data = (await res.json().catch(() => null)) as
+        | { access_token?: string; detail?: string }
+        | null;
+
+      if (!res.ok) {
+        const errorMessage = data?.detail ?? "登录失败，请检查账号密码。";
+        throw new Error(errorMessage);
+      }
+
+      if (data?.access_token) {
+        localStorage.setItem("access_token", data.access_token);
+      }
+
+      toast.success("登录成功", {
+        description: "已通过 admin/admin 静态校验，后续可接入真实鉴权。"
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "登录失败，请稍后重试或联系管理员。";
+      toast.error(message);
+    }
   };
 
   return (
@@ -118,7 +149,7 @@ export default function Page() {
                 <p className="text-sm font-medium text-slate-500">欢迎回来</p>
                 <h2 className="mt-1 text-2xl font-semibold text-slate-900">登录控制台</h2>
                 <p className="mt-2 text-sm text-slate-500">
-                  使用用户名和密码登录。当前为静态表单，后续对接后端。
+                  使用用户名和密码登录。当前仅支持 admin/admin，后续可对接真实后端。
                 </p>
               </div>
 
