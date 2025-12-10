@@ -18,8 +18,8 @@ def test_load_instruction_supports_replacements(tmp_path, monkeypatch):
 
 
 def test_build_playwright_args_formats_and_handles_headless(tmp_path, monkeypatch):
-    template = ("--output-dir={output_dir}", "--timeout=1000")
-    monkeypatch.setattr(utils, "PLAYWRIGHT_ARGS_TEMPLATE", template)
+    monkeypatch.setattr(utils, "BASE_PLAYWRIGHT_ARGS", ("--output-dir={output_dir}", "--timeout=1000"))
+    monkeypatch.setattr(utils, "get_settings", lambda: SimpleNamespace(playwright_proxy_server=None))
     output_dir = tmp_path / "out"
 
     args = utils.build_playwright_args(output_dir, headless=False)

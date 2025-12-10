@@ -8,7 +8,6 @@ from agents.agent_output import AgentOutputSchema
 from agents.mcp import MCPServerStdio
 from agents.result import RunResult
 
-from website_analytics.config import MODEL_NAME
 from website_analytics.output_types import (
     CoordinatorOutput,
     ExtractOutput,
@@ -16,6 +15,9 @@ from website_analytics.output_types import (
     InspectOutput,
     LoginOutput,
 )
+from website_analytics.settings import get_settings
+
+settings = get_settings()
 
 
 async def extract_structured_output(result: RunResult) -> str:
@@ -36,7 +38,7 @@ def build_login_agent(playwright_server: MCPServerStdio, instructions: str) -> A
         name="loginAgent",
         instructions=instructions,
         mcp_servers=[playwright_server],
-        model=MODEL_NAME,
+        model=settings.agent_model,
         output_type=LoginOutput,
     )
 
@@ -46,7 +48,7 @@ def build_extract_agent(playwright_server: MCPServerStdio, instructions: str) ->
         name="extractAgent",
         instructions=instructions,
         mcp_servers=[playwright_server],
-        model=MODEL_NAME,
+        model=settings.agent_model,
         output_type=ExtractOutput,
     )
 
@@ -61,7 +63,7 @@ def build_inspect_entry_agent(
         instructions=instructions,
         tools=[*extra_tools] if extra_tools else [],
         mcp_servers=[playwright_server],
-        model=MODEL_NAME,
+        model=settings.agent_model,
         output_type=InspectEntryOutput,
     )
 
@@ -76,7 +78,7 @@ def build_inspect_agent(
         instructions=instructions,
         tools=[*extra_tools] if extra_tools else [],
         mcp_servers=[playwright_server],
-        model=MODEL_NAME,
+        model=settings.agent_model,
         output_type=InspectOutput,
     )
 
@@ -123,6 +125,6 @@ def build_coordinator_agent(
         name="coordinatorAgent",
         instructions=coordinator_instructions,
         tools=tools,
-        model=MODEL_NAME,
+        model=settings.agent_model,
         output_type=AgentOutputSchema(CoordinatorOutput, strict_json_schema=False),
     )

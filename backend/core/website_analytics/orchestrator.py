@@ -32,17 +32,18 @@ from website_analytics.batch_reporter import (
     print_task_start,
     save_task_summary,
 )
-from website_analytics.config import INSPECT_MAX_MENU_ENTRIES, PROJECT_ROOT
 from website_analytics.filters import build_call_model_input_filter
 from website_analytics.formatter import format_execution_result
 from website_analytics.llm_logging import LLMTranscriptLoggerHooks
 from website_analytics.playwright_server import AutoSwitchingPlaywrightServer
+from website_analytics.settings import get_settings
 from website_analytics.tools import (
     build_compile_inspect_report_tool,
     build_save_entry_result_tool,
     build_save_page_text_tool,
 )
 from website_analytics.utils import (
+    LOGS_DIR,
     build_playwright_args,
     generate_task_directory,
     load_instruction,
@@ -69,11 +70,7 @@ class ExplorerRunContext:
     task_dir: Path
 
 
-def _bool_env(var: str, default: bool = False) -> bool:
-    value = os.getenv(var)
-    if value is None:
-        return default
-    return value.strip().lower() in {"1", "true", "yes", "y", "on"}
+settings = get_settings()
 
 
 async def execute(
@@ -90,8 +87,8 @@ async def execute(
     if enable_logging:
         enable_verbose_stdout_logging()
 
-    capture_llm_state = _bool_env("LLM_SNAPSHOT", True)
-    capture_llm_full_page = _bool_env("LLM_SNAPSHOT_FULLPAGE", True)
+    capture_llm_state = settings.llm_snapshot
+    capture_llm_full_page = settings.llm_snapshot_fullpage
     llm_hooks: RunHooks = LLMTranscriptLoggerHooks(
         working_dir / "llm",
         capture_browser_state=capture_llm_state,
@@ -165,7 +162,9 @@ async def execute(
                 playwright_server,
                 load_instruction(
                     "inspect_agent.md",
-                    replacements={"{MAX_MENU_ENTRIES}": str(INSPECT_MAX_MENU_ENTRIES)},
+                    replacements={
+                        "{MAX_MENU_ENTRIES}": str(settings.inspect_max_menu_entries)
+                    },
                 ),
                 extra_tools=[
                     save_page_text_tool,
@@ -368,7 +367,7 @@ async def execute_batch(
 
     # 生成批次任务目录
     batch_id = f"batch_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-    batch_dir = PROJECT_ROOT / "logs" / batch_id
+    batch_dir = LOGS_DIR / batch_id
     batch_dir.mkdir(parents=True, exist_ok=True)
 
     # 启用日志

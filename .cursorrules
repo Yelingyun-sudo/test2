@@ -7,7 +7,7 @@
 - 不混用包管理器：后端使用 `uv`/`pip`（Makefile 已提供命令），前端使用 `pnpm`（锁定在 `pnpm-lock.yaml`）。
 
 ## Python / Backend
-- Python 3.12；遵循 PEP 8，使用 Ruff 进行格式化与检查（默认行长 88）。常用命令：`make format`、`make lint`、`make test`。
+- Python 3.12；遵循 PEP 8，使用 Ruff 进行格式化与检查（行长 100）。常用命令：`make format`、`make lint`、`make test`。
 - 新模块添加中文模块文档字符串；函数和类使用中文 Google 风格文档字符串，补全类型注解、参数/返回值/异常说明。
 - 默认引入 `from __future__ import annotations`，优先使用 `pathlib.Path`、`dataclass` 等现代写法。
 - 日志优先使用标准 `logging.getLogger(__name__)`；已有场景引用 `agents.logger.logger` 时保持一致即可；CLI 场景可使用 `print` 输出中文信息。

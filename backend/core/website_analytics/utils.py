@@ -5,10 +5,38 @@ import string
 from datetime import datetime
 from pathlib import Path
 
-from website_analytics.config import (
-    INSTRUCTIONS_DIR,
-    PLAYWRIGHT_ARGS_TEMPLATE,
-    PROJECT_ROOT,
+from website_analytics.settings import get_settings
+
+
+def find_project_root() -> Path:
+    """向上查找含 pyproject.toml 的目录，作为项目根。"""
+
+    current = Path(__file__).resolve()
+    for parent in current.parents:
+        if (parent / "pyproject.toml").exists():
+            return parent
+    return current.parent.parent
+
+
+PROJECT_ROOT = find_project_root()
+INSTRUCTIONS_DIR = PROJECT_ROOT / "instructions"
+LOGS_DIR = PROJECT_ROOT / "logs"
+
+BASE_PLAYWRIGHT_ARGS = (
+    "@playwright/mcp@latest",
+    "--browser=chrome",
+    "--no-sandbox",
+    "--isolated",
+    "--grant-permissions=clipboard-read,clipboard-write",
+    "--allowed-hosts=*",
+    "--save-trace",
+    "--viewport-size=1280x800",
+    "--save-video=1280x800",
+    "--output-dir={output_dir}",
+    "--ignore-https-errors",
+    "--caps=vision,pdf",
+    "--timeout-action=5000",
+    "--timeout-navigation=20000",
 )
 
 
@@ -31,11 +59,17 @@ def build_playwright_args(output_dir: Path, headless: bool = False) -> list[str]
     Returns:
         Playwright 参数列表
     """
+    settings = get_settings()
+
     # 构建基础参数
     args = [
         arg.format(output_dir=str(output_dir)) if "{output_dir}" in arg else arg
-        for arg in PLAYWRIGHT_ARGS_TEMPLATE
+        for arg in BASE_PLAYWRIGHT_ARGS
     ]
+
+    # 代理设置
+    if settings.playwright_proxy_server:
+        args.append(f"--proxy-server={settings.playwright_proxy_server}")
 
     # 如果启用 headless，添加 --headless 参数
     if headless:
@@ -45,7 +79,7 @@ def build_playwright_args(output_dir: Path, headless: bool = False) -> list[str]
 
 
 def generate_task_directory(root: Path | None = None) -> Path:
-    base_dir = root if root is not None else PROJECT_ROOT / "logs"
+    base_dir = root if root is not None else LOGS_DIR
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=4))
     task_dir = base_dir / f"task_{timestamp}_{suffix}"

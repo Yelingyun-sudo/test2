@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .routers import auth, health
-from .settings import get_settings
+from website_analytics.settings import get_settings
 
 
 def create_app() -> FastAPI:
