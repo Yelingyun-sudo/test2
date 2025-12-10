@@ -6,6 +6,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+_DEFAULT_DB_PATH = Path(__file__).resolve().parents[2] / "db" / "wa.db"
+
 
 def _load_env_file() -> Path | None:
     """按优先级加载 .env 文件，返回实际加载的路径。"""
@@ -33,6 +35,14 @@ class Settings(BaseSettings):
 
     project_name: str = "Website Analytics API"
     api_prefix: str = "/api"
+
+    # 数据库 / 认证
+    database_url: str = f"sqlite:///{_DEFAULT_DB_PATH}"
+    secret_key: str = "change-me"
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 60
+    admin_seed_username: str | None = None
+    admin_seed_password: str | None = None
 
     # OpenAI / LLM 相关
     openai_api_key: str | None = None

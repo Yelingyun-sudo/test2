@@ -7,5 +7,9 @@ class LoginRequest(BaseModel):
 
 
 class LoginResponse(BaseModel):
-    access_token: str = Field(..., description="静态示例 token，后续对接真实鉴权")
+    access_token: str = Field(..., description="JWT 访问令牌")
     token_type: str = Field(default="bearer")
+
+
+class LogoutResponse(BaseModel):
+    message: str = Field(default="退出成功")

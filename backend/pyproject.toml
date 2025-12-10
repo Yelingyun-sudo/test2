@@ -15,7 +15,11 @@ dependencies = [
     "mcp>=1.11,<2",
     "fastapi>=0.124,<1",
     "uvicorn[standard]>=0.38,<1",
-    "pydantic-settings>=2.6,<3"
+    "pydantic-settings>=2.6,<3",
+    "bcrypt>=3.2,<4",
+    "sqlalchemy>=2.0,<3",
+    "passlib[bcrypt]>=1.7,<2",
+    "python-jose[cryptography]>=3.3,<4"
 ]
 
 # Local dev install only; use `pip install -e .`, not intended for distribution.

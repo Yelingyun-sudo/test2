@@ -48,7 +48,7 @@ export function DashboardShell({ title, description, actions, children }: Dashbo
               <p className="text-base font-semibold text-slate-900 whitespace-nowrap">
                 Website Analytics
               </p>
-              <p className="text-sm text-slate-500">用户控制台</p>
+              <p className="text-sm text-slate-500">控制台</p>
             </div>
           </Link>
 
@@ -79,11 +79,6 @@ export function DashboardShell({ title, description, actions, children }: Dashbo
             })}
           </nav>
 
-          <div className="px-1">
-            <Button variant="outline" className="w-full justify-center" onClick={handleLogout}>
-              退出登录
-            </Button>
-          </div>
         </aside>
 
         <div className="flex-1">
@@ -93,7 +88,7 @@ export function DashboardShell({ title, description, actions, children }: Dashbo
                 <p className="text-base font-semibold text-slate-900 whitespace-nowrap">
                   Website Analytics
                 </p>
-                <p className="text-sm text-slate-500">用户控制台</p>
+                <p className="text-sm text-slate-500">控制台</p>
               </div>
               <Button size="sm" variant="outline" onClick={handleLogout}>
                 退出

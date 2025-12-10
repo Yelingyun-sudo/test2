@@ -1,12 +1,14 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from .db import init_db
 from .routers import auth, health, subscribed, unsubscribed
 from website_analytics.settings import get_settings
 
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    init_db()
     app = FastAPI(title=settings.project_name)
 
     # 后续可按环境收紧
