@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .db import init_db
 from .routers import auth, health, subscribed, unsubscribed
+from .task_cleaner import run_task_cleaner_loop
 from .task_runner import run_task_loop
 from website_analytics.settings import get_settings
 
@@ -17,12 +18,20 @@ async def lifespan(app: FastAPI):
     # 启动逻辑
     if settings.task_runner_enabled:
         app.state.task_runner = asyncio.create_task(run_task_loop())
+    if settings.task_cleaner_enabled:
+        app.state.task_cleaner = asyncio.create_task(run_task_cleaner_loop())
 
     yield
 
     # 关闭逻辑
     if settings.task_runner_enabled:
         task = getattr(app.state, "task_runner", None)
+        if task:
+            task.cancel()
+            with contextlib.suppress(Exception):
+                await task
+    if settings.task_cleaner_enabled:
+        task = getattr(app.state, "task_cleaner", None)
         if task:
             task.cancel()
             with contextlib.suppress(Exception):

@@ -108,7 +108,7 @@ def _update_task_failure(
     db.commit()
 
 
-def _get_pending_batch(db: Session, limit: int) -> list[SubscribedTask]:
+def _get_pending_batch(db: Session, limit: int = 1) -> list[SubscribedTask]:
     return (
         db.query(SubscribedTask)
         .filter(SubscribedTask.status == TaskStatus.PENDING)
@@ -198,7 +198,7 @@ async def process_once(semaphore: asyncio.Semaphore) -> None:
     db = SessionLocal()
     tasks: list[SubscribedTask] = []
     try:
-        tasks = _get_pending_batch(db, limit=available)
+        tasks = _get_pending_batch(db, limit=1)
         if not tasks:
             return
 

@@ -64,6 +64,11 @@ class Settings(BaseSettings):
     task_runner_timeout_seconds: int = 600
     task_runner_max_concurrent: int = 1
 
+    # 任务清理
+    task_cleaner_enabled: bool = True
+    task_cleaner_interval_seconds: int = 5
+    task_cleaner_timeout_seconds: int = 900
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
