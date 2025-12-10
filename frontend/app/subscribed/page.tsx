@@ -9,9 +9,14 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 type SubscribedItem = {
+  id: number;
   url: string;
-  account: string;
-  password: string;
+  status: string;
+  duration_seconds: number;
+  retry_count: number;
+  history_extract_count: number;
+  last_extracted_at?: string | null;
+  result?: string | null;
 };
 
 type SubscribedListResponse = {
@@ -24,7 +29,7 @@ type SubscribedListResponse = {
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 15;
 
 export default function SubscribedPage() {
   const [data, setData] = useState<SubscribedItem[]>([]);
@@ -75,6 +80,50 @@ export default function SubscribedPage() {
     fetchData({ page: 1, q: query.trim() });
   };
 
+  const statusLabel: Record<string, string> = {
+    pending: "待执行",
+    running: "执行中",
+    success: "成功",
+    failed: "失败"
+  };
+
+  const renderStatus = (value?: string) => {
+    if (!value) return <span className="text-slate-400">-</span>;
+    const key = value.toLowerCase();
+    const label = statusLabel[key] ?? value;
+
+    const styles: Record<string, string> = {
+      pending: "bg-slate-100 text-slate-600 border border-slate-200",
+      running: "bg-emerald-50 text-emerald-600 border border-emerald-100",
+      success: "bg-emerald-50 text-emerald-600 border border-emerald-100",
+      failed: "bg-rose-50 text-rose-600 border border-rose-100"
+    };
+
+    const icon: Record<string, JSX.Element | null> = {
+      pending: null,
+      running: <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />,
+      success: null,
+      failed: null
+    };
+
+    const pillClass = styles[key] || "bg-slate-100 text-slate-600 border border-slate-200";
+
+    return (
+      <span className={cn("inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium", pillClass)}>
+        {icon[key]}
+        {label}
+      </span>
+    );
+  };
+
+  const formatDateTime = (value?: string | null) => {
+    if (!value) return "-";
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return value;
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  };
+
   const handlePageChange = (nextPage: number) => {
     fetchData({ page: nextPage });
   };
@@ -89,13 +138,13 @@ export default function SubscribedPage() {
   return (
     <DashboardShell
       title="已订阅网站"
-      description="读取后端资源文件，支持分页与简单检索。"
+      description="读取数据库订阅任务，支持分页与简单检索。"
       actions={
         <div className="flex items-center gap-2">
           <div className="relative flex items-center">
             <Search className="pointer-events-none absolute left-3 h-4 w-4 text-slate-400" />
             <Input
-              placeholder="按 URL/账号/密码搜索"
+              placeholder="按 URL 搜索"
               className="pl-9 pr-24"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -118,11 +167,15 @@ export default function SubscribedPage() {
       }
     >
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="grid grid-cols-[60px_1.5fr_1.2fr_1.2fr] bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
-          <div>序号</div>
-          <div>订阅 URL</div>
-          <div>账号</div>
-          <div>密码</div>
+        <div className="grid grid-cols-[80px_2fr_1fr_1fr_1fr_1fr_1.4fr_1.5fr] bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
+          <div>ID</div>
+          <div>网址</div>
+          <div>任务状态</div>
+          <div>任务时长(s)</div>
+          <div>重试次数</div>
+          <div>历史提取次数</div>
+          <div>最后一次提取时间</div>
+          <div>任务结果</div>
         </div>
         <div className="divide-y divide-slate-100">
           {loading ? (
@@ -135,18 +188,30 @@ export default function SubscribedPage() {
           ) : (
             data.map((item, idx) => (
               <div
-                key={`${item.url}-${item.account}-${idx}`}
+                key={`${item.id}-${idx}`}
                 className={cn(
-                  "grid grid-cols-[60px_1.5fr_1.2fr_1.2fr] items-center px-4 py-3 text-sm text-slate-700",
+                  "grid grid-cols-[80px_2fr_1fr_1fr_1fr_1fr_1.4fr_1.5fr] items-center px-4 py-3 text-sm text-slate-700",
                   idx % 2 === 0 ? "bg-white" : "bg-slate-50/70"
                 )}
               >
                 <div className="font-mono text-xs text-slate-500">
-                  {(page - 1) * PAGE_SIZE + idx + 1}
+                  {item.id ?? (page - 1) * PAGE_SIZE + idx + 1}
                 </div>
-                <div className="truncate pr-4">{item.url}</div>
-                <div className="truncate pr-4">{item.account}</div>
-                <div className="truncate">{item.password}</div>
+                <div className="truncate pr-4" title={item.url}>
+                  {item.url}
+                </div>
+                <div className="truncate pr-4 text-slate-600 flex items-center">
+                  {renderStatus(item.status)}
+                </div>
+                <div className="truncate pr-4">{item.duration_seconds}</div>
+                <div className="truncate pr-4">{item.retry_count}</div>
+                <div className="truncate pr-4">{item.history_extract_count}</div>
+                <div className="truncate pr-4" title={item.last_extracted_at || undefined}>
+                  {formatDateTime(item.last_extracted_at)}
+                </div>
+                <div className="truncate" title={item.result || undefined}>
+                  {item.result || "-"}
+                </div>
               </div>
             ))
           )}

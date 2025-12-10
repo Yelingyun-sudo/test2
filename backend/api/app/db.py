@@ -67,9 +67,20 @@ def init_db() -> None:
     # 延迟导入以避免循环依赖
     from .models import user as user_model  # noqa: F401
     from .models import revoked_token as revoked_token_model  # noqa: F401
+    from .models import subscribed_task as subscribed_task_model  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
+    _ensure_indices()
     _seed_admin_user()
+
+
+def _ensure_indices() -> None:
+    # 补充 SQLite 下的唯一索引（如果表已存在，create_all 不会自动新增）
+    with engine.begin() as conn:
+        conn.exec_driver_sql(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_tasks_url_account_date "
+            "ON subscribed_tasks (url, account, created_date)"
+        )
 
 
 def _seed_admin_user() -> None:

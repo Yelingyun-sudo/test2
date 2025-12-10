@@ -2,9 +2,14 @@ from pydantic import BaseModel, Field
 
 
 class SubscribedItem(BaseModel):
+  id: int = Field(..., description="任务 ID")
   url: str = Field(..., description="订阅站点 URL")
-  account: str = Field(..., description="账号")
-  password: str = Field(..., description="密码")
+  status: str = Field(..., description="任务状态")
+  duration_seconds: int = Field(..., description="任务时长（秒）")
+  retry_count: int = Field(..., description="重试次数")
+  history_extract_count: int = Field(..., description="历史提取次数")
+  last_extracted_at: str | None = Field(None, description="最后一次提取时间 ISO 字符串")
+  result: str | None = Field(None, description="任务结果")
 
 
 class SubscribedListResponse(BaseModel):
