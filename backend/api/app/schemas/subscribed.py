@@ -4,6 +4,8 @@ from pydantic import BaseModel, Field
 class SubscribedItem(BaseModel):
     id: int = Field(..., description="任务 ID")
     url: str = Field(..., description="订阅站点 URL")
+    account: str = Field(..., description="账号")
+    password: str = Field(..., description="密码")
     status: str = Field(..., description="任务状态")
     duration_seconds: int = Field(..., description="任务时长（秒）")
     retry_count: int = Field(..., description="重试次数")

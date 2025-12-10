@@ -65,6 +65,8 @@ def list_subscribed(
             SubscribedItem(
                 id=int(rec.id) if rec.id is not None else None,  # type: ignore[arg-type]
                 url=rec.url,
+                account=rec.account,
+                password=rec.password,
                 status=status_value or "",
                 duration_seconds=rec.duration_seconds,
                 retry_count=rec.retry_count,

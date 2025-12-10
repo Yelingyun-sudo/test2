@@ -11,6 +11,8 @@ import { cn } from "@/lib/utils";
 type SubscribedItem = {
   id: number;
   url: string;
+  account: string;
+  password: string;
   status: string;
   duration_seconds: number;
   retry_count: number;
@@ -356,8 +358,16 @@ export default function SubscribedPage() {
                 <div className="break-all font-medium text-slate-800">{selectedItem.url}</div>
               </div>
               <div className="space-y-1">
+                <div className="text-slate-500">用户名</div>
+                <div className="break-all font-medium text-slate-800">{selectedItem.account}</div>
+              </div>
+              <div className="space-y-1">
                 <div className="text-slate-500">任务状态</div>
                 <div className="flex items-center gap-2">{renderStatus(selectedItem.status)}</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-slate-500">密码</div>
+                <div className="break-all font-medium text-slate-800">{selectedItem.password}</div>
               </div>
               <div className="space-y-1">
                 <div className="text-slate-500">任务时长 (s)</div>
