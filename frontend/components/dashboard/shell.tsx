@@ -15,9 +15,10 @@ type DashboardShellProps = {
   actions?: ReactNode;
   children: ReactNode;
   account?: string;
+  onLogout?: () => void;
 };
 
-export function DashboardShell({ title, description, actions, children, account }: DashboardShellProps) {
+export function DashboardShell({ title, description, actions, children, account, onLogout }: DashboardShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [accountName, setAccountName] = useState<string | null>(account ?? null);
@@ -35,8 +36,12 @@ export function DashboardShell({ title, description, actions, children, account 
   }, [router, accountName]);
 
   const handleLogout = () => {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("account_name");
+    if (onLogout) {
+      onLogout();
+    } else {
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("account_name");
+    }
     router.replace("/");
   };
 

@@ -116,13 +116,13 @@ export default function Page() {
         setIsAuthed(true);
       }
 
-      toast.success("登录成功");
+      toast.success("登录成功", { duration: 2000 });
     } catch (error) {
       const message =
         error instanceof Error
           ? error.message
           : "登录失败，请稍后重试或联系管理员。";
-      toast.error(message);
+      toast.error(message, { duration: 2000 });
     }
   };
 
@@ -131,7 +131,7 @@ export default function Page() {
     localStorage.removeItem("account_name");
     setIsAuthed(false);
     setAccount(null);
-    toast.success("已退出登录");
+    toast.success("已退出登录", { duration: 2000 });
   };
 
   if (isAuthed) {
@@ -262,6 +262,7 @@ function Dashboard({ onLogout, account }: DashboardProps) {
       account={account}
       title="概览仪表板"
       description="左侧为常驻导航，右侧展示首页组件。登录后可浏览报表、漏斗、留存、设置等页面。"
+      onLogout={onLogout}
       actions={
         <>
           <Button variant="outline" onClick={onLogout}>

@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from website_analytics.cli import run_single_instruction
@@ -127,6 +128,27 @@ def _get_pending_batch(db: Session, limit: int = 1) -> list[SubscribedTask]:
     )
 
 
+def _get_running_batch_before(
+    db: Session, before_ts: datetime, limit: int = 1
+) -> list[SubscribedTask]:
+    return (
+        db.query(SubscribedTask)
+        .filter(
+            SubscribedTask.status == TaskStatus.RUNNING,
+            or_(
+                SubscribedTask.last_extracted_at.is_(None),
+                SubscribedTask.last_extracted_at < before_ts,
+            ),
+        )
+        .order_by(
+            SubscribedTask.last_extracted_at.asc().nullsfirst(),
+            SubscribedTask.created_at.asc(),
+        )
+        .limit(limit)
+        .all()
+    )
+
+
 async def _run_task(task_id: int, instruction: str) -> None:
     settings = get_settings()
     start_time = datetime.now(timezone.utc)
@@ -210,18 +232,29 @@ async def _run_task(task_id: int, instruction: str) -> None:
         db.close()
 
 
-async def process_once(semaphore: asyncio.Semaphore) -> None:
+async def process_once(
+    semaphore: asyncio.Semaphore,
+    *,
+    recovery_before: datetime | None,
+    recovering: bool,
+) -> bool:
     # 当前可用并发槽
     available = semaphore._value  # type: ignore[attr-defined]
     if available <= 0:
-        return
+        return recovering
 
     db = SessionLocal()
     tasks: list[SubscribedTask] = []
     try:
-        tasks = _get_pending_batch(db, limit=1)
+        if recovering and recovery_before:
+            tasks = _get_running_batch_before(db, recovery_before, limit=1)
+            if not tasks:
+                recovering = False
+
         if not tasks:
-            return
+            tasks = _get_pending_batch(db, limit=1)
+        if not tasks:
+            return recovering
 
         for task in tasks:
             _mark_running(db, task)
@@ -240,16 +273,22 @@ async def process_once(semaphore: asyncio.Semaphore) -> None:
 
         asyncio.create_task(_worker(task.id, instruction))
 
+    return recovering
+
 
 async def run_task_loop() -> None:
     settings = get_settings()
     interval = max(1, settings.task_runner_interval_seconds)
     max_concurrent = max(1, settings.task_runner_max_concurrent)
     semaphore = asyncio.Semaphore(max_concurrent)
+    startup_ts = datetime.now(timezone.utc)
+    recovering = True
 
     while True:
         try:
-            await process_once(semaphore)
+            recovering = await process_once(
+                semaphore, recovery_before=startup_ts, recovering=recovering
+            )
         except Exception as exc:  # pragma: no cover - 防御性日志
             logger.exception("任务调度异常: %s", exc)
         await asyncio.sleep(interval)
