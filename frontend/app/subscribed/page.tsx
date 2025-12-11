@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, Search } from "lucide-react";
 
 import { DashboardShell } from "@/components/dashboard/shell";
@@ -69,39 +69,50 @@ export default function SubscribedPage() {
 
   const pageItems = useMemo(() => getPageItems(page, totalPages), [page, totalPages]);
 
-  const fetchData = async (params?: { page?: number; q?: string; status?: string }) => {
-    const currentPage = params?.page ?? page;
-    const q = params?.q ?? query;
-    const status = params?.status ?? statusFilter;
-    setLoading(true);
-    try {
-      const searchParams = new URLSearchParams({
-        page: String(currentPage),
-        page_size: String(PAGE_SIZE)
-      });
-      if (q) searchParams.set("q", q);
-      if (status) searchParams.set("status", status);
+  const fetchData = useCallback(
+    async (params?: { page?: number; q?: string; status?: string }) => {
+      const currentPage = params?.page ?? page;
+      const q = params?.q ?? query;
+      const status = params?.status ?? statusFilter;
+      setLoading(true);
+      try {
+        const searchParams = new URLSearchParams({
+          page: String(currentPage),
+          page_size: String(PAGE_SIZE)
+        });
+        if (q) searchParams.set("q", q);
+        if (status) searchParams.set("status", status);
 
-      const res = await fetch(
-        `${API_BASE_URL}/subscribed/list?${searchParams.toString()}`
-      );
-      if (!res.ok) throw new Error("加载失败");
-      const payload = (await res.json()) as SubscribedListResponse;
-      setData(payload.items);
-      setTotal(payload.total);
-      setPage(payload.page);
-      setPageInput(String(payload.page));
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
+        const res = await fetch(
+          `${API_BASE_URL}/subscribed/list?${searchParams.toString()}`
+        );
+        if (!res.ok) throw new Error("加载失败");
+        const payload = (await res.json()) as SubscribedListResponse;
+        setData(payload.items);
+        setTotal(payload.total);
+        setPage(payload.page);
+        setPageInput(String(payload.page));
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [page, query, statusFilter]
+  );
 
   useEffect(() => {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchData();
+    }, 30_000);
+
+    return () => clearInterval(interval);
+  }, [fetchData]);
 
   const handleSearch = () => {
     fetchData({ page: 1, q: query.trim(), status: statusFilter });
@@ -243,13 +254,11 @@ export default function SubscribedPage() {
       }
     >
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="grid grid-cols-[70px_1.4fr_0.65fr_0.6fr_0.6fr_0.6fr_1.1fr_2fr] bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
+        <div className="grid grid-cols-[70px_1.4fr_0.65fr_0.8fr_1.1fr_2fr] bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
           <div>ID</div>
           <div>网址</div>
           <div>任务状态</div>
           <div>任务时长</div>
-          <div>重试次数</div>
-          <div>历史提取次数</div>
           <div>最后一次提取时间</div>
           <div>任务结果</div>
         </div>
@@ -266,7 +275,7 @@ export default function SubscribedPage() {
               <div
                 key={`${item.id}-${idx}`}
                 className={cn(
-                  "grid grid-cols-[70px_1.4fr_0.65fr_0.6fr_0.6fr_0.6fr_1.1fr_2fr] items-center px-4 py-3 text-sm text-slate-700",
+                  "grid grid-cols-[70px_1.4fr_0.65fr_0.8fr_1.1fr_2fr] items-center px-4 py-3 text-sm text-slate-700",
                   idx % 2 === 0 ? "bg-white" : "bg-slate-50/70",
                   "cursor-pointer transition-colors hover:bg-slate-100/80"
                 )}
@@ -282,8 +291,6 @@ export default function SubscribedPage() {
                   {renderStatus(item.status)}
                 </div>
                 <div className="truncate pr-4">{item.duration_seconds}</div>
-                <div className="truncate pr-4">{item.retry_count}</div>
-                <div className="truncate pr-4">{item.history_extract_count}</div>
                 <div className="truncate pr-4" title={item.last_extracted_at || undefined}>
                   {formatDateTime(item.last_extracted_at)}
                 </div>
@@ -400,14 +407,6 @@ export default function SubscribedPage() {
               <div className="space-y-1">
                 <div className="text-slate-500">任务时长 (s)</div>
                 <div className="font-medium">{selectedItem.duration_seconds}</div>
-              </div>
-              <div className="space-y-1">
-                <div className="text-slate-500">重试次数</div>
-                <div className="font-medium">{selectedItem.retry_count}</div>
-              </div>
-              <div className="space-y-1">
-                <div className="text-slate-500">历史提取次数</div>
-                <div className="font-medium">{selectedItem.history_extract_count}</div>
               </div>
               <div className="space-y-1">
                 <div className="text-slate-500">最后一次提取时间</div>
