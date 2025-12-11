@@ -44,7 +44,7 @@
 
 ```json
 {
-  "status": "SUCCESS" | "FAILED",
+  "status": "success" | "failed",
   "message": "给用户的详细消息",
   "operations_executed": ["login", "inspect"],
   "operations_results": {
@@ -55,7 +55,7 @@
 ```
 
 **关键要求**：
-- `status`：所有操作成功用 `"SUCCESS"`，否则用 `"FAILED"`
+- `status`：所有操作成功用 `"success"`，否则用 `"failed"`
 - `operations_results`：**直接将子工具返回的 JSON 原样放入，不要修改或格式化**
 
 ## 响应示例
@@ -64,7 +64,7 @@
 
 ```json
 {
-  "status": "SUCCESS",
+  "status": "success",
   "message": "已完成登录 → 巡检。\n巡检结果：3/3 个控制台一级菜单入口巡检成功。\n已生成巡检截图与报告：inspect/report.md",
   "operations_executed": ["login", "inspect"],
     "operations_results": {
@@ -89,7 +89,7 @@
 
 ```json
 {
-  "status": "FAILED",
+  "status": "failed",
   "message": "缺少必要信息：site_url、account、password。",
   "operations_executed": [],
   "operations_results": {}

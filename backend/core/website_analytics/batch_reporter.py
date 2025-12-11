@@ -16,7 +16,6 @@ class TaskResult:
     task_id: str
     index: int
     instruction: str
-    status: str  # "success" | "failed"
     duration_seconds: float
     task_dir: str
     coordinator_output: dict[str, Any] | None
@@ -30,6 +29,21 @@ class TaskResult:
         if self.coordinator_output and "message" in self.coordinator_output:
             return self.coordinator_output["message"]
         return "无输出信息"
+
+    @property
+    def status(self) -> str:
+        """从协调器输出推导任务状态，默认为 exit_code 判定。"""
+        try:
+            if self.coordinator_output and "status" in self.coordinator_output:
+                return str(self.coordinator_output.get("status")).lower()
+        except Exception:
+            pass
+
+        if self.exit_code == 0:
+            return "success"
+        if self.exit_code:
+            return "failed"
+        return "unknown"
 
 
 @dataclass

@@ -10,7 +10,8 @@ if TYPE_CHECKING:
 
 def format_execution_result(result: ExecutionResult) -> str:
     output = result.coordinator_output or {}
-    status = output.get("status") or ("SUCCESS" if result.success else "FAILED")
+    status_raw = output.get("status") or ("success" if result.success else "failed")
+    status = str(status_raw).lower()
     message = output.get("message") or "无输出信息"
 
     lines: list[str] = [

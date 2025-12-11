@@ -197,15 +197,18 @@ async def execute(
         # 使用结构化输出
         if hasattr(final_output_obj, "status") and hasattr(final_output_obj, "message"):
             # CoordinatorOutput 类型
-            success = final_output_obj.status == "SUCCESS"
+            status_value = getattr(final_output_obj, "status", "")
+            status_normalized = str(status_value).lower()
+            success = status_normalized == "success"
             exit_code = 0 if success else 1
 
             # 提取完整结构化输出
             if hasattr(final_output_obj, "model_dump"):
                 coordinator_output = final_output_obj.model_dump()
+                coordinator_output["status"] = status_normalized
             else:
                 coordinator_output = {
-                    "status": final_output_obj.status,
+                    "status": status_normalized,
                     "message": final_output_obj.message,
                     "operations_executed": getattr(
                         final_output_obj, "operations_executed", []
@@ -217,7 +220,7 @@ async def execute(
 
             # 记录额外信息到日志
             logger.info(
-                f"Task completed: status={final_output_obj.status}, "
+                f"Task completed: status={status_normalized}, "
                 f"operations={final_output_obj.operations_executed}"
             )
         else:
@@ -226,7 +229,7 @@ async def execute(
                 f"Unexpected output type from coordinator: {type(final_output_obj)}"
             )
             coordinator_output = {
-                "status": "FAILED",
+                "status": "failed",
                 "message": f"内部错误：协调代理返回了非预期的输出类型 {type(final_output_obj)}",
                 "operations_executed": [],
                 "operations_results": {},
@@ -260,7 +263,7 @@ async def execute(
         end_time = datetime.now()
         duration = (end_time - start_time).total_seconds()
         coordinator_output = {
-            "status": "FAILED",
+            "status": "failed",
             "message": f"执行失败：{exc}",
             "operations_executed": [],
             "operations_results": {},
@@ -308,7 +311,6 @@ def _save_single_task_summary(
         task_id=task_id,
         index=task_index,
         instruction=instruction,
-        status="success" if result.success else "failed",
         duration_seconds=duration,
         task_dir=relative_task_dir,
         coordinator_output=result.coordinator_output,
@@ -337,7 +339,10 @@ async def _execute_single_task(
     end_time = datetime.now()
     duration = (end_time - start_time).total_seconds()
 
-    status = "success" if result.success else "failed"
+    status_raw = (result.coordinator_output or {}).get("status")
+    status = str(status_raw).lower() if status_raw is not None else (
+        "success" if result.success else "failed"
+    )
     print_task_complete(index, status, duration)
 
     # 打印详细的任务结果
@@ -352,7 +357,6 @@ async def _execute_single_task(
         task_id=task_id,
         index=index,
         instruction=instruction,
-        status=status,
         duration_seconds=duration,
         task_dir=relative_task_dir,
         coordinator_output=result.coordinator_output,

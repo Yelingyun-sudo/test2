@@ -50,8 +50,8 @@ class InspectEntryOutput(BaseModel):
 class CoordinatorOutput(BaseModel):
     """协调代理的结构化输出。"""
 
-    status: Literal["SUCCESS", "FAILED"] = Field(
-        description="任务整体状态：SUCCESS 表示成功，FAILED 表示失败"
+    status: Literal["success", "failed"] = Field(
+        description="任务整体状态：success 表示成功，failed 表示失败"
     )
 
     message: str = Field(
