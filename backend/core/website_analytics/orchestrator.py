@@ -82,6 +82,7 @@ async def execute(
     task_index: int = 1,
     headless: bool = False,
 ) -> ExecutionResult:
+    start_time = datetime.now()
     working_dir = task_dir or generate_task_directory()
     working_dir.mkdir(parents=True, exist_ok=True)
 
@@ -239,6 +240,8 @@ async def execute(
             task_dir=working_dir,
             coordinator_output=coordinator_output,
         )
+        end_time = datetime.now()
+        duration = (end_time - start_time).total_seconds()
 
         # 保存任务总结（单任务模式）
         if enable_logging:
@@ -246,11 +249,16 @@ async def execute(
                 instruction=instruction,
                 result=result,
                 task_index=task_index,
+                start_time=start_time,
+                end_time=end_time,
+                duration_seconds=duration,
             )
 
         return result
     except Exception as exc:
         # fast fail: 构造标准的失败输出
+        end_time = datetime.now()
+        duration = (end_time - start_time).total_seconds()
         coordinator_output = {
             "status": "FAILED",
             "message": f"执行失败：{exc}",
@@ -270,6 +278,9 @@ async def execute(
                 instruction=instruction,
                 result=result,
                 task_index=task_index,
+                start_time=start_time,
+                end_time=end_time,
+                duration_seconds=duration,
             )
 
         return result
@@ -279,6 +290,10 @@ def _save_single_task_summary(
     instruction: str,
     result: ExecutionResult,
     task_index: int,
+    *,
+    start_time: datetime | None,
+    end_time: datetime | None,
+    duration_seconds: float | None,
 ) -> None:
     """保存单个任务的总结文件（用于单任务模式）。"""
     if not result.task_dir:
@@ -286,19 +301,20 @@ def _save_single_task_summary(
 
     task_id = result.task_dir.name
     relative_task_dir = to_project_relative(result.task_dir)
-    # 使用任务开始/结束时间戳来估算（实际上单任务模式下我们没有精确的开始时间）
-    # 这里使用目录的创建时间作为参考
+    start = start_time.isoformat() if start_time else ""
+    end = end_time.isoformat() if end_time else ""
+    duration = duration_seconds if duration_seconds is not None else 0.0
     task_summary = TaskResult(
         task_id=task_id,
         index=task_index,
         instruction=instruction,
         status="success" if result.success else "failed",
-        duration_seconds=0.0,  # 单任务模式下无法精确计算
+        duration_seconds=duration,
         task_dir=relative_task_dir,
         coordinator_output=result.coordinator_output,
         exit_code=result.exit_code,
-        start_time="",  # 单任务模式下无法精确记录
-        end_time="",
+        start_time=start,
+        end_time=end,
     )
     save_task_summary(task_summary, result.task_dir)
 
