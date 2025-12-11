@@ -1,12 +1,1101 @@
 [
   {
-    "id": "3556",
-    "url": "http://ff.baoshi66.icu",
+    "id": "5068",
+    "url": "http://www.xn--sjt50a.com",
+    "account": "heixiong1999@outlook.com",
+    "password": "qwaszx12",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://ur0pwgyd.zuoandingyue.com/za/"
+    },
+    "enabled": true
+  },
+  {
+    "id": "5067",
+    "url": "https://my.vpnpn.com",
+    "account": "maotouying2025",
+    "password": "qwaszx12",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://cpdd.one/sub?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "5066",
+    "url": "http://adss.131add.top",
+    "account": "tiantian20251115@126.com",
+    "password": "tiantian20251115",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "http://131network.online/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "5063",
+    "url": "http://xs-us.xyz",
+    "account": "dreamme1234@163.com",
+    "password": "Test1234",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://xsus.xn--6krs37adrh7pb.com/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "5058",
+    "url": "https://ednovas.me/",
+    "account": "cuiniao2000@163.com",
+    "password": "qwaszx12",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://new.ednovas.dev/2cvme3wa8i/"
+    },
+    "enabled": true
+  },
+  {
+    "id": "5057",
+    "url": "http://getsillygoose.icu",
+    "account": "3336168991@qq.com",
+    "password": "aaa11111",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://xkr.trysillygoose.com/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "5056",
+    "url": "https://www.milkcloud.org",
+    "account": "tiantian20251115@126.com",
+    "password": "tiantian20251115",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://212.47.227.212/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "5055",
+    "url": "http://x.akks.pro",
+    "account": "doubao555@gmail.com",
+    "password": "1q2w3e4r",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://hjkapa.kahhcaobc.com/link/"
+    },
+    "enabled": true
+  },
+  {
+    "id": "5054",
+    "url": "https://www.ashnet.cc",
+    "account": "dreamme1234@163.com",
+    "password": "Test1234",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://ashe79d4ui57uxa26luw.ivvocl.cn/tlralg/oahrettss/ecywtwcaaasr?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "5050",
+    "url": "https://xn--9kq078c6ih.com",
+    "account": "dreamme1234@163.com",
+    "password": "Test1234",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://1124.sub2lanhai.com:8888/lanhaiyun/"
+    },
+    "enabled": true
+  },
+  {
+    "id": "5047",
+    "url": "http://77.83.241.106",
+    "account": "17704239804@163.com",
+    "password": "hello2025",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://154.21.86.87:9033/shop/cloudlink?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "5046",
+    "url": "https://www.taoqitu.me",
+    "account": "liwensheng32025@163.com",
+    "password": "qwert12345",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://tqt-f9grpda9.tutunode.com/gateway/taoqitu?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "5045",
+    "url": "http://01232249.99laomao.com",
+    "account": "linliya1992a@163.com",
+    "password": "lly12345",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://d1cf0odudabqq1.cloudfront.net/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "5043",
+    "url": "https://www.wuyouyun.click",
+    "account": "dreamme1234@163.com",
+    "password": "Test1234",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://sssss.wycloudapi.com/wycloud/114514/subscribe/"
+    },
+    "enabled": true
+  },
+  {
+    "id": "5039",
+    "url": "http://www.teacat999.com",
+    "account": "18602097734@163.com",
+    "password": "1q2w3e4r",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://submit.mylac.cn:22443/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "5036",
+    "url": "https://my.synn.cc",
+    "account": "linliya1992a@163.com",
+    "password": "lly12345",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://acl.syyn.pw/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "5035",
+    "url": "https://UPNC.CN",
     "account": "3900488697@qq.com",
     "password": "xa@123321",
     "expected": {
       "success": true,
-      "subscription_url_prefix": "https://baoshi-zone-35j5gzft7lc3-1323316545.eo-edgefunctions1.com/api/v1/client/subscribe?token="
+      "subscription_url_prefix": "https://xn--49sq15btnijvp.xn--fiqs8s/forest/?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "5034",
+    "url": "https://xiaoliyudh.github.io",
+    "account": "liaoningis@126.com",
+    "password": "Lnxa123456",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://eBEVt.subxly.cfd:8443/api/v1/client/"
+    },
+    "enabled": true
+  },
+  {
+    "id": "5032",
+    "url": "https://www.chaoyue.shop",
+    "account": "liwensheng32025@163.com",
+    "password": "qwert12345",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://jsNZ0.chaoyue.quest:8443/api/v1/client/"
+    },
+    "enabled": true
+  },
+  {
+    "id": "5031",
+    "url": "https://www.cyberguard.best",
+    "account": "ruhuokeyi@gmail.com",
+    "password": "1q2w3e4r",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://cyberguard.cfd/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "5029",
+    "url": "http://i1t.top",
+    "account": "3900488697@qq.com",
+    "password": "xa@123321",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://nVx81Q0ouJA21x8U.xn--fiqs8s40dz2j.com/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "5027",
+    "url": "https://u.wuhenlink.cc",
+    "account": "3900488697@qq.com",
+    "password": "xa@123321",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://exl.wuhennetone.cc/wusub"
+    },
+    "enabled": true
+  },
+  {
+    "id": "5026",
+    "url": "https://ikuuu.co/auth/register",
+    "account": "liwensheng32025@163.com",
+    "password": "qwert12345",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://85hjd.no-mad-world.club/link/"
+    },
+    "enabled": true
+  },
+  {
+    "id": "5025",
+    "url": "http://kingfisher.952326.xyz",
+    "account": "scc251102@outlook.com",
+    "password": "scc251102@outlook.com",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://sub.kingfisher.top/s/"
+    },
+    "enabled": true
+  },
+  {
+    "id": "5023",
+    "url": "http://kingfisher.952326.xyz",
+    "account": "2685572922@qq.com",
+    "password": "88067764sx",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://sub.kingfisher.top/s/"
+    },
+    "enabled": true
+  },
+  {
+    "id": "5021",
+    "url": "http://niercloud.com",
+    "account": "string123goog@gmail.com",
+    "password": "1q2w3e4r",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://oj9veovs5n6u.51522zzwIwIbb.top/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "5020",
+    "url": "https://www.xn--h5qy75o.com",
+    "account": "liaoningis@126.com",
+    "password": "Lnxa123456",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://ft-y7ujpbnb.tutunode.com/gateway/feitu?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "5016",
+    "url": "http://jf.luxnu.cn",
+    "account": "1573023718@qq.com",
+    "password": "cszh0505",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://jfdy.z525.cn/api/jdhg001yyds712?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "5015",
+    "url": "http://jk931.xyz",
+    "account": "1813879540@qq.com",
+    "password": "qwer1234",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://s.sdncimcin.xyz/link/"
+    },
+    "enabled": true
+  },
+  {
+    "id": "5013",
+    "url": "http://leng2.tiktok8.net",
+    "account": "scc251102@outlook.com",
+    "password": "scc251102@outlook.com",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://book.hostapp.top/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "5011",
+    "url": "http://portal4.ssw2.win",
+    "account": "1369246948@qq.com",
+    "password": "qwr1234@",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://sub.ssw-cloud.com/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "5010",
+    "url": "http://118.193.36.230",
+    "account": "dreamme1234@163.com",
+    "password": "Test1234",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://www.lyntuio.com/s/"
+    },
+    "enabled": true
+  },
+  {
+    "id": "5009",
+    "url": "http://haidenabian.top",
+    "account": "lilayoo338@outlook.com",
+    "password": "#ror5los0~",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://sub.haidenabian.vip/s/"
+    },
+    "enabled": true
+  },
+  {
+    "id": "5008",
+    "url": "https://inv02.fatcatcloud.cc",
+    "account": "xyz33021970@gmail.com",
+    "password": "xxx19700101Y",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://fcsblka.fcsubcn.cc:2096/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "5005",
+    "url": "http://lb03.kkylk01.cc",
+    "account": "ftz6261@163.com ",
+    "password": "qwr1234@",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://ll01.kkylka.cc/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "5004",
+    "url": "http://hy.imtp.gq",
+    "account": "scc251102@outlook.com",
+    "password": "scc251102@outlook.com",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://hy.sub.cloudns.biz/id/"
+    },
+    "enabled": true
+  },
+  {
+    "id": "5003",
+    "url": "http://lcd.halshcloud.com",
+    "account": "3336168991@qq.com",
+    "password": "aaa11111",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "http://82.157.255.6:27901/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "5002",
+    "url": "http://lkyfyhljj45o3rqe.aiskyapp.com",
+    "account": "1369246948@qq.com",
+    "password": "qwr1234@",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://dyapi.hifu365.org/resources/userdata/config/hifu365?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "5001",
+    "url": "http://www.huojian4.top",
+    "account": "3530645088@qq.com",
+    "password": "sh123456",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://huojian4.top/s/"
+    },
+    "enabled": true
+  },
+  {
+    "id": "5000",
+    "url": "http://v.ciwei6.com",
+    "account": "1573023718@qq.com",
+    "password": "cszh0505",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://sub.stohu.cn/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "4999",
+    "url": "http://link06.aaasub.net",
+    "account": "1573023718@qq.com",
+    "password": "cszh0505",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://api02.aaasub.com/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "4998",
+    "url": "http://aire05.atcnvip.sbs",
+    "account": "3336168991@qq.com",
+    "password": "aaa11111",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://sub2-506.atcn.world/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "4996",
+    "url": "http://xboard.stg.la6v973gmbg54f5u.info",
+    "account": "scc251102@outlook.com",
+    "password": "scc251102@outlook.com",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://api.stg.eb37deg6h4jw.com/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "4991",
+    "url": "https://starvault08.top",
+    "account": "hfhxk0214@gmail.com",
+    "password": "1q2w3e4r",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://mistvalley1.top/k7m9x2v8q4w1e6r3t5y7u2i0p8a6s9d1f4g7h3j0k8l5z9x2c4v7b6n0m3q1w8e5r2t?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "4912",
+    "url": "http://hy.imtp.gq",
+    "account": "2685572922@qq.com",
+    "password": "88067764sx",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://hy.imtp.gq/id/"
+    },
+    "enabled": true
+  },
+  {
+    "id": "4911",
+    "url": "http://haidenabian.top",
+    "account": "530342728@qq.com ",
+    "password": "123456789",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://sub.haidenabian.vip/s/"
+    },
+    "enabled": true
+  },
+  {
+    "id": "4906",
+    "url": "https://ca01.fcvipaff.pro",
+    "account": "3900488697@qq.com",
+    "password": "xa@123321",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://fcsblka.fcsubcn.cc:2096/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "4905",
+    "url": "https://www.totorocloud.cc",
+    "account": "linliya1992a@163.com",
+    "password": "lly12345",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://linka.lmscunb.cc:2087/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "4901",
+    "url": "http://www.wallless.net",
+    "account": "liaoningis@126.com",
+    "password": "Lnxa123456",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://sub.wl-sub.com/s/"
+    },
+    "enabled": true
+  },
+  {
+    "id": "4898",
+    "url": "https://husu.xyz",
+    "account": "530342728@qq.com",
+    "password": "123456789",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://541513213.1238610.xyz/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "4897",
+    "url": "http://1.akcaaaa.com",
+    "account": "linliya1992a@163.com",
+    "password": "lly12345",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://hjkapa.kahhcaobc.com/link/"
+    },
+    "enabled": true
+  },
+  {
+    "id": "4895",
+    "url": "http://www.jinx.ad",
+    "account": "462527639@qq.com",
+    "password": "11111111",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://get.g650best.xyz/s/"
+    },
+    "enabled": true
+  },
+  {
+    "id": "4894",
+    "url": "http://duya.pro",
+    "account": "liaoningis@126.com",
+    "password": "Lnxa123456",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://api.duya.pro/api/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "4893",
+    "url": "http://www.lfeihu.top",
+    "account": "maotouying2025@sina.com",
+    "password": "qwaszx12",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://lfeihu.wewu.eu.org/pokelink/"
+    },
+    "enabled": true
+  },
+  {
+    "id": "4892",
+    "url": "https://air.bangpi.top",
+    "account": "1347880673@qq.com",
+    "password": "Gxxn0771",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://dy5.somg.xyz/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "4890",
+    "url": "http://duya.pro",
+    "account": "dreamme1234@163.com",
+    "password": "Test1234",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://api.duya.pro/api/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "4889",
+    "url": "https://air.bangpi.top",
+    "account": "wuren652@gmail.com",
+    "password": "1q2w3e4r",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://dy5.somg.xyz/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "4886",
+    "url": "https://www.jinx.ad",
+    "account": "3900488697@qq.com",
+    "password": "xa@123321",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://get.a380best.xyz/s/"
+    },
+    "enabled": true
+  },
+  {
+    "id": "4884",
+    "url": "http://portal.dsocks.uk",
+    "account": "1573023718@qq.com",
+    "password": "cszh0505",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://sub.verybigball.org/download-sub/?sid=357241&uid=9360&token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "4882",
+    "url": "https://www.xxmad.com",
+    "account": "1573023718@qq.com",
+    "password": "cszh0505",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://ertioughew98grh48.chutrandi.com/s/"
+    },
+    "enabled": true
+  },
+  {
+    "id": "4880",
+    "url": "https://miao2.miaomiao.114514house.com",
+    "account": "462527639@qq.com",
+    "password": "11111111",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://subclash.miaomiaowu114514.icu/sub"
+    },
+    "enabled": true
+  },
+  {
+    "id": "4878",
+    "url": "http://7cjd.7yzzz.lat",
+    "account": "qhxa187@163.com",
+    "password": "Scfzx123",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://7subdy.7yzzz.lat/s/"
+    },
+    "enabled": true
+  },
+  {
+    "id": "3781",
+    "url": "http://www.kuaileixingxi.top",
+    "account": "3140866490@qq.com",
+    "password": "3140866490@qq.com",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://1111dingyue.cnct.xn--fiqs8s/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "3778",
+    "url": "https://xiyou666.xyz",
+    "account": "3140866490@qq.com",
+    "password": "3140866490@qq.com",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "http://192.9.240.249/api/url/sub?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "3777",
+    "url": "https://api.caishenjiasu.top",
+    "account": "3140866490@qq.com",
+    "password": "3140866490@qq.com",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://api.cs123.top/link/"
+    },
+    "enabled": true
+  },
+  {
+    "id": "3776",
+    "url": "http://www.ktmurl.top.",
+    "account": "3140866490@qq.com",
+    "password": "3140866490@qq.com",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://uuuukkkkrrrrttttllllmmmmcloudplmqazclub.com/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "3773",
+    "url": "https://www.maolailai.top",
+    "account": "dreamme1234@163.com",
+    "password": "Test1234",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://e2p1n.maoyes1.top/compatible/v1/chat/cloud?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "3772",
+    "url": "https://xiyou666.xyz",
+    "account": "2685572922@qq.com",
+    "password": "88067764sx",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "http://192.9.240.249/api/url/sub?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "3755",
+    "url": "https://www.feikuai1234.xyz",
+    "account": "3900488697@qq.com",
+    "password": "xa@123321",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "http://38.55.97.201:55542/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "3754",
+    "url": "https://www.feikuai1234.xyz",
+    "account": "390215162@qq.com",
+    "password": "mubapei1220",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "http://38.55.97.201:55542/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "3751",
+    "url": "https://www.feikuai1234.xyz",
+    "account": "1573023718@qq.com",
+    "password": "cszh0505",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "http://38.55.97.201:55542/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "3750",
+    "url": "https://www.feikuai1234.xyz",
+    "account": "work1_ln@163.com",
+    "password": "work54321",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "http://38.55.97.201:55542/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "3733",
+    "url": "https://wb09.chachay.top",
+    "account": "zhangchao_bestone@163.com",
+    "password": "123qwe...",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://sub07.damoplane1.net/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "3720",
+    "url": "https://helloworld.957163.top",
+    "account": "allentomy2020@gmail.com",
+    "password": "qwaszx12",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://helloworld.sub8.eu.org/s/"
+    },
+    "enabled": true
+  },
+  {
+    "id": "3719",
+    "url": "http://5s.hjjs222.xyz",
+    "account": "string799034552@gmail.com",
+    "password": "1q2w3e4r",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "http://103.217.195.157:6602/sub/v1/666/"
+    },
+    "enabled": true
+  },
+  {
+    "id": "3717",
+    "url": "http://5s.hjjs222.xyz",
+    "account": "qhcs407@163.com",
+    "password": "Cs12341234",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "http://103.217.195.157:6602/sub/v1/666/"
+    },
+    "enabled": true
+  },
+  {
+    "id": "3714",
+    "url": "https://admin.kjzhan.top",
+    "account": "329531227@qq.com",
+    "password": "329531227@qq.com",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://token2.kjzhan.top/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "3707",
+    "url": "https://www.hgreen01.top",
+    "account": "3140866490@qq.com",
+    "password": "3140866490@qq.com",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://www.dgreenodes.online/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "3702",
+    "url": "http://www.hgrenod03.top",
+    "account": "406103598@qq.com",
+    "password": "406103598@qq.com",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://www.dpanodok.online/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "3683",
+    "url": "https://admin.kjzhan.top",
+    "account": "3476264955@qq.com",
+    "password": "3476264955@qq.com",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://token2.kjzhan.top/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "3680",
+    "url": "https://gamma.yhglink.com",
+    "account": "406103598@qq.com",
+    "password": "406103598@qq.com",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://alpha.sagittarius-link.com/link/"
+    },
+    "enabled": true
+  },
+  {
+    "id": "3675",
+    "url": "http://www.b-head.xyz",
+    "account": "406103598@qq.com",
+    "password": "406103598@qq.com",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://lake.blobsms.com/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "3671",
+    "url": "http://www.yueqianvpn.com",
+    "account": "406103598@qq.com",
+    "password": "406103598@qq.com",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://yq.afsvg.com/subscribe/"
+    },
+    "enabled": true
+  },
+  {
+    "id": "3670",
+    "url": "http://www.twu0902ji.top",
+    "account": "568326610@qq.com",
+    "password": "568326610@qq.com",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://s5z3.span0902.top/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "3657",
+    "url": "http://tuipana.top",
+    "account": "3140866490@qq.com",
+    "password": "3140866490@qq.com",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://www.dpanoodopk.online/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "3656",
+    "url": "http://c33.xtwocldd.top",
+    "account": "3140866490@qq.com",
+    "password": "3140866490@qq.com",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://biyb.x2clouds.cc/ikoa/gnfv?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "3655",
+    "url": "http://banana-fast02.com",
+    "account": "3140866490@qq.com",
+    "password": "3140866490@qq.com",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://banana03.win/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "3653",
+    "url": "http://backgrnode.top",
+    "account": "3140866490@qq.com",
+    "password": "3140866490@qq.com",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://l2i3.logop0903.top/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "3651",
+    "url": "http://lipanda.top",
+    "account": "3140866490@qq.com",
+    "password": "3140866490@qq.com",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://www.dpanodok.online/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "3644",
+    "url": "https://webcf0120240322.lmspeedapp.com",
+    "account": "462527639@qq.com",
+    "password": "11111111",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://linka.lmscunb.cc:2087/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "3643",
+    "url": "http://shayum.com",
+    "account": "3900488697@qq.com",
+    "password": "xa@123321",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://sub.shayulink.uk/s/"
+    },
+    "enabled": true
+  },
+  {
+    "id": "3642",
+    "url": "https://www.tomatov2.buzz",
+    "account": "3900488697@qq.com",
+    "password": "xa@123321",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://fqsub.xn--xhqz72o.com/link/"
+    },
+    "enabled": true
+  },
+  {
+    "id": "3639",
+    "url": "https://a.youlian500.org",
+    "account": "3900488697@qq.com",
+    "password": "xa@123321",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://91681666.youliandingyue.com/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "3638",
+    "url": "http://sbc.813814.xyz",
+    "account": "kalucas9511@gmail.com",
+    "password": "19951111K&L",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://dy.sbyun.org/sby/"
+    },
+    "enabled": true
+  },
+  {
+    "id": "3637",
+    "url": "http://www.xn--tfrza733q.com",
+    "account": "462527639@qq.com",
+    "password": "11111111",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://20600c7281db25a5.81dlg.com/dy/ss?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "3636",
+    "url": "http://max.jisumax.app",
+    "account": "462527639@qq.com",
+    "password": "11111111",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://dl.jisusub.cc/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "3630",
+    "url": "http://www.twu0902ji.top",
+    "account": "dreamme1234@163.com",
+    "password": "Test1234",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://d1f2.dwjiiiiiiiiiii.top/api/v1/client/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "3626",
+    "url": "http://c33.xtwocldd.top",
+    "account": "linliya1992a@163.com",
+    "password": "lly12345",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://mdha.x2clouds.cc/ikoa/gnfv?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "3625",
+    "url": "http://banana-fast02.com",
+    "account": "2685572922@qq.com",
+    "password": "88067764sx",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://banana03.win/subscribe?token="
+    },
+    "enabled": true
+  },
+  {
+    "id": "3624",
+    "url": "http://backgrnode.top",
+    "account": "2685572922@qq.com",
+    "password": "88067764sx",
+    "expected": {
+      "success": true,
+      "subscription_url_prefix": "https://www.dppnnoo.store/api/v1/client/subscribe?token="
     },
     "enabled": true
   }

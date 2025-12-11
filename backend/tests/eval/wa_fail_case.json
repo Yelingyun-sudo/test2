@@ -5,9 +5,9 @@
     "account": "3900488697@qq.com",
     "password": "xa@123321",
     "expected": {
-      "success": false,
-      "error_type": "unknown_error"
+      "success": true,
+      "subscription_url_prefix": "https://baoshi-zone-35j5gzft7lc3-1323316545.eo-edgefunctions1.com/api/v1/client/subscribe?token="
     },
-    "enabled": false
+    "enabled": true
   }
 ]

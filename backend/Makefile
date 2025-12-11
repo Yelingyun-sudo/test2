@@ -29,5 +29,9 @@ test:  ## 运行所有测试
 test-e2e:  ## 运行端到端示例任务
 	uv run python -m website_analytics.main --instruction "登录 https://api.778833.xyz（账号和密码分别为 mayorwang@163.com 和 Sh33024545 ）并提取订阅地址"
 
+.PHONY: eval
+eval:  ## 执行评估用例，默认跑 tests/eval/*.json；filename=xx.json 指定文件；输出到 logs/eval_*；MAX_CONCURRENT/HEADLESS 可调
+	uv run python tests/eval/runner.py $(if $(filename),--case-file tests/eval/$(filename),) $(if $(MAX_CONCURRENT),--max-concurrent $(MAX_CONCURRENT),) $(if $(HEADLESS),--headless,)
+
 .PHONY: check
 check: lint test  ## 运行代码检查与测试
