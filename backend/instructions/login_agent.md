@@ -41,17 +41,11 @@
 
 **提交登录：**
 - 调用 `browser_snapshot` 确认页面状态后用 `browser_click` 点击登录按钮提交
-- 语义候选：按钮文案用语义匹配（如 登入/登录/Sign in/Login/Submit/Go/Enter 等），可用 `button:has-text("登")` 或 `getByRole('button', { name: /登|login|sign/i })` 等宽匹配
-- 位置约束：优先点击与账号/密码同一表单内的提交按钮（role=button 或 type=submit）；若文案不清晰，选择该表单内最显著的提交控件
-
-### Step4. 检测和关闭弹窗
-
-- 检查是否出现弹窗 `popup_detected`
-- 如果有弹窗，请关闭弹窗，确保 `popup_dismissed` 为 `true`
+- 登录按钮位置：与账号/密码同一表单内的提交按钮（role=button 或 type=submit）；若文案不清晰，选择该表单内最显著的提交控件
 
 ## 异常处理
 
-- 网络超时、5xx 错误、工具异常：可重试 1 次
+- 网络超时、5xx 错误、工具异常：无需重试，直接返回失败并说明原因
 - 凭据错误、验证码、短信验证：无需重试，直接返回失败并说明原因
 - 超出工具能力时明确告知："当前工具暂不支持此类操作"
 
@@ -65,34 +59,16 @@
 - **message**: 详细的中文消息
   - 成功：`"登录成功"`
   - 失败：`"登录失败：<原因>"`
-- **pages_visited**: 探索过程中访问的页面数量
 - **login_form_found**: 是否找到了登录表单
-- **popup_detected**: 是否检测到弹窗（布尔值）
-- **popup_dismissed**: 弹窗是否已关闭（布尔值，仅当 popup_detected 为 true 时有意义）
 
 ### 示例：
 
-**成功（有弹窗已关闭）：**
+**成功：**
 ```json
 {
   "success": true,
   "message": "登录成功",
-  "pages_visited": 2,
-  "login_form_found": true,
-  "popup_detected": true,
-  "popup_dismissed": true
-}
-```
-
-**成功（无弹窗）：**
-```json
-{
-  "success": true,
-  "message": "登录成功",
-  "pages_visited": 2,
-  "login_form_found": true,
-  "popup_detected": false,
-  "popup_dismissed": false
+  "login_form_found": true
 }
 ```
 
@@ -101,10 +77,7 @@
 {
   "success": false,
   "message": "登录失败：未找到登录表单，已访问 10 个页面均无登录控件",
-  "pages_visited": 10,
-  "login_form_found": false,
-  "popup_detected": false,
-  "popup_dismissed": false
+  "login_form_found": false
 }
 ```
 
@@ -113,10 +86,7 @@
 {
   "success": false,
   "message": "登录失败：用户名或密码错误",
-  "pages_visited": 3,
-  "login_form_found": true,
-  "popup_detected": false,
-  "popup_dismissed": false
+  "login_form_found": true
 }
 ```
 
@@ -125,10 +95,7 @@
 {
   "success": false,
   "message": "登录失败：缺少必要信息 account",
-  "pages_visited": 0,
-  "login_form_found": false,
-  "popup_detected": false,
-  "popup_dismissed": false
+  "login_form_found": false
 }
 ```
 
@@ -137,9 +104,6 @@
 {
   "success": false,
   "message": "登录失败：当前工具暂不支持短信验证码流程",
-  "pages_visited": 2,
-  "login_form_found": true,
-  "popup_detected": false,
-  "popup_dismissed": false
+  "login_form_found": true
 }
 ```

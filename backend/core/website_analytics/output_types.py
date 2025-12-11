@@ -10,10 +10,7 @@ class LoginOutput(BaseModel):
 
     success: bool = Field(description="是否登录成功")
     message: str = Field(description="详细消息")
-    pages_visited: int = Field(default=0, description="访问的页面数量")
     login_form_found: bool = Field(default=False, description="是否找到登录表单")
-    popup_detected: bool = Field(default=False, description="是否检测到弹窗")
-    popup_dismissed: bool = Field(default=False, description="弹窗是否已关闭")
 
 
 class InspectOutput(BaseModel):

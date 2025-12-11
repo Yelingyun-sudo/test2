@@ -7,7 +7,7 @@
 ### `perform_login`
 - **功能**：浏览器自动化登录指定站点
 - **输入**：包含 `site_url`、`account`、`password` 的 JSON 字符串
-- **输出**：JSON 格式，包含 success、message、pages_visited、login_form_found
+- **输出**：JSON 格式，包含 success、message、login_form_found
 
 ### `perform_inspect`
 - **功能**：在登录态下巡检控制台一级菜单并保存截图
@@ -67,13 +67,12 @@
   "status": "SUCCESS",
   "message": "已完成登录 → 巡检。\n巡检结果：3/3 个控制台一级菜单入口巡检成功。\n已生成巡检截图与报告：inspect/report.md",
   "operations_executed": ["login", "inspect"],
-  "operations_results": {
-    "login": {
-      "success": true,
-      "message": "登录成功",
-      "pages_visited": 2,
-      "login_form_found": true
-    },
+    "operations_results": {
+      "login": {
+        "success": true,
+        "message": "登录成功",
+        "login_form_found": true
+      },
     "inspect": {
       "success": true,
       "message": "巡检完成。成功 3/3 个入口",
