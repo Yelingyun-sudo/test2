@@ -36,6 +36,7 @@ from website_analytics.filters import build_call_model_input_filter
 from website_analytics.formatter import format_execution_result
 from website_analytics.llm_logging import LLMTranscriptLoggerHooks
 from website_analytics.playwright_server import AutoSwitchingPlaywrightServer
+from website_analytics.output_types import ErrorType
 from website_analytics.settings import get_settings
 from website_analytics.tools import (
     build_compile_inspect_report_tool,
@@ -217,6 +218,12 @@ async def execute(
                         final_output_obj, "operations_results", {}
                     ),
                 }
+            if success:
+                coordinator_output["error_type"] = None
+            else:
+                coordinator_output["error_type"] = coordinator_output.get(
+                    "error_type"
+                ) or ErrorType.UNKNOWN_ERROR.value
 
             # 记录额外信息到日志
             logger.info(
@@ -231,6 +238,7 @@ async def execute(
             coordinator_output = {
                 "status": "failed",
                 "message": f"内部错误：协调代理返回了非预期的输出类型 {type(final_output_obj)}",
+                "error_type": ErrorType.UNKNOWN_ERROR.value,
                 "operations_executed": [],
                 "operations_results": {},
             }
@@ -265,6 +273,7 @@ async def execute(
         coordinator_output = {
             "status": "failed",
             "message": f"执行失败：{exc}",
+            "error_type": ErrorType.UNKNOWN_ERROR.value,
             "operations_executed": [],
             "operations_results": {},
         }

@@ -1,8 +1,27 @@
 """类型定义模块。"""
 
+from enum import Enum
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
+
+
+class ErrorType(str, Enum):
+    """任务失败原因枚举。"""
+
+    PLAN_EXPIRED = "plan_expired"  # 订阅套餐已失效
+    ACCOUNT_BANNED = "account_banned"  # 账号被封禁
+    SITE_SERVER_ERROR = "site_server_error"  # 网站无法访问-服务器错误
+    SITE_NETWORK_ERROR = "site_network_error"  # 网站无法访问-网络错误
+    SITE_DOMAIN_ERROR = "site_domain_error"  # 网站无法访问-域名错误
+    TASK_TIMEOUT = "task_timeout"  # 任务执行超时
+    TASK_STEP_LIMIT = "task_step_limit"  # 任务执行步骤超限
+    COPY_BUTTON_NOT_FOUND = "copy_button_not_found"  # 未找到订阅复制按钮
+    ANTI_AUTOMATION_DETECTED = "anti_automation_detected"  # 网站有反自动化检测
+    LOGIN_PAGE_NOT_FOUND = "login_page_not_found"  # 网站无法找到登录页
+    HUMAN_VERIFICATION_FAILED = "human_verification_failed"  # 无法完成人机验
+    SUBSCRIPTION_URL_INVALID = "subscription_url_invalid"  # 订阅地址异常
+    UNKNOWN_ERROR = "unknown_error"  # 兜底
 
 
 class LoginOutput(BaseModel):
@@ -56,6 +75,10 @@ class CoordinatorOutput(BaseModel):
 
     message: str = Field(
         description="给用户的详细消息，包含操作总结、生成的文件、错误原因等"
+    )
+    error_type: ErrorType | None = Field(
+        default=None,
+        description="任务失败原因，status=failed 时填写，success 时为 None",
     )
 
     operations_executed: list[str] = Field(
