@@ -41,6 +41,8 @@
 
 **提交登录：**
 - 调用 `browser_snapshot` 确认页面状态后用 `browser_click` 点击登录按钮提交
+- 语义候选：按钮文案用语义匹配（如 登入/登录/Sign in/Login/Submit/Go/Enter 等），可用 `button:has-text("登")` 或 `getByRole('button', { name: /登|login|sign/i })` 等宽匹配
+- 位置约束：优先点击与账号/密码同一表单内的提交按钮（role=button 或 type=submit）；若文案不清晰，选择该表单内最显著的提交控件
 
 ### Step4. 检测和关闭弹窗
 
