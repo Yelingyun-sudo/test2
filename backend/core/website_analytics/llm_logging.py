@@ -112,11 +112,12 @@ class LLMTranscriptLoggerHooks(RunHooks[TContext]):
         if not self._capture_browser_state or not self._playwright_server:
             return
 
+        captures_dir = self._output_directory.parent / "captures"
+        captures_dir.mkdir(parents=True, exist_ok=True)
+
         base = Path(_build_filename(metadata, kind)).with_suffix("")
-        screenshot_path = self._output_directory / base.with_suffix(".png")
-        dom_path = self._output_directory / base.with_suffix(".dom.yaml")
-        screenshot_path.parent.mkdir(parents=True, exist_ok=True)
-        dom_path.parent.mkdir(parents=True, exist_ok=True)
+        screenshot_path = captures_dir / base.with_suffix(".png")
+        dom_path = captures_dir / base.with_suffix(".dom.yaml")
 
         # DOM snapshot
         try:
