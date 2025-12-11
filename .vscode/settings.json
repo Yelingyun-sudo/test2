@@ -4,5 +4,5 @@
     "${workspaceFolder}/backend"
   ],
   "python.analysis.autoImportCompletions": true,
-  "python.languageServer": "Pylance"
+  "python.languageServer": "None"
 }

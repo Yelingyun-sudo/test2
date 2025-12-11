@@ -73,6 +73,7 @@ def init_db() -> None:
 
     Base.metadata.create_all(bind=engine)
     _ensure_indices()
+    _ensure_columns()
     _seed_admin_user()
 
 
@@ -83,6 +84,22 @@ def _ensure_indices() -> None:
             "CREATE UNIQUE INDEX IF NOT EXISTS uq_tasks_url_account_date "
             "ON subscribed_tasks (url, account, created_date)"
         )
+
+
+def _ensure_columns() -> None:
+    """确保关键新增列存在（针对已存在的 SQLite 数据库）。"""
+
+    if _engine_url.drivername != "sqlite":
+        return
+
+    with engine.begin() as conn:
+        has_task_dir = conn.exec_driver_sql(
+            "SELECT name FROM pragma_table_info('subscribed_tasks') WHERE name='task_dir'"
+        ).fetchone()
+        if not has_task_dir:
+            conn.exec_driver_sql(
+                "ALTER TABLE subscribed_tasks ADD COLUMN task_dir VARCHAR(1024)"
+            )
 
 
 def _seed_admin_user() -> None:

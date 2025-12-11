@@ -85,3 +85,12 @@ def generate_task_directory(root: Path | None = None) -> Path:
     task_dir = base_dir / f"task_{timestamp}_{suffix}"
     task_dir.mkdir(parents=True, exist_ok=True)
     return task_dir
+
+
+def to_project_relative(path: Path) -> str:
+    """返回相对于项目根目录的路径，不可相对时退回绝对路径。"""
+
+    try:
+        return path.relative_to(PROJECT_ROOT).as_posix()
+    except ValueError:
+        return str(path)

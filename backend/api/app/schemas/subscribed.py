@@ -13,6 +13,7 @@ class SubscribedItem(BaseModel):
     last_extracted_at: str | None = Field(
         None, description="最后一次提取时间 ISO 字符串"
     )
+    task_dir: str | None = Field(None, description="任务目录（相对 backend 根目录）")
     result: str | None = Field(None, description="任务结果")
 
 

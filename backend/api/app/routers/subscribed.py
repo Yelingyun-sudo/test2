@@ -23,6 +23,7 @@ def list_subscribed(
     page: int = Query(1, ge=1, description="页码，从 1 开始"),
     page_size: int = Query(20, ge=1, le=100, description="每页条数"),
     q: str | None = Query(None, description="按 url / account / password 包含匹配"),
+    status: TaskStatus | None = Query(None, description="按任务状态过滤"),
     db: Session = Depends(get_db),
 ):
     query = db.query(SubscribedTask)
@@ -34,6 +35,9 @@ def list_subscribed(
             | func.lower(SubscribedTask.account).like(keyword)
             | func.lower(SubscribedTask.password).like(keyword)
         )
+
+    if status:
+        query = query.filter(SubscribedTask.status == status)
 
     total = query.count()
 
@@ -72,6 +76,7 @@ def list_subscribed(
                 retry_count=rec.retry_count,
                 history_extract_count=rec.history_extract_count,
                 last_extracted_at=_format_dt(rec.last_extracted_at),
+                task_dir=rec.task_dir,
                 result=rec.result,
             )
         )

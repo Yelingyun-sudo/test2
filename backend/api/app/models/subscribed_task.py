@@ -46,6 +46,7 @@ class SubscribedTask(Base):
     retry_count = Column(Integer, nullable=False, default=0)
     history_extract_count = Column(Integer, nullable=False, default=0)
     last_extracted_at = Column(DateTime(timezone=True), nullable=True)
+    task_dir = Column(String(1024), nullable=True)
 
     result = Column(Text, nullable=True)
     failure_type = Column(String(255), nullable=True)

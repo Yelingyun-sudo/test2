@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from website_analytics.cli import run_single_instruction
 from website_analytics.settings import get_settings
+from website_analytics.utils import to_project_relative
 
 from .db import SessionLocal
 from .models import SubscribedTask, TaskStatus
@@ -81,12 +82,18 @@ def _mark_running(db: Session, task: SubscribedTask) -> None:
 
 
 def _update_task_success(
-    db: Session, task: SubscribedTask, *, duration: float, result: str
+    db: Session,
+    task: SubscribedTask,
+    *,
+    duration: float,
+    result: str,
+    task_dir: str | None,
 ) -> None:
     task.status = TaskStatus.SUCCESS
     task.duration_seconds = int(duration)
     task.history_extract_count = (task.history_extract_count or 0) + 1
     task.result = result
+    task.task_dir = task_dir
     task.failure_type = None
     db.add(task)
     db.commit()
@@ -99,10 +106,12 @@ def _update_task_failure(
     duration: float,
     result: str,
     failure_type: str,
+    task_dir: str | None,
 ) -> None:
     task.status = TaskStatus.FAILED
     task.duration_seconds = int(duration)
     task.result = result
+    task.task_dir = task_dir
     task.failure_type = failure_type
     db.add(task)
     db.commit()
@@ -142,6 +151,11 @@ async def _run_task(task_id: int, instruction: str) -> None:
         exec_error = exc
 
     duration = (datetime.now(timezone.utc) - start_time).total_seconds()
+    task_dir_value = (
+        to_project_relative(exec_result.task_dir)
+        if exec_result and exec_result.task_dir
+        else None
+    )
 
     db = SessionLocal()
     try:
@@ -152,7 +166,13 @@ async def _run_task(task_id: int, instruction: str) -> None:
         if exec_result and exec_result.success and exec_result.task_dir:
             summary = _read_task_summary(exec_result.task_dir)
             result_text = _extract_success_result(summary)
-            _update_task_success(db, task_obj, duration=duration, result=result_text)
+            _update_task_success(
+                db,
+                task_obj,
+                duration=duration,
+                result=result_text,
+                task_dir=task_dir_value,
+            )
             logger.info(
                 "任务成功: id=%s, url=%s, result=%s",
                 task_obj.id,
@@ -177,6 +197,7 @@ async def _run_task(task_id: int, instruction: str) -> None:
                 duration=duration,
                 result=result_text,
                 failure_type=failure_type,
+                task_dir=task_dir_value,
             )
             logger.warning(
                 "任务失败: id=%s, url=%s, failure_type=%s, result=%s",

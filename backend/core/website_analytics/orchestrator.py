@@ -44,10 +44,10 @@ from website_analytics.tools import (
 )
 from website_analytics.utils import (
     LOGS_DIR,
-    PROJECT_ROOT,
     build_playwright_args,
     generate_task_directory,
     load_instruction,
+    to_project_relative,
 )
 
 
@@ -72,15 +72,6 @@ class ExplorerRunContext:
 
 
 settings = get_settings()
-
-
-def _to_project_relative(path: Path) -> str:
-    """Convert a path to be relative to the backend project root when possible."""
-
-    try:
-        return path.relative_to(PROJECT_ROOT).as_posix()
-    except ValueError:
-        return str(path)
 
 
 async def execute(
@@ -294,7 +285,7 @@ def _save_single_task_summary(
         return
 
     task_id = result.task_dir.name
-    relative_task_dir = _to_project_relative(result.task_dir)
+    relative_task_dir = to_project_relative(result.task_dir)
     # 使用任务开始/结束时间戳来估算（实际上单任务模式下我们没有精确的开始时间）
     # 这里使用目录的创建时间作为参考
     task_summary = TaskResult(
@@ -339,9 +330,7 @@ async def _execute_single_task(
     print()  # 添加空行分隔
 
     task_id = result.task_dir.name if result.task_dir else ""
-    relative_task_dir = (
-        _to_project_relative(result.task_dir) if result.task_dir else ""
-    )
+    relative_task_dir = to_project_relative(result.task_dir) if result.task_dir else ""
 
     task_result = TaskResult(
         task_id=task_id,

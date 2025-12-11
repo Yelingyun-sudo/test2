@@ -39,6 +39,7 @@ export default function SubscribedPage() {
   const [page, setPage] = useState(1);
   const [pageInput, setPageInput] = useState("1");
   const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [loading, setLoading] = useState(false);
   const [selectedItem, setSelectedItem] = useState<SubscribedItem | null>(null);
 
@@ -68,9 +69,10 @@ export default function SubscribedPage() {
 
   const pageItems = useMemo(() => getPageItems(page, totalPages), [page, totalPages]);
 
-  const fetchData = async (params?: { page?: number; q?: string }) => {
+  const fetchData = async (params?: { page?: number; q?: string; status?: string }) => {
     const currentPage = params?.page ?? page;
     const q = params?.q ?? query;
+    const status = params?.status ?? statusFilter;
     setLoading(true);
     try {
       const searchParams = new URLSearchParams({
@@ -78,6 +80,7 @@ export default function SubscribedPage() {
         page_size: String(PAGE_SIZE)
       });
       if (q) searchParams.set("q", q);
+      if (status) searchParams.set("status", status);
 
       const res = await fetch(
         `${API_BASE_URL}/subscribed/list?${searchParams.toString()}`
@@ -101,7 +104,7 @@ export default function SubscribedPage() {
   }, []);
 
   const handleSearch = () => {
-    fetchData({ page: 1, q: query.trim() });
+    fetchData({ page: 1, q: query.trim(), status: statusFilter });
   };
 
   const statusLabel: Record<string, string> = {
@@ -110,6 +113,11 @@ export default function SubscribedPage() {
     success: "成功",
     failed: "失败"
   };
+
+  const statusOptions: Array<{ value: string; label: string }> = [
+    { value: "", label: "全部" },
+    ...Object.entries(statusLabel).map(([value, label]) => ({ value, label }))
+  ];
 
   const renderStatus = (value?: string) => {
     if (!value) return <span className="text-slate-400">-</span>;
@@ -177,6 +185,11 @@ export default function SubscribedPage() {
     fetchData({ page: target });
   };
 
+  const handleStatusChange = (value: string) => {
+    setStatusFilter(value);
+    fetchData({ page: 1, status: value, q: query.trim() });
+  };
+
   const handleRowClick = (item: SubscribedItem) => {
     setSelectedItem(item);
   };
@@ -187,12 +200,28 @@ export default function SubscribedPage() {
     <DashboardShell
       title="已订阅网站"
       actions={
-        <div className="flex items-center gap-2">
-          <div className="relative flex items-center">
-            <Search className="pointer-events-none absolute left-3 h-4 w-4 text-slate-400" />
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-[0_6px_18px_rgba(15,23,42,0.06)]">
+            <span className="text-sm font-semibold text-slate-700">状态</span>
+            <select
+              value={statusFilter}
+              onChange={(e) => handleStatusChange(e.target.value)}
+              className="h-9 min-w-[120px] rounded-md bg-transparent text-sm text-slate-800 focus:outline-none"
+              disabled={loading}
+              aria-label="状态筛选"
+            >
+              {statusOptions.map((option) => (
+                <option key={option.value || "all"} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="relative flex items-center rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-[0_6px_18px_rgba(15,23,42,0.06)]">
+            <Search className="pointer-events-none absolute left-4 h-4 w-4 text-slate-400" />
             <Input
               placeholder="按 URL 搜索"
-              className="pl-9 pr-24"
+              className="h-10 w-64 border-0 bg-transparent pl-9 pr-24 text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => {
@@ -203,7 +232,7 @@ export default function SubscribedPage() {
             />
             <Button
               size="sm"
-              className="absolute right-1 h-8 px-3"
+              className="ml-2 h-9 rounded-lg px-4 bg-sky-500 text-white shadow-sm hover:bg-sky-500/90 disabled:opacity-70"
               onClick={handleSearch}
               disabled={loading}
             >

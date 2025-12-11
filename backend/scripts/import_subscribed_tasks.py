@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from datetime import datetime, timedelta, timezone
@@ -18,6 +19,16 @@ from api.app.db import SessionLocal, init_db  # noqa: E402
 from api.app.models import SubscribedTask, TaskStatus  # noqa: E402
 
 DATA_PATH = ROOT / "resources" / "subscribed_clean.jsonl"
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--clear",
+        action="store_true",
+        help="导入前清空 subscribed_tasks 表",
+    )
+    return parser.parse_args()
 
 
 def load_records():
@@ -37,6 +48,7 @@ def load_records():
 
 
 def main() -> None:
+    args = parse_args()
     init_db()
     session = SessionLocal()
     now = datetime.now(timezone.utc)
@@ -45,8 +57,17 @@ def main() -> None:
 
     inserted = 0
     skipped = 0
+    cleared = 0
 
     try:
+        if args.clear:
+            cleared = (
+                session.query(SubscribedTask)
+                .delete(synchronize_session=False)  # type: ignore[arg-type]
+            )
+            session.commit()
+            print(f"已清空 subscribed_tasks 表：删除 {cleared} 条记录。")
+
         for record in load_records():
             task = SubscribedTask(
                 url=record.get("url"),
@@ -72,9 +93,10 @@ def main() -> None:
     finally:
         session.close()
 
-    print(
-        f"导入完成：新增 {inserted} 条，跳过（主键/唯一冲突） {skipped} 条。"
-    )
+    summary = f"导入完成：新增 {inserted} 条，跳过（主键/唯一冲突） {skipped} 条。"
+    if cleared:
+        summary += f" 预先清空 {cleared} 条旧记录。"
+    print(summary)
 
 
 if __name__ == "__main__":
