@@ -11,7 +11,10 @@ from ..db import get_db
 from ..models import SubscribedTask, TaskStatus
 from ..schemas.subscribed import SubscribedItem, SubscribedListResponse
 
-router = APIRouter(prefix="/subscribed", tags=["subscribed"])
+router = APIRouter(
+    prefix="/subscribed",
+    tags=["subscribed"],
+)
 
 
 @router.get(

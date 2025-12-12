@@ -2,13 +2,14 @@ import asyncio
 import contextlib
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .db import init_db
 from .routers import auth, health, subscribed, unsubscribed
 from .task_cleaner import run_task_cleaner_loop
 from .task_runner import run_task_loop
+from .security import get_current_user
 from website_analytics.settings import get_settings
 
 
@@ -52,10 +53,22 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # 公开接口（无需鉴权）
     app.include_router(health.router, prefix=settings.api_prefix)
     app.include_router(auth.router, prefix=settings.api_prefix)
-    app.include_router(subscribed.router, prefix=settings.api_prefix)
-    app.include_router(unsubscribed.router, prefix=settings.api_prefix)
+
+    # 受保护接口：统一依赖要求已登录
+    protected_dep = [Depends(get_current_user)]
+    app.include_router(
+        subscribed.router,
+        prefix=settings.api_prefix,
+        dependencies=protected_dep,
+    )
+    app.include_router(
+        unsubscribed.router,
+        prefix=settings.api_prefix,
+        dependencies=protected_dep,
+    )
 
     return app
 

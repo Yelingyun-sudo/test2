@@ -71,6 +71,14 @@ export default function SubscribedPage() {
 
   const fetchData = useCallback(
     async (params?: { page?: number; q?: string; status?: string }) => {
+      if (typeof window !== "undefined") {
+        const token = localStorage.getItem("access_token");
+        if (!token) {
+          window.location.href = "/";
+          return;
+        }
+      }
+
       const currentPage = params?.page ?? page;
       const q = params?.q ?? query;
       const status = params?.status ?? statusFilter;
@@ -84,7 +92,15 @@ export default function SubscribedPage() {
         if (status) searchParams.set("status", status);
 
         const res = await fetch(
-          `${API_BASE_URL}/subscribed/list?${searchParams.toString()}`
+          `${API_BASE_URL}/subscribed/list?${searchParams.toString()}`,
+          {
+            headers: {
+              Authorization:
+                typeof window !== "undefined"
+                  ? `Bearer ${localStorage.getItem("access_token") ?? ""}`
+                  : "",
+            },
+          }
         );
         if (!res.ok) throw new Error("加载失败");
         const payload = (await res.json()) as SubscribedListResponse;

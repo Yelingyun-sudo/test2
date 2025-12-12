@@ -8,7 +8,10 @@ from fastapi import APIRouter, HTTPException, Query, status
 
 from ..schemas.unsubscribed import UnsubscribedItem, UnsubscribedListResponse
 
-router = APIRouter(prefix="/unsubscribed", tags=["unsubscribed"])
+router = APIRouter(
+    prefix="/unsubscribed",
+    tags=["unsubscribed"],
+)
 
 _DATA_PATH = (
     Path(__file__).resolve().parents[3] / "resources" / "unsubscribed_clean.jsonl"
