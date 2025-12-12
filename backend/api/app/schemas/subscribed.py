@@ -10,8 +10,8 @@ class SubscribedItem(BaseModel):
     duration_seconds: int = Field(..., description="任务时长（秒）")
     retry_count: int = Field(..., description="重试次数")
     history_extract_count: int = Field(..., description="历史提取次数")
-    last_extracted_at: str | None = Field(
-        None, description="最后一次提取时间 ISO 字符串"
+    executed_at: str | None = Field(
+        None, description="任务执行时间 ISO 字符串"
     )
     task_dir: str | None = Field(None, description="任务目录（相对 backend 根目录）")
     result: str | None = Field(None, description="任务结果")

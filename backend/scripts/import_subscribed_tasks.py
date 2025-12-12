@@ -77,7 +77,7 @@ def main() -> None:
                 duration_seconds=0,
                 retry_count=0,
                 history_extract_count=0,
-                last_extracted_at=None,
+                executed_at=None,
                 result=None,
                 failure_type=None,
                 created_at=now,

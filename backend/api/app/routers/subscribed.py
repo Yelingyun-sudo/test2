@@ -75,7 +75,7 @@ def list_subscribed(
                 duration_seconds=rec.duration_seconds,
                 retry_count=rec.retry_count,
                 history_extract_count=rec.history_extract_count,
-                last_extracted_at=_format_dt(rec.last_extracted_at),
+                executed_at=_format_dt(rec.executed_at),
                 task_dir=rec.task_dir,
                 result=rec.result,
             )

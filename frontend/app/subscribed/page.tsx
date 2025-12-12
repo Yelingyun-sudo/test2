@@ -17,7 +17,7 @@ type SubscribedItem = {
   duration_seconds: number;
   retry_count: number;
   history_extract_count: number;
-  last_extracted_at?: string | null;
+  executed_at?: string | null;
   result?: string | null;
 };
 
@@ -259,7 +259,7 @@ export default function SubscribedPage() {
           <div>网址</div>
           <div>任务状态</div>
           <div>任务时长</div>
-          <div>最后一次提取时间</div>
+          <div>任务执行时间</div>
           <div>任务结果</div>
         </div>
         <div className="divide-y divide-slate-100">
@@ -291,8 +291,8 @@ export default function SubscribedPage() {
                   {renderStatus(item.status)}
                 </div>
                 <div className="truncate pr-4">{item.duration_seconds}</div>
-                <div className="truncate pr-4" title={item.last_extracted_at || undefined}>
-                  {formatDateTime(item.last_extracted_at)}
+                <div className="truncate pr-4" title={item.executed_at || undefined}>
+                  {formatDateTime(item.executed_at)}
                 </div>
                 <div className="truncate" title={item.result || undefined}>
                   {item.result || "-"}
@@ -409,8 +409,8 @@ export default function SubscribedPage() {
                 <div className="font-medium">{selectedItem.duration_seconds}</div>
               </div>
               <div className="space-y-1">
-                <div className="text-slate-500">最后一次提取时间</div>
-                <div className="font-medium">{formatDateTime(selectedItem.last_extracted_at)}</div>
+                <div className="text-slate-500">任务执行时间</div>
+                <div className="font-medium">{formatDateTime(selectedItem.executed_at)}</div>
               </div>
             </div>
 

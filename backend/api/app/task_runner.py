@@ -76,7 +76,7 @@ def _format_failure_type(exc: Exception | None, timed_out: bool) -> str:
 
 def _mark_running(db: Session, task: SubscribedTask) -> None:
     task.status = TaskStatus.RUNNING
-    task.last_extracted_at = datetime.now(timezone.utc)
+    task.executed_at = datetime.now(timezone.utc)
     db.add(task)
     db.commit()
     db.refresh(task)
@@ -136,12 +136,12 @@ def _get_running_batch_before(
         .filter(
             SubscribedTask.status == TaskStatus.RUNNING,
             or_(
-                SubscribedTask.last_extracted_at.is_(None),
-                SubscribedTask.last_extracted_at < before_ts,
+                SubscribedTask.executed_at.is_(None),
+                SubscribedTask.executed_at < before_ts,
             ),
         )
         .order_by(
-            SubscribedTask.last_extracted_at.asc().nullsfirst(),
+            SubscribedTask.executed_at.asc().nullsfirst(),
             SubscribedTask.created_at.asc(),
         )
         .limit(limit)

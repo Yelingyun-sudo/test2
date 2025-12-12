@@ -31,17 +31,17 @@ def _get_stale_task(db: Session, cutoff: datetime) -> SubscribedTask | None:
             SubscribedTask.status == TaskStatus.RUNNING,
             or_(
                 and_(
-                    SubscribedTask.last_extracted_at.isnot(None),
-                    SubscribedTask.last_extracted_at < cutoff,
+                    SubscribedTask.executed_at.isnot(None),
+                    SubscribedTask.executed_at < cutoff,
                 ),
                 and_(
-                    SubscribedTask.last_extracted_at.is_(None),
+                    SubscribedTask.executed_at.is_(None),
                     SubscribedTask.created_at < cutoff,
                 ),
             ),
         )
         .order_by(
-            SubscribedTask.last_extracted_at.asc().nullsfirst(),
+            SubscribedTask.executed_at.asc().nullsfirst(),
             SubscribedTask.created_at.asc(),
         )
         .first()
@@ -56,7 +56,7 @@ def _mark_cleaned(
     task.result = f"任务被清理：超过 {timeout_seconds}s 未完成"
 
     started_at = (
-        _normalize_dt(task.last_extracted_at) or _normalize_dt(task.created_at) or now
+        _normalize_dt(task.executed_at) or _normalize_dt(task.created_at) or now
     )
     duration = max(0, int((now - started_at).total_seconds()))
     task.duration_seconds = duration
