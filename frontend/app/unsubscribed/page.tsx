@@ -34,6 +34,14 @@ export default function UnsubscribedPage() {
   );
 
   const fetchData = async (params?: { page?: number; q?: string }) => {
+    if (typeof window !== "undefined") {
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        window.location.href = "/";
+        return;
+      }
+    }
+
     const currentPage = params?.page ?? page;
     const q = params?.q ?? query;
     setLoading(true);
@@ -45,8 +53,20 @@ export default function UnsubscribedPage() {
       if (q) searchParams.set("q", q);
 
       const res = await fetch(
-        `${API_BASE_URL}/unsubscribed/list?${searchParams.toString()}`
+        `${API_BASE_URL}/unsubscribed/list?${searchParams.toString()}`,
+        {
+          headers: {
+            Authorization:
+              typeof window !== "undefined"
+                ? `Bearer ${localStorage.getItem("access_token") ?? ""}`
+                : "",
+          },
+        }
       );
+      if (res.status === 401 || res.status === 403) {
+        if (typeof window !== "undefined") window.location.href = "/";
+        return;
+      }
       if (!res.ok) throw new Error("加载失败");
       const payload = (await res.json()) as UnsubscribedListResponse;
       setData(payload.items);
