@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import re
 from dataclasses import dataclass
+from contextlib import suppress
 from typing import Any
 
 from mcp.types import CallToolResult
@@ -67,6 +69,42 @@ class AutoSwitchingPlaywrightServer(MCPServerStdio):
         self._known_tabs: dict[int, str] = {}
         self._current_index: int | None = None
         self._auto_switch_inflight = False
+
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        task = asyncio.current_task()
+        cancel_count_before = task.cancelling() if task else 0
+        cancelled = False
+
+        # 先让 MCP server 内部的 Playwright 尝试优雅关闭浏览器。
+        # 仅靠杀掉 `npx` 进程组在某些 Linux 场景下可能无法回收 Playwright
+        # 以 detached 方式拉起的 Chrome 进程组，导致 orphan Chrome 堆积。
+        try:
+            await self._best_effort_close_browser()
+        except asyncio.CancelledError:
+            cancelled = True
+            if task and task.cancelling() > cancel_count_before and hasattr(
+                task, "uncancel"
+            ):
+                task.uncancel()
+            with suppress(Exception):
+                await self._best_effort_close_browser()
+
+        # 超时取消时（`asyncio.wait_for`）需要尽量完成清理，否则子进程可能残留。
+        # Python 3.11+ 支持 `Task.uncancel()`，这里做一次防御性处理。
+        try:
+            return await super().__aexit__(exc_type, exc_value, traceback)
+        except asyncio.CancelledError:
+            cancelled = True
+            if task and task.cancelling() > cancel_count_before and hasattr(
+                task, "uncancel"
+            ):
+                task.uncancel()
+            await super().__aexit__(exc_type, exc_value, traceback)
+            raise
+        finally:
+            # 只有在没有其他异常正在传播时才抛出 CancelledError
+            if cancelled and exc_type is None:
+                raise asyncio.CancelledError
 
     async def call_tool(self, tool_name: str, arguments: dict[str, Any] | None = None):
         result = await super().call_tool(tool_name, arguments)
@@ -156,6 +194,34 @@ class AutoSwitchingPlaywrightServer(MCPServerStdio):
 
         self._known_tabs = {tab.index: tab.url for tab in updated_tabs}
         self._current_index = should_switch.index
+
+    async def _best_effort_close_browser(self) -> None:
+        if not getattr(self, "session", None):
+            return
+
+        async def _call(tool_name: str, arguments: dict[str, Any] | None = None) -> Any:
+            return await asyncio.wait_for(
+                super().call_tool(tool_name, arguments),
+                timeout=8,
+            )
+
+        # 1) 优先尝试整体关闭（如果 MCP tool 支持）。
+        with suppress(Exception):
+            await _call("browser_close", {})
+            return
+
+        # 2) 回退：列出标签并逐个关闭（如果 MCP tool 支持）。
+        with suppress(Exception):
+            result = await _call("browser_tabs", {"action": "list"})
+            text_blocks = [
+                getattr(item, "text", "")
+                for item in getattr(result, "content", []) or []
+                if getattr(item, "type", "") == "text"
+            ]
+            tabs = _parse_open_tabs("\n".join(text_blocks))
+            for tab in sorted(tabs, key=lambda t: t.index, reverse=True):
+                with suppress(Exception):
+                    await _call("browser_tabs", {"action": "close", "index": tab.index})
 
 
 __all__ = ["AutoSwitchingPlaywrightServer"]

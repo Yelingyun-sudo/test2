@@ -119,3 +119,21 @@ def run_single_instruction(
             headless=headless,
         )
     )
+
+
+async def run_single_instruction_async(
+    instruction: str, *, headless: bool = False
+) -> ExecutionResult:
+    """供异步场景调用的单任务执行入口，返回 ExecutionResult。
+
+    与 `run_single_instruction()` 不同：不创建新 event loop，便于在外部用
+    `asyncio.wait_for()` 做可靠超时控制与取消清理。
+    """
+
+    # 确保 tracing 关闭（与 CLI 行为一致）
+    set_tracing_disabled(True)
+
+    return await execute(
+        instruction,
+        headless=headless,
+    )

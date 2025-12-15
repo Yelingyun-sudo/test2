@@ -10,7 +10,7 @@ from typing import Any
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from website_analytics.cli import run_single_instruction
+from website_analytics.cli import run_single_instruction_async
 from website_analytics.settings import get_settings
 from website_analytics.utils import to_project_relative
 
@@ -158,8 +158,7 @@ async def _run_task(task_id: int, instruction: str) -> None:
     try:
         timeout = settings.task_runner_timeout_seconds
         exec_result = await asyncio.wait_for(
-            asyncio.to_thread(
-                run_single_instruction,
+            run_single_instruction_async(
                 instruction,
                 headless=settings.task_runner_headless,
             ),
