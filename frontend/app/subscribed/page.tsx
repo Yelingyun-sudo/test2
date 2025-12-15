@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, Play, Search } from "lucide-react";
+import { Loader2, Play, RotateCcw, Search } from "lucide-react";
 
 import { DashboardShell } from "@/components/dashboard/shell";
 import { Button } from "@/components/ui/button";
@@ -67,6 +67,10 @@ export default function SubscribedPage() {
     src: string;
     seekSeconds?: number | null;
   } | null>(null);
+  const [viewerVideoState, setViewerVideoState] = useState({
+    paused: true,
+    ended: false
+  });
   const [artifactsLoading, setArtifactsLoading] = useState(false);
   const artifactUrlsRef = useRef<ArtifactUrls>({
     loginImageUrl: null,
@@ -375,6 +379,11 @@ export default function SubscribedPage() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [viewer]);
 
+  useEffect(() => {
+    if (!viewer || viewer.type !== "video") return;
+    setViewerVideoState({ paused: true, ended: false });
+  }, [viewer]);
+
   const handleViewerVideoLoadedMetadata = () => {
     const seekSeconds = viewer?.seekSeconds;
     if (!viewerVideoRef.current || seekSeconds === null || seekSeconds === undefined) return;
@@ -384,6 +393,32 @@ export default function SubscribedPage() {
     const hasDuration = typeof duration === "number" && Number.isFinite(duration) && duration > 0;
     const safeSeek = hasDuration ? Math.min(seekSeconds, Math.max(0, duration - 0.1)) : seekSeconds;
     viewerVideoRef.current.currentTime = safeSeek;
+    viewerVideoRef.current.defaultPlaybackRate = 3;
+    viewerVideoRef.current.playbackRate = 3;
+  };
+
+  const handleViewerPlayOverlayClick = async () => {
+    if (!viewerVideoRef.current) return;
+    if (viewerVideoState.ended) {
+      const seekSeconds = viewer?.seekSeconds;
+      const duration = viewerVideoRef.current.duration;
+      const hasDuration = typeof duration === "number" && Number.isFinite(duration) && duration > 0;
+      const canSeek =
+        typeof seekSeconds === "number" && !Number.isNaN(seekSeconds) && seekSeconds > 0;
+      const target = canSeek
+        ? hasDuration
+          ? Math.min(seekSeconds, Math.max(0, duration - 0.1))
+          : seekSeconds
+        : 0;
+      viewerVideoRef.current.currentTime = target;
+    }
+    viewerVideoRef.current.defaultPlaybackRate = 3;
+    viewerVideoRef.current.playbackRate = 3;
+    try {
+      await viewerVideoRef.current.play();
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   const handlePageJump = () => {
@@ -734,7 +769,7 @@ export default function SubscribedPage() {
                       <div className="text-sm font-semibold text-slate-800">操作视频</div>
                       {artifacts?.video_seek_seconds ? (
                         <div className="text-xs text-slate-500">
-                          建议从 {artifacts.video_seek_seconds}s 开始播放
+                          建议从 {artifacts.video_seek_seconds}s 开始播放(x3倍速)
                         </div>
                       ) : null}
                     </div>
@@ -822,15 +857,42 @@ export default function SubscribedPage() {
                   className="max-h-[80vh] w-full rounded-xl bg-black object-contain"
                 />
               ) : (
-                <video
-                  ref={viewerVideoRef}
-                  className="max-h-[80vh] w-full rounded-xl bg-black object-contain"
-                  controls
-                  autoPlay
-                  preload="metadata"
-                  src={viewer.src}
-                  onLoadedMetadata={handleViewerVideoLoadedMetadata}
-                />
+                <div className="relative">
+                  <video
+                    ref={viewerVideoRef}
+                    className="max-h-[80vh] w-full rounded-xl bg-black object-contain"
+                    controls
+                    autoPlay
+                    preload="metadata"
+                    src={viewer.src}
+                    onLoadedMetadata={handleViewerVideoLoadedMetadata}
+                    onPlay={() => {
+                      if (viewerVideoRef.current) {
+                        viewerVideoRef.current.defaultPlaybackRate = 3;
+                        viewerVideoRef.current.playbackRate = 3;
+                      }
+                      setViewerVideoState({ paused: false, ended: false });
+                    }}
+                    onPause={() => setViewerVideoState((prev) => ({ ...prev, paused: true }))}
+                    onEnded={() => setViewerVideoState({ paused: true, ended: true })}
+                  />
+                  {(viewerVideoState.paused || viewerVideoState.ended) && (
+                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                      <button
+                        type="button"
+                        className="pointer-events-auto flex h-16 w-16 items-center justify-center rounded-full border border-white/60 bg-black/40 backdrop-blur-sm transition hover:scale-105 hover:bg-black/55"
+                        onClick={handleViewerPlayOverlayClick}
+                        aria-label={viewerVideoState.ended ? "重播视频" : "播放视频"}
+                      >
+                        {viewerVideoState.ended ? (
+                          <RotateCcw className="h-7 w-7 text-white" />
+                        ) : (
+                          <Play className="h-8 w-8 translate-x-[1px] text-white" fill="currentColor" />
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>
