@@ -184,6 +184,38 @@ export default function SubscribedPage() {
     return `${pick("year")}-${pick("month")}-${pick("day")} ${pick("hour")}:${pick("minute")}:${pick("second")}`;
   };
 
+  const parseDateTime = (value?: string | null) => {
+    if (!value) return null;
+    const normalized = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?$/.test(value)
+      ? `${value}Z`
+      : value;
+    const d = new Date(normalized);
+    if (Number.isNaN(d.getTime())) return null;
+    return d;
+  };
+
+  const formatDurationSeconds = (value?: number | null) => {
+    if (value === null || value === undefined || Number.isNaN(value)) return "-";
+    const totalSeconds = Math.max(0, Math.floor(value));
+    if (totalSeconds < 60) return `${totalSeconds}秒`;
+
+    const days = Math.floor(totalSeconds / 86_400);
+    const hours = Math.floor((totalSeconds % 86_400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    if (totalSeconds < 3600) return `${minutes}分${seconds}秒`;
+    if (totalSeconds < 86_400) return `${hours}小时${minutes}分${seconds}秒`;
+    return `${days}天${hours}小时${minutes}分${seconds}秒`;
+  };
+
+  const getWaitSeconds = (item: SubscribedItem) => {
+    const createdAt = parseDateTime(item.created_at);
+    const executedAt = parseDateTime(item.executed_at);
+    if (!createdAt || !executedAt) return null;
+    return (executedAt.getTime() - createdAt.getTime()) / 1000;
+  };
+
   const handlePageChange = (nextPage: number) => {
     fetchData({ page: nextPage });
   };
@@ -400,20 +432,28 @@ export default function SubscribedPage() {
                 <div className="break-all font-medium text-slate-800">{selectedItem.account}</div>
               </div>
               <div className="space-y-1">
-                <div className="text-slate-500">任务状态</div>
-                <div className="flex items-center gap-2">{renderStatus(selectedItem.status)}</div>
-              </div>
-              <div className="space-y-1">
                 <div className="text-slate-500">密码</div>
                 <div className="break-all font-medium text-slate-800">{selectedItem.password}</div>
               </div>
               <div className="space-y-1">
-                <div className="text-slate-500">任务时长 (s)</div>
-                <div className="font-medium">{selectedItem.duration_seconds}</div>
+                <div className="text-slate-500">任务状态</div>
+                <div className="flex items-center gap-2">{renderStatus(selectedItem.status)}</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-slate-500">任务创建时间</div>
+                <div className="font-medium">{formatDateTime(selectedItem.created_at)}</div>
               </div>
               <div className="space-y-1">
                 <div className="text-slate-500">任务执行时间</div>
                 <div className="font-medium">{formatDateTime(selectedItem.executed_at)}</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-slate-500">任务等待时间</div>
+                <div className="font-medium">{formatDurationSeconds(getWaitSeconds(selectedItem))}</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-slate-500">任务时长 (s)</div>
+                <div className="font-medium">{selectedItem.duration_seconds}</div>
               </div>
             </div>
 
