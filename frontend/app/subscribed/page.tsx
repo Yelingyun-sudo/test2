@@ -74,9 +74,9 @@ function parseDownloadFilename(contentDisposition: string | null): string | null
 
 function MediaLoadingOverlay({ label }: { label: string }) {
   return (
-    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50/90">
-      <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
-      <div className="text-xs text-slate-400">{label}</div>
+    <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white/75 backdrop-blur-sm">
+      <Loader2 className="h-5 w-5 animate-spin text-slate-500" />
+      <div className="text-xs text-slate-500">{label}</div>
     </div>
   );
 }
@@ -872,7 +872,10 @@ export default function SubscribedPage() {
                     ) : null}
                 </div>
                   {artifactsLoading ? (
-                    <div className="w-full aspect-[16/10] animate-pulse rounded-xl bg-slate-100" />
+                    <div className="relative w-full aspect-[16/10] overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                      <div className="absolute inset-0 animate-pulse bg-slate-100/70" />
+                      <MediaLoadingOverlay label="加载中..." />
+                    </div>
                   ) : artifactUrls.loginImageUrl ? (
                     <button
                       type="button"
@@ -929,7 +932,10 @@ export default function SubscribedPage() {
                     ) : null}
                 </div>
                   {artifactsLoading ? (
-                    <div className="w-full aspect-[16/10] animate-pulse rounded-xl bg-slate-100" />
+                    <div className="relative w-full aspect-[16/10] overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                      <div className="absolute inset-0 animate-pulse bg-slate-100/70" />
+                      <MediaLoadingOverlay label="加载中..." />
+                    </div>
                   ) : artifactUrls.extractImageUrl ? (
                     <button
                       type="button"
@@ -993,7 +999,10 @@ export default function SubscribedPage() {
                     ) : null}
                   </div>
                   {artifactsLoading ? (
-                    <div className="w-full aspect-[16/10] animate-pulse rounded-xl bg-slate-100" />
+                    <div className="relative w-full aspect-[16/10] overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                      <div className="absolute inset-0 animate-pulse bg-slate-100/70" />
+                      <MediaLoadingOverlay label="加载中..." />
+                    </div>
                   ) : artifactUrls.videoUrl ? (
                     <button
                       type="button"
