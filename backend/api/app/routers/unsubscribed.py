@@ -24,7 +24,7 @@ router = APIRouter(
 )
 def list_unsubscribed(
     page: int = Query(1, ge=1, description="页码，从 1 开始"),
-    page_size: int = Query(20, ge=1, le=100, description="每页条数"),
+    page_size: int = Query(15, ge=1, le=100, description="每页条数"),
     q: str | None = Query(None, description="按 url 包含匹配"),
     db: Session = Depends(get_db),
 ):
@@ -35,7 +35,7 @@ def list_unsubscribed(
 
     total = query.count()
     records: List[UnsubscribedTask] = (
-        query.order_by(UnsubscribedTask.created_at.desc(), UnsubscribedTask.id.desc())
+        query.order_by(UnsubscribedTask.id.asc())
         .offset((page - 1) * page_size)
         .limit(page_size)
         .all()
@@ -50,7 +50,14 @@ def list_unsubscribed(
             dt = dt.replace(tzinfo=timezone.utc)
         return dt.astimezone(tz_cn).isoformat()
 
-    sliced = [UnsubscribedItem(url=rec.url, created_at=_format_dt(rec.created_at)) for rec in records]
+    sliced = [
+        UnsubscribedItem(
+            id=int(rec.id) if rec.id is not None else 0,  # type: ignore[arg-type]
+            url=rec.url,
+            created_at=_format_dt(rec.created_at),
+        )
+        for rec in records
+    ]
 
     return UnsubscribedListResponse(
         items=sliced,
