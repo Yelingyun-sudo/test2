@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -245,6 +246,10 @@ async def execute(
             success = False
             exit_code = 1
 
+        coordinator_output["last_capture_path"] = _find_last_capture_relative_path(
+            working_dir
+        )
+
         result = ExecutionResult(
             success=success,
             exit_code=exit_code,
@@ -277,6 +282,9 @@ async def execute(
             "operations_executed": [],
             "operations_results": {},
         }
+        coordinator_output["last_capture_path"] = _find_last_capture_relative_path(
+            working_dir
+        )
         result = ExecutionResult(
             success=False,
             exit_code=2,
@@ -296,6 +304,32 @@ async def execute(
             )
 
         return result
+
+
+_CAPTURE_PREFIX_RE = re.compile(r"^(?P<seq>\\d+)-")
+
+
+def _find_last_capture_relative_path(task_dir: Path) -> str | None:
+    """返回任务目录下最后一次 capture 的相对路径（例如 captures/004-xxx.png）。"""
+    captures_dir = task_dir / "captures"
+    if not captures_dir.is_dir():
+        return None
+
+    candidates = list(captures_dir.glob("*.png"))
+    if not candidates:
+        return None
+
+    def sort_key(path: Path) -> tuple[int, int, str]:
+        match = _CAPTURE_PREFIX_RE.match(path.name)
+        if not match:
+            return (0, -1, path.name)
+        return (1, int(match.group("seq")), path.name)
+
+    best = max(candidates, key=sort_key)
+    try:
+        return best.relative_to(task_dir).as_posix()
+    except ValueError:
+        return str(best)
 
 
 def _save_single_task_summary(
