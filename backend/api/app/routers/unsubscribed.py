@@ -1,11 +1,14 @@
 from __future__ import annotations
 
-import json
-from pathlib import Path
+from datetime import timedelta, timezone
 from typing import List
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import func
+from sqlalchemy.orm import Session
 
+from ..db import get_db
+from ..models import UnsubscribedTask
 from ..schemas.unsubscribed import UnsubscribedItem, UnsubscribedListResponse
 
 router = APIRouter(
@@ -13,47 +16,41 @@ router = APIRouter(
     tags=["unsubscribed"],
 )
 
-_DATA_PATH = (
-    Path(__file__).resolve().parents[3] / "resources" / "unsubscribed_clean.jsonl"
-)
-
-
-def _load_data() -> List[UnsubscribedItem]:
-    if not _DATA_PATH.exists():
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="未订阅数据文件不存在",
-        )
-    items: List[UnsubscribedItem] = []
-    with _DATA_PATH.open("r", encoding="utf-8") as f:
-        for line in f:
-            if not line.strip():
-                continue
-            payload = json.loads(line)
-            items.append(UnsubscribedItem(**payload))
-    return items
-
 
 @router.get(
     "/list",
     response_model=UnsubscribedListResponse,
-    summary="未订阅网站列表（分页 + 简单检索）",
+    summary="未订阅网站列表（分页 + 简单检索，读取数据库）",
 )
 def list_unsubscribed(
     page: int = Query(1, ge=1, description="页码，从 1 开始"),
     page_size: int = Query(20, ge=1, le=100, description="每页条数"),
     q: str | None = Query(None, description="按 url 包含匹配"),
+    db: Session = Depends(get_db),
 ):
-    items = _load_data()
-
+    query = db.query(UnsubscribedTask)
     if q:
-        keyword = q.lower()
-        items = [item for item in items if keyword in item.url.lower()]
+        keyword = f"%{q.lower()}%"
+        query = query.filter(func.lower(UnsubscribedTask.url).like(keyword))
 
-    total = len(items)
-    start = (page - 1) * page_size
-    end = start + page_size
-    sliced = items[start:end]
+    total = query.count()
+    records: List[UnsubscribedTask] = (
+        query.order_by(UnsubscribedTask.created_at.desc(), UnsubscribedTask.id.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+
+    tz_cn = timezone(timedelta(hours=8))
+
+    def _format_dt(dt) -> str:
+        if not dt:
+            return ""
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(tz_cn).isoformat()
+
+    sliced = [UnsubscribedItem(url=rec.url, created_at=_format_dt(rec.created_at)) for rec in records]
 
     return UnsubscribedListResponse(
         items=sliced,

@@ -7,9 +7,10 @@ import { DashboardShell } from "@/components/dashboard/shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { apiFetch } from "@/lib/api";
+import { formatDateTime } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
 
-type UnsubscribedItem = { url: string };
+type UnsubscribedItem = { url: string; created_at?: string | null };
 type UnsubscribedListResponse = {
   items: UnsubscribedItem[];
   total: number;
@@ -82,7 +83,7 @@ export default function UnsubscribedPage() {
   return (
     <DashboardShell
       title="未订阅网站"
-      description="读取后端未订阅数据文件，支持分页与检索。"
+      description="读取未订阅任务表，支持分页与检索。"
       actions={
         <div className="flex items-center gap-2">
           <div className="relative flex items-center">
@@ -109,9 +110,10 @@ export default function UnsubscribedPage() {
       }
     >
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="grid grid-cols-[80px_1fr] bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
+        <div className="grid grid-cols-[80px_1fr_220px] bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
           <div>序号</div>
           <div>未订阅 URL</div>
+          <div>任务创建时间</div>
         </div>
         <div className="divide-y divide-slate-100">
           {loading ? (
@@ -126,7 +128,7 @@ export default function UnsubscribedPage() {
               <div
                 key={`${item.url}-${idx}`}
                 className={cn(
-                  "grid grid-cols-[80px_1fr] items-center px-4 py-3 text-sm text-slate-700",
+                  "grid grid-cols-[80px_1fr_220px] items-center px-4 py-3 text-sm text-slate-700",
                   idx % 2 === 0 ? "bg-white" : "bg-slate-50/70"
                 )}
               >
@@ -134,6 +136,9 @@ export default function UnsubscribedPage() {
                   {(page - 1) * PAGE_SIZE + idx + 1}
                 </div>
                 <div className="truncate pr-4">{item.url}</div>
+                <div className="truncate" title={item.created_at || undefined}>
+                  {formatDateTime(item.created_at)}
+                </div>
               </div>
             ))
           )}

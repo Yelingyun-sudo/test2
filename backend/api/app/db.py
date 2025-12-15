@@ -70,6 +70,7 @@ def init_db() -> None:
     from .models import user as user_model  # noqa: F401
     from .models import revoked_token as revoked_token_model  # noqa: F401
     from .models import subscribed_task as subscribed_task_model  # noqa: F401
+    from .models import unsubscribed_task as unsubscribed_task_model  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
     _ensure_indices()
@@ -83,6 +84,10 @@ def _ensure_indices() -> None:
         conn.exec_driver_sql(
             "CREATE UNIQUE INDEX IF NOT EXISTS uq_tasks_url_account_date "
             "ON subscribed_tasks (url, account, created_date)"
+        )
+        conn.exec_driver_sql(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_unsubscribed_url "
+            "ON unsubscribed_tasks (url)"
         )
 
 
