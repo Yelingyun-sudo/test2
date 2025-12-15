@@ -265,6 +265,7 @@ async def execute(
         coordinator_output["last_capture_path"] = _find_last_capture_relative_path(
             working_dir
         )
+        coordinator_output["video_path"] = _find_last_video_relative_path(working_dir)
 
         result = ExecutionResult(
             success=success,
@@ -316,6 +317,7 @@ async def execute(
         coordinator_output["last_capture_path"] = _find_last_capture_relative_path(
             working_dir
         )
+        coordinator_output["video_path"] = _find_last_video_relative_path(working_dir)
         result = ExecutionResult(
             success=False,
             exit_code=2,
@@ -385,6 +387,27 @@ def _find_last_capture_relative_path_for_agent(
         return (1, int(match.group("seq")), path.name)
 
     best = max(candidates, key=sort_key)
+    try:
+        return best.relative_to(task_dir).as_posix()
+    except ValueError:
+        return str(best)
+
+
+def _find_last_video_relative_path(task_dir: Path) -> str | None:
+    """返回任务目录下最新的视频文件相对路径（例如 page-2025-...Z.webm）。"""
+    page_candidates = sorted(task_dir.glob("page-*.webm"))
+    if page_candidates:
+        best = page_candidates[-1]
+        try:
+            return best.relative_to(task_dir).as_posix()
+        except ValueError:
+            return str(best)
+
+    candidates = list(task_dir.glob("*.webm"))
+    if not candidates:
+        return None
+
+    best = max(candidates, key=lambda path: path.stat().st_mtime)
     try:
         return best.relative_to(task_dir).as_posix()
     except ValueError:
