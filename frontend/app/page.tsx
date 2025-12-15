@@ -19,6 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { clearLocalAuth, isJwtExpired } from "@/lib/api";
 
 const schema = z.object({
   username: z.string().min(1, "请输入用户名"),
@@ -54,6 +55,13 @@ export default function Page() {
     if (typeof window === "undefined") return;
     const token = localStorage.getItem("access_token");
     const savedAccount = localStorage.getItem("account_name");
+    if (token && isJwtExpired(token)) {
+      clearLocalAuth();
+      toast.error("登录已过期，请重新登录");
+      setIsAuthed(false);
+      setAccount(null);
+      return;
+    }
     if (token) setIsAuthed(true);
     if (savedAccount) setAccount(savedAccount);
   }, []);
@@ -95,8 +103,7 @@ export default function Page() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("account_name");
+    clearLocalAuth();
     setIsAuthed(false);
     setAccount(null);
     toast.success("已退出登录", { duration: 2000 });

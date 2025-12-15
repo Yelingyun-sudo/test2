@@ -6,6 +6,7 @@ import { CircleOff, Loader2, Search } from "lucide-react";
 import { DashboardShell } from "@/components/dashboard/shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { apiFetch } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 type UnsubscribedItem = { url: string };
@@ -16,8 +17,6 @@ type UnsubscribedListResponse = {
   page_size: number;
 };
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api";
 const PAGE_SIZE = 20;
 
 export default function UnsubscribedPage() {
@@ -34,14 +33,6 @@ export default function UnsubscribedPage() {
   );
 
   const fetchData = async (params?: { page?: number; q?: string }) => {
-    if (typeof window !== "undefined") {
-      const token = localStorage.getItem("access_token");
-      if (!token) {
-        window.location.href = "/";
-        return;
-      }
-    }
-
     const currentPage = params?.page ?? page;
     const q = params?.q ?? query;
     setLoading(true);
@@ -52,21 +43,9 @@ export default function UnsubscribedPage() {
       });
       if (q) searchParams.set("q", q);
 
-      const res = await fetch(
-        `${API_BASE_URL}/unsubscribed/list?${searchParams.toString()}`,
-        {
-          headers: {
-            Authorization:
-              typeof window !== "undefined"
-                ? `Bearer ${localStorage.getItem("access_token") ?? ""}`
-                : "",
-          },
-        }
+      const res = await apiFetch(
+        `/unsubscribed/list?${searchParams.toString()}`
       );
-      if (res.status === 401 || res.status === 403) {
-        if (typeof window !== "undefined") window.location.href = "/";
-        return;
-      }
       if (!res.ok) throw new Error("加载失败");
       const payload = (await res.json()) as UnsubscribedListResponse;
       setData(payload.items);

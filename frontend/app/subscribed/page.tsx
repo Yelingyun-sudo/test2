@@ -6,6 +6,7 @@ import { Loader2, Search } from "lucide-react";
 import { DashboardShell } from "@/components/dashboard/shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { apiFetch } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 type SubscribedItem = {
@@ -27,9 +28,6 @@ type SubscribedListResponse = {
   page: number;
   page_size: number;
 };
-
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api";
 
 const PAGE_SIZE = 15;
 
@@ -71,14 +69,6 @@ export default function SubscribedPage() {
 
   const fetchData = useCallback(
     async (params?: { page?: number; q?: string; status?: string }) => {
-      if (typeof window !== "undefined") {
-        const token = localStorage.getItem("access_token");
-        if (!token) {
-          window.location.href = "/";
-          return;
-        }
-      }
-
       const currentPage = params?.page ?? page;
       const q = params?.q ?? query;
       const status = params?.status ?? statusFilter;
@@ -91,16 +81,8 @@ export default function SubscribedPage() {
         if (q) searchParams.set("q", q);
         if (status) searchParams.set("status", status);
 
-        const res = await fetch(
-          `${API_BASE_URL}/subscribed/list?${searchParams.toString()}`,
-          {
-            headers: {
-              Authorization:
-                typeof window !== "undefined"
-                  ? `Bearer ${localStorage.getItem("access_token") ?? ""}`
-                  : "",
-            },
-          }
+        const res = await apiFetch(
+          `/subscribed/list?${searchParams.toString()}`
         );
         if (!res.ok) throw new Error("加载失败");
         const payload = (await res.json()) as SubscribedListResponse;

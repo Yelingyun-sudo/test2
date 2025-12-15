@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { clearLocalAuth, isJwtExpired, queueAuthExpiredToast } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 import { dashboardNavItems } from "./nav";
@@ -29,6 +30,13 @@ export function DashboardShell({ title, description, actions, children, account,
     const savedAccount = localStorage.getItem("account_name");
     if (!token) {
       router.replace("/");
+      return;
+    }
+    if (isJwtExpired(token)) {
+      clearLocalAuth();
+      queueAuthExpiredToast();
+      window.location.replace("/");
+      return;
     }
     if (!accountName && savedAccount) {
       setAccountName(savedAccount);
@@ -39,8 +47,7 @@ export function DashboardShell({ title, description, actions, children, account,
     if (onLogout) {
       onLogout();
     } else {
-      localStorage.removeItem("access_token");
-      localStorage.removeItem("account_name");
+      clearLocalAuth();
     }
     router.replace("/");
   };
