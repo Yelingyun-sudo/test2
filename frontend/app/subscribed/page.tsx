@@ -15,6 +15,7 @@ type SubscribedItem = {
   account: string;
   password: string;
   status: string;
+  created_at?: string | null;
   duration_seconds: number;
   retry_count: number;
   history_extract_count: number;
@@ -252,12 +253,13 @@ export default function SubscribedPage() {
       }
     >
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="grid grid-cols-[70px_1.4fr_0.65fr_0.8fr_1.1fr_2fr] bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
+        <div className="grid grid-cols-[70px_1.4fr_0.65fr_1.1fr_1.1fr_0.8fr_2fr] bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
           <div>ID</div>
           <div>网址</div>
           <div>任务状态</div>
-          <div>任务时长</div>
+          <div>任务创建时间</div>
           <div>任务执行时间</div>
+          <div>任务时长</div>
           <div>任务结果</div>
         </div>
         <div className="divide-y divide-slate-100">
@@ -273,7 +275,7 @@ export default function SubscribedPage() {
               <div
                 key={`${item.id}-${idx}`}
                 className={cn(
-                  "grid grid-cols-[70px_1.4fr_0.65fr_0.8fr_1.1fr_2fr] items-center px-4 py-3 text-sm text-slate-700",
+                  "grid grid-cols-[70px_1.4fr_0.65fr_1.1fr_1.1fr_0.8fr_2fr] items-center px-4 py-3 text-sm text-slate-700",
                   idx % 2 === 0 ? "bg-white" : "bg-slate-50/70",
                   "cursor-pointer transition-colors hover:bg-slate-100/80"
                 )}
@@ -288,10 +290,13 @@ export default function SubscribedPage() {
                 <div className="truncate pr-4 text-slate-600 flex items-center">
                   {renderStatus(item.status)}
                 </div>
-                <div className="truncate pr-4">{item.duration_seconds}</div>
+                <div className="truncate pr-4" title={item.created_at || undefined}>
+                  {formatDateTime(item.created_at)}
+                </div>
                 <div className="truncate pr-4" title={item.executed_at || undefined}>
                   {formatDateTime(item.executed_at)}
                 </div>
+                <div className="truncate pr-4">{item.duration_seconds}</div>
                 <div className="truncate" title={item.result || undefined}>
                   {item.result || "-"}
                 </div>

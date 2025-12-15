@@ -75,6 +75,7 @@ def list_subscribed(
                 account=rec.account,
                 password=rec.password,
                 status=status_value or "",
+                created_at=_format_dt(rec.created_at),
                 duration_seconds=rec.duration_seconds,
                 retry_count=rec.retry_count,
                 history_extract_count=rec.history_extract_count,

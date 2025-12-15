@@ -7,6 +7,7 @@ class SubscribedItem(BaseModel):
     account: str = Field(..., description="账号")
     password: str = Field(..., description="密码")
     status: str = Field(..., description="任务状态")
+    created_at: str = Field(..., description="任务创建时间 ISO 字符串")
     duration_seconds: int = Field(..., description="任务时长（秒）")
     retry_count: int = Field(..., description="重试次数")
     history_extract_count: int = Field(..., description="历史提取次数")
