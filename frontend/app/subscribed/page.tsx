@@ -40,6 +40,12 @@ type ArtifactUrls = {
   videoUrl: string | null;
 };
 
+type MediaFlags = {
+  login: boolean;
+  extract: boolean;
+  video: boolean;
+};
+
 type SubscribedListResponse = {
   items: SubscribedItem[];
   total: number;
@@ -64,6 +70,15 @@ function parseDownloadFilename(contentDisposition: string | null): string | null
   const asciiMatch = /filename="?([^";]+)"?/i.exec(contentDisposition);
   if (asciiMatch?.[1]) return asciiMatch[1];
   return null;
+}
+
+function MediaLoadingOverlay({ label }: { label: string }) {
+  return (
+    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50/90">
+      <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+      <div className="text-xs text-slate-400">{label}</div>
+    </div>
+  );
 }
 
 export default function SubscribedPage() {
@@ -99,6 +114,16 @@ export default function SubscribedPage() {
   });
   const [artifactsLoading, setArtifactsLoading] = useState(false);
   const [taskZipDownloading, setTaskZipDownloading] = useState(false);
+  const [mediaReady, setMediaReady] = useState<MediaFlags>({
+    login: false,
+    extract: false,
+    video: false
+  });
+  const [mediaError, setMediaError] = useState<MediaFlags>({
+    login: false,
+    extract: false,
+    video: false
+  });
   const artifactUrlsRef = useRef<ArtifactUrls>({
     loginImageUrl: null,
     extractImageUrl: null,
@@ -326,6 +351,8 @@ export default function SubscribedPage() {
           return;
         }
 
+        setMediaReady({ login: false, extract: false, video: false });
+        setMediaError({ login: false, extract: false, video: false });
         artifactUrlsRef.current = { loginImageUrl, extractImageUrl, videoUrl };
         setArtifactUrls(artifactUrlsRef.current);
       } finally {
@@ -349,6 +376,12 @@ export default function SubscribedPage() {
       };
     };
   }, [revokeArtifactUrls, selectedItem]);
+
+  useEffect(() => {
+    if (!selectedItem) return;
+    setMediaReady({ login: false, extract: false, video: false });
+    setMediaError({ login: false, extract: false, video: false });
+  }, [selectedItem]);
 
   const handleVideoLoadedMetadata = () => {
     const seekSeconds = artifacts?.video_seek_seconds;
@@ -837,13 +870,13 @@ export default function SubscribedPage() {
                         下载
                       </a>
                     ) : null}
-                  </div>
+                </div>
                   {artifactsLoading ? (
                     <div className="w-full aspect-[16/10] animate-pulse rounded-xl bg-slate-100" />
                   ) : artifactUrls.loginImageUrl ? (
                     <button
                       type="button"
-                      className="group block w-full"
+                      className="group relative block w-full"
                       onClick={() => {
                         const src = artifactUrls.loginImageUrl;
                         if (!src) return;
@@ -854,11 +887,24 @@ export default function SubscribedPage() {
                         });
                       }}
                     >
+                      {!mediaReady.login && !mediaError.login ? (
+                        <MediaLoadingOverlay label="加载中..." />
+                      ) : null}
+                      {mediaError.login ? (
+                        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400">
+                          加载失败
+                        </div>
+                      ) : null}
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={artifactUrls.loginImageUrl}
                         alt="登录截图"
-                        className="w-full aspect-[16/10] rounded-xl border border-slate-200 object-contain bg-slate-50 cursor-zoom-in group-hover:shadow-sm"
+                        className={cn(
+                          "w-full aspect-[16/10] rounded-xl border border-slate-200 object-contain bg-slate-50 cursor-zoom-in group-hover:shadow-sm transition-opacity",
+                          mediaReady.login && !mediaError.login ? "opacity-100" : "opacity-0"
+                        )}
+                        onLoad={() => setMediaReady((prev) => ({ ...prev, login: true }))}
+                        onError={() => setMediaError((prev) => ({ ...prev, login: true }))}
                       />
                     </button>
                   ) : (
@@ -881,13 +927,13 @@ export default function SubscribedPage() {
                         下载
                       </a>
                     ) : null}
-                  </div>
+                </div>
                   {artifactsLoading ? (
                     <div className="w-full aspect-[16/10] animate-pulse rounded-xl bg-slate-100" />
                   ) : artifactUrls.extractImageUrl ? (
                     <button
                       type="button"
-                      className="group block w-full"
+                      className="group relative block w-full"
                       onClick={() => {
                         const src = artifactUrls.extractImageUrl;
                         if (!src) return;
@@ -898,11 +944,24 @@ export default function SubscribedPage() {
                         });
                       }}
                     >
+                      {!mediaReady.extract && !mediaError.extract ? (
+                        <MediaLoadingOverlay label="加载中..." />
+                      ) : null}
+                      {mediaError.extract ? (
+                        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400">
+                          加载失败
+                        </div>
+                      ) : null}
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={artifactUrls.extractImageUrl}
                         alt="提取截图"
-                        className="w-full aspect-[16/10] rounded-xl border border-slate-200 object-contain bg-slate-50 cursor-zoom-in group-hover:shadow-sm"
+                        className={cn(
+                          "w-full aspect-[16/10] rounded-xl border border-slate-200 object-contain bg-slate-50 cursor-zoom-in group-hover:shadow-sm transition-opacity",
+                          mediaReady.extract && !mediaError.extract ? "opacity-100" : "opacity-0"
+                        )}
+                        onLoad={() => setMediaReady((prev) => ({ ...prev, extract: true }))}
+                        onError={() => setMediaError((prev) => ({ ...prev, extract: true }))}
                       />
                     </button>
                   ) : (
@@ -951,21 +1010,36 @@ export default function SubscribedPage() {
                       }}
                       aria-label="播放操作视频"
                     >
+                      {!mediaReady.video && !mediaError.video ? (
+                        <MediaLoadingOverlay label="加载中..." />
+                      ) : null}
+                      {mediaError.video ? (
+                        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400">
+                          加载失败
+                        </div>
+                      ) : null}
                       <video
                         ref={videoRef}
-                        className="w-full aspect-[16/10] rounded-xl border border-slate-200 bg-black object-cover cursor-pointer group-hover:shadow-sm group-hover:brightness-95"
+                        className={cn(
+                          "w-full aspect-[16/10] rounded-xl border border-slate-200 bg-black object-cover cursor-pointer group-hover:shadow-sm group-hover:brightness-95 transition-opacity",
+                          mediaReady.video && !mediaError.video ? "opacity-100" : "opacity-0"
+                        )}
                         controls={false}
                         muted
                         playsInline
                         preload="metadata"
                         src={artifactUrls.videoUrl}
                         onLoadedMetadata={handleVideoLoadedMetadata}
+                        onLoadedData={() => setMediaReady((prev) => ({ ...prev, video: true }))}
+                        onError={() => setMediaError((prev) => ({ ...prev, video: true }))}
                       />
-                      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                        <div className="flex h-14 w-14 items-center justify-center rounded-full border border-white/60 bg-black/40 backdrop-blur-sm transition group-hover:scale-105 group-hover:bg-black/55">
-                          <Play className="h-7 w-7 translate-x-[1px] text-white" fill="currentColor" />
+                      {mediaReady.video && !mediaError.video ? (
+                        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center">
+                          <div className="flex h-14 w-14 items-center justify-center rounded-full border border-white/60 bg-black/40 backdrop-blur-sm transition group-hover:scale-105 group-hover:bg-black/55">
+                            <Play className="h-7 w-7 translate-x-[1px] text-white" fill="currentColor" />
+                          </div>
                         </div>
-                      </div>
+                      ) : null}
                     </button>
                   ) : (
                     <div className="flex w-full aspect-[16/10] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400">
