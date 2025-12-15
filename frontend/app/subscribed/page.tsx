@@ -61,6 +61,12 @@ export default function SubscribedPage() {
     extractImageUrl: null,
     videoUrl: null
   });
+  const [viewer, setViewer] = useState<{
+    type: "image" | "video";
+    title: string;
+    src: string;
+    seekSeconds?: number | null;
+  } | null>(null);
   const [artifactsLoading, setArtifactsLoading] = useState(false);
   const artifactUrlsRef = useRef<ArtifactUrls>({
     loginImageUrl: null,
@@ -68,6 +74,7 @@ export default function SubscribedPage() {
     videoUrl: null
   });
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const viewerVideoRef = useRef<HTMLVideoElement | null>(null);
 
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(total / PAGE_SIZE)),
@@ -359,6 +366,26 @@ export default function SubscribedPage() {
     videoRef.current.currentTime = safeSeek;
   };
 
+  useEffect(() => {
+    if (!viewer) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setViewer(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [viewer]);
+
+  const handleViewerVideoLoadedMetadata = () => {
+    const seekSeconds = viewer?.seekSeconds;
+    if (!viewerVideoRef.current || seekSeconds === null || seekSeconds === undefined) return;
+    if (typeof seekSeconds !== "number" || Number.isNaN(seekSeconds) || seekSeconds <= 0) return;
+
+    const duration = viewerVideoRef.current.duration;
+    const hasDuration = typeof duration === "number" && Number.isFinite(duration) && duration > 0;
+    const safeSeek = hasDuration ? Math.min(seekSeconds, Math.max(0, duration - 0.1)) : seekSeconds;
+    viewerVideoRef.current.currentTime = safeSeek;
+  };
+
   const handlePageJump = () => {
     const value = parseInt(pageInput, 10);
     if (Number.isNaN(value)) return;
@@ -372,10 +399,14 @@ export default function SubscribedPage() {
   };
 
   const handleRowClick = (item: SubscribedItem) => {
+    setViewer(null);
     setSelectedItem(item);
   };
 
-  const handleCloseModal = () => setSelectedItem(null);
+  const handleCloseModal = () => {
+    setViewer(null);
+    setSelectedItem(null);
+  };
 
   return (
     <DashboardShell
@@ -607,7 +638,7 @@ export default function SubscribedPage() {
             </div>
 
             <div className="px-6 pb-6">
-              <div className="mb-2 text-sm font-semibold text-slate-700">任务产物</div>
+              <div className="mb-2 text-sm font-semibold text-slate-700">中间产物</div>
               <div className="grid gap-4 lg:grid-cols-3">
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                   <div className="mb-3 flex items-center justify-between">
@@ -617,6 +648,7 @@ export default function SubscribedPage() {
                         className="text-xs font-medium text-emerald-600 hover:underline"
                         href={artifactUrls.loginImageUrl}
                         download={`task-${selectedItem.id}-login.png`}
+                        onClick={(e) => e.stopPropagation()}
                       >
                         下载
                       </a>
@@ -625,12 +657,26 @@ export default function SubscribedPage() {
                   {artifactsLoading ? (
                     <div className="w-full aspect-[16/10] animate-pulse rounded-xl bg-slate-100" />
                   ) : artifactUrls.loginImageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={artifactUrls.loginImageUrl}
-                      alt="登录截图"
-                      className="w-full aspect-[16/10] rounded-xl border border-slate-200 object-contain bg-slate-50"
-                    />
+                    <button
+                      type="button"
+                      className="group block w-full"
+                      onClick={() => {
+                        const src = artifactUrls.loginImageUrl;
+                        if (!src) return;
+                        setViewer({
+                          type: "image",
+                          title: "登录截图",
+                          src
+                        });
+                      }}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={artifactUrls.loginImageUrl}
+                        alt="登录截图"
+                        className="w-full aspect-[16/10] rounded-xl border border-slate-200 object-contain bg-slate-50 cursor-zoom-in group-hover:shadow-sm"
+                      />
+                    </button>
                   ) : (
                     <div className="flex w-full aspect-[16/10] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400">
                       不存在
@@ -646,6 +692,7 @@ export default function SubscribedPage() {
                         className="text-xs font-medium text-emerald-600 hover:underline"
                         href={artifactUrls.extractImageUrl}
                         download={`task-${selectedItem.id}-extract.png`}
+                        onClick={(e) => e.stopPropagation()}
                       >
                         下载
                       </a>
@@ -654,12 +701,26 @@ export default function SubscribedPage() {
                   {artifactsLoading ? (
                     <div className="w-full aspect-[16/10] animate-pulse rounded-xl bg-slate-100" />
                   ) : artifactUrls.extractImageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={artifactUrls.extractImageUrl}
-                      alt="提取截图"
-                      className="w-full aspect-[16/10] rounded-xl border border-slate-200 object-contain bg-slate-50"
-                    />
+                    <button
+                      type="button"
+                      className="group block w-full"
+                      onClick={() => {
+                        const src = artifactUrls.extractImageUrl;
+                        if (!src) return;
+                        setViewer({
+                          type: "image",
+                          title: "提取截图",
+                          src
+                        });
+                      }}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={artifactUrls.extractImageUrl}
+                        alt="提取截图"
+                        className="w-full aspect-[16/10] rounded-xl border border-slate-200 object-contain bg-slate-50 cursor-zoom-in group-hover:shadow-sm"
+                      />
+                    </button>
                   ) : (
                     <div className="flex w-full aspect-[16/10] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400">
                       不存在
@@ -682,6 +743,7 @@ export default function SubscribedPage() {
                         className="text-xs font-medium text-emerald-600 hover:underline"
                         href={artifactUrls.videoUrl}
                         download={`task-${selectedItem.id}.webm`}
+                        onClick={(e) => e.stopPropagation()}
                       >
                         下载
                       </a>
@@ -690,14 +752,31 @@ export default function SubscribedPage() {
                   {artifactsLoading ? (
                     <div className="w-full aspect-[16/10] animate-pulse rounded-xl bg-slate-100" />
                   ) : artifactUrls.videoUrl ? (
-                    <video
-                      ref={videoRef}
-                      className="w-full aspect-[16/10] rounded-xl border border-slate-200 bg-black object-cover"
-                      controls
-                      preload="metadata"
-                      src={artifactUrls.videoUrl}
-                      onLoadedMetadata={handleVideoLoadedMetadata}
-                    />
+                    <button
+                      type="button"
+                      className="group block w-full"
+                      onClick={() => {
+                        const src = artifactUrls.videoUrl;
+                        if (!src) return;
+                        setViewer({
+                          type: "video",
+                          title: "操作视频",
+                          src,
+                          seekSeconds: artifacts?.video_seek_seconds ?? null
+                        });
+                      }}
+                    >
+                      <video
+                        ref={videoRef}
+                        className="w-full aspect-[16/10] rounded-xl border border-slate-200 bg-black object-cover cursor-pointer group-hover:shadow-sm"
+                        controls={false}
+                        muted
+                        playsInline
+                        preload="metadata"
+                        src={artifactUrls.videoUrl}
+                        onLoadedMetadata={handleVideoLoadedMetadata}
+                      />
+                    </button>
                   ) : (
                     <div className="flex w-full aspect-[16/10] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400">
                       不存在
@@ -705,6 +784,48 @@ export default function SubscribedPage() {
                   )}
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {viewer && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4"
+          onClick={() => setViewer(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${viewer.title}预览`}
+        >
+          <div
+            className="w-full max-w-6xl rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+              <div className="text-sm font-semibold text-slate-900">{viewer.title}</div>
+              <Button variant="outline" size="sm" onClick={() => setViewer(null)}>
+                关闭
+              </Button>
+            </div>
+            <div className="p-4">
+              {viewer.type === "image" ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={viewer.src}
+                  alt={viewer.title}
+                  className="max-h-[80vh] w-full rounded-xl bg-black object-contain"
+                />
+              ) : (
+                <video
+                  ref={viewerVideoRef}
+                  className="max-h-[80vh] w-full rounded-xl bg-black object-contain"
+                  controls
+                  autoPlay
+                  preload="metadata"
+                  src={viewer.src}
+                  onLoadedMetadata={handleViewerVideoLoadedMetadata}
+                />
+              )}
             </div>
           </div>
         </div>
