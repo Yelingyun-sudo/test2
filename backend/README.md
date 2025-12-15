@@ -23,6 +23,22 @@ uv pip install -e .         # 或 pip install -e .
 - FastAPI：`uvicorn app.main:app --reload --app-dir api`
 - 健康检查：`GET http://127.0.0.1:8000/api/health`
 
+## 生产环境（Linux）Playwright 中文字体
+如果生产环境跑 Playwright/Chromium 时页面中文变成 `□□□`（方块），通常是因为系统缺少 CJK 字体。
+
+检查字体（Ubuntu）：
+```bash
+fc-match 'sans:lang=zh-cn'
+fc-list | rg -i 'noto|cjk|wqy|yahei' || fc-list | grep -Ei 'noto|cjk|wqy|yahei'
+```
+
+安装字体（Ubuntu）：
+```bash
+sudo apt-get update
+sudo apt-get install -y --no-install-recommends fontconfig fonts-noto-cjk fonts-noto-color-emoji
+sudo fc-cache -f -v
+```
+
 ## API 模块（FastAPI）
 - 入口与配置：`api/app/main.py` 挂载路由/CORS，配置统一复用 `website_analytics.settings`（pydantic-settings，默认读取 `backend/.env`）。
 - 路由与模型：`api/app/routers/`（health、auth 示例）与 `api/app/schemas/`。
