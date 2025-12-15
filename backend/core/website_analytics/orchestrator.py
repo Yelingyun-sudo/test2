@@ -246,6 +246,22 @@ async def execute(
             success = False
             exit_code = 1
 
+        operations_results = coordinator_output.get("operations_results")
+        if isinstance(operations_results, dict):
+            login_result = operations_results.get("login")
+            if isinstance(login_result, dict):
+                login_result["last_capture_path"] = (
+                    _find_last_capture_relative_path_for_agent(working_dir, "loginAgent")
+                )
+
+            extract_result = operations_results.get("extract")
+            if isinstance(extract_result, dict):
+                extract_result["last_capture_path"] = (
+                    _find_last_capture_relative_path_for_agent(
+                        working_dir, "extractAgent"
+                    )
+                )
+
         coordinator_output["last_capture_path"] = _find_last_capture_relative_path(
             working_dir
         )
@@ -282,6 +298,21 @@ async def execute(
             "operations_executed": [],
             "operations_results": {},
         }
+        operations_results = coordinator_output.get("operations_results")
+        if isinstance(operations_results, dict):
+            login_result = operations_results.get("login")
+            if isinstance(login_result, dict):
+                login_result["last_capture_path"] = (
+                    _find_last_capture_relative_path_for_agent(working_dir, "loginAgent")
+                )
+
+            extract_result = operations_results.get("extract")
+            if isinstance(extract_result, dict):
+                extract_result["last_capture_path"] = (
+                    _find_last_capture_relative_path_for_agent(
+                        working_dir, "extractAgent"
+                    )
+                )
         coordinator_output["last_capture_path"] = _find_last_capture_relative_path(
             working_dir
         )
@@ -316,6 +347,34 @@ def _find_last_capture_relative_path(task_dir: Path) -> str | None:
         return None
 
     candidates = list(captures_dir.glob("*.png"))
+    if not candidates:
+        return None
+
+    def sort_key(path: Path) -> tuple[int, int, str]:
+        match = _CAPTURE_PREFIX_RE.match(path.name)
+        if not match:
+            return (0, -1, path.name)
+        return (1, int(match.group("seq")), path.name)
+
+    best = max(candidates, key=sort_key)
+    try:
+        return best.relative_to(task_dir).as_posix()
+    except ValueError:
+        return str(best)
+
+
+def _find_last_capture_relative_path_for_agent(
+    task_dir: Path, agent_name: str
+) -> str | None:
+    """返回指定 agent 的最后一次 capture 相对路径（例如 captures/006-loginAgent_xxx.png）。"""
+    captures_dir = task_dir / "captures"
+    if not captures_dir.is_dir():
+        return None
+
+    needle = f"-{agent_name}_"
+    candidates = [
+        path for path in captures_dir.glob("*.png") if needle in path.name
+    ]
     if not candidates:
         return None
 
