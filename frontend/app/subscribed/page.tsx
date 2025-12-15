@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, Play, RotateCcw, Search } from "lucide-react";
+import { Loader2, Pause, Play, RotateCcw, Search } from "lucide-react";
 
 import { DashboardShell } from "@/components/dashboard/shell";
 import { Button } from "@/components/ui/button";
@@ -70,6 +70,12 @@ export default function SubscribedPage() {
   const [viewerVideoState, setViewerVideoState] = useState({
     paused: true,
     ended: false
+  });
+  const [viewerPlayback, setViewerPlayback] = useState({
+    duration: 0,
+    currentTime: 0,
+    dragging: false,
+    dragValue: 0
   });
   const [artifactsLoading, setArtifactsLoading] = useState(false);
   const artifactUrlsRef = useRef<ArtifactUrls>({
@@ -382,23 +388,47 @@ export default function SubscribedPage() {
   useEffect(() => {
     if (!viewer || viewer.type !== "video") return;
     setViewerVideoState({ paused: true, ended: false });
+    setViewerPlayback({
+      duration: 0,
+      currentTime: 0,
+      dragging: false,
+      dragValue: 0
+    });
   }, [viewer]);
+
+  const getViewerBaselineSeconds = () => {
+    const raw = viewer?.seekSeconds;
+    if (typeof raw !== "number" || Number.isNaN(raw) || raw <= 0) return 0;
+    return raw;
+  };
 
   const handleViewerVideoLoadedMetadata = () => {
     const seekSeconds = viewer?.seekSeconds;
-    if (!viewerVideoRef.current || seekSeconds === null || seekSeconds === undefined) return;
-    if (typeof seekSeconds !== "number" || Number.isNaN(seekSeconds) || seekSeconds <= 0) return;
+    if (!viewerVideoRef.current) return;
 
     const duration = viewerVideoRef.current.duration;
     const hasDuration = typeof duration === "number" && Number.isFinite(duration) && duration > 0;
-    const safeSeek = hasDuration ? Math.min(seekSeconds, Math.max(0, duration - 0.1)) : seekSeconds;
-    viewerVideoRef.current.currentTime = safeSeek;
+    const baseline = getViewerBaselineSeconds();
+    const safeBaseline = hasDuration ? Math.min(baseline, Math.max(0, duration - 0.1)) : baseline;
+    const safeSeek = safeBaseline;
+    if (safeSeek > 0) viewerVideoRef.current.currentTime = safeSeek;
     viewerVideoRef.current.defaultPlaybackRate = 3;
     viewerVideoRef.current.playbackRate = 3;
+
+    setViewerPlayback((prev) => ({
+      ...prev,
+      duration: hasDuration ? duration : 0,
+      currentTime: viewerVideoRef.current?.currentTime ?? 0,
+      dragValue: 0
+    }));
   };
 
   const handleViewerPlayOverlayClick = async () => {
     if (!viewerVideoRef.current) return;
+    const baseline = getViewerBaselineSeconds();
+    if (baseline > 0 && viewerVideoRef.current.currentTime < baseline) {
+      viewerVideoRef.current.currentTime = baseline;
+    }
     if (viewerVideoState.ended) {
       const seekSeconds = viewer?.seekSeconds;
       const duration = viewerVideoRef.current.duration;
@@ -419,6 +449,71 @@ export default function SubscribedPage() {
     } catch (error) {
       console.error(error);
     }
+  };
+
+  const handleViewerTimeUpdate = () => {
+    if (!viewerVideoRef.current) return;
+    setViewerPlayback((prev) => {
+      if (prev.dragging) return prev;
+      return { ...prev, currentTime: viewerVideoRef.current?.currentTime ?? 0 };
+    });
+  };
+
+  const handleViewerTogglePlay = async () => {
+    if (!viewerVideoRef.current) return;
+    const baseline = getViewerBaselineSeconds();
+    if (baseline > 0 && viewerVideoRef.current.currentTime < baseline) {
+      viewerVideoRef.current.currentTime = baseline;
+    }
+    if (viewerVideoState.ended) {
+      viewerVideoRef.current.currentTime = baseline;
+    }
+    viewerVideoRef.current.defaultPlaybackRate = 3;
+    viewerVideoRef.current.playbackRate = 3;
+    if (viewerVideoState.paused || viewerVideoState.ended) {
+      try {
+        await viewerVideoRef.current.play();
+      } catch (error) {
+        console.error(error);
+      }
+    } else {
+      viewerVideoRef.current.pause();
+    }
+  };
+
+  const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+  const handleViewerSeekStart = () => {
+    const baseline = getViewerBaselineSeconds();
+    setViewerPlayback((prev) => {
+      const visibleDuration = Math.max(prev.duration - baseline, 0);
+      const currentDisplay = clamp(prev.currentTime - baseline, 0, visibleDuration);
+      return { ...prev, dragging: true, dragValue: currentDisplay };
+    });
+  };
+
+  const handleViewerSeekChange = (value: number) => {
+    setViewerPlayback((prev) => ({ ...prev, dragValue: value }));
+  };
+
+  const handleViewerSeekEnd = () => {
+    const baseline = getViewerBaselineSeconds();
+    if (!viewerVideoRef.current) return;
+    setViewerPlayback((prev) => {
+      const visibleDuration = Math.max(prev.duration - baseline, 0);
+      const displayValue = clamp(prev.dragValue, 0, visibleDuration);
+      const target = baseline + displayValue;
+      viewerVideoRef.current!.currentTime = target;
+      return { ...prev, dragging: false, currentTime: target, dragValue: displayValue };
+    });
+  };
+
+  const formatClock = (seconds: number) => {
+    const safe = Number.isFinite(seconds) && seconds > 0 ? seconds : 0;
+    const whole = Math.floor(safe);
+    const minutes = Math.floor(whole / 60);
+    const remainder = whole % 60;
+    return `${String(minutes).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`;
   };
 
   const handlePageJump = () => {
@@ -861,7 +956,7 @@ export default function SubscribedPage() {
                   <video
                     ref={viewerVideoRef}
                     className="max-h-[80vh] w-full rounded-xl bg-black object-contain"
-                    controls
+                    controls={false}
                     autoPlay
                     preload="metadata"
                     src={viewer.src}
@@ -875,6 +970,7 @@ export default function SubscribedPage() {
                     }}
                     onPause={() => setViewerVideoState((prev) => ({ ...prev, paused: true }))}
                     onEnded={() => setViewerVideoState({ paused: true, ended: true })}
+                    onTimeUpdate={handleViewerTimeUpdate}
                   />
                   {(viewerVideoState.paused || viewerVideoState.ended) && (
                     <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -892,6 +988,53 @@ export default function SubscribedPage() {
                       </button>
                     </div>
                   )}
+
+                  {(() => {
+                    const baseline = getViewerBaselineSeconds();
+                    const visibleDuration = Math.max(viewerPlayback.duration - baseline, 0);
+                    const displayCurrent = viewerPlayback.dragging
+                      ? viewerPlayback.dragValue
+                      : clamp(viewerPlayback.currentTime - baseline, 0, visibleDuration);
+                    const disabled = !Number.isFinite(visibleDuration) || visibleDuration <= 0;
+
+                    return (
+                      <div className="mt-3 flex items-center gap-3 rounded-xl border border-slate-200 bg-white/90 px-3 py-2">
+                        <button
+                          type="button"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                          onClick={handleViewerTogglePlay}
+                          aria-label={viewerVideoState.ended ? "重播" : viewerVideoState.paused ? "播放" : "暂停"}
+                        >
+                          {viewerVideoState.ended ? (
+                            <RotateCcw className="h-4 w-4" />
+                          ) : viewerVideoState.paused ? (
+                            <Play className="h-4 w-4 translate-x-[1px]" />
+                          ) : (
+                            <Pause className="h-4 w-4" />
+                          )}
+                        </button>
+
+                        <input
+                          type="range"
+                          min={0}
+                          max={visibleDuration}
+                          step={0.1}
+                          value={disabled ? 0 : displayCurrent}
+                          disabled={disabled}
+                          className="flex-1"
+                          onPointerDown={handleViewerSeekStart}
+                          onPointerUp={handleViewerSeekEnd}
+                          onPointerCancel={handleViewerSeekEnd}
+                          onChange={(e) => handleViewerSeekChange(Number(e.target.value))}
+                        />
+
+                        <div className="whitespace-nowrap text-xs tabular-nums text-slate-600">
+                          {formatClock(displayCurrent)} / {formatClock(visibleDuration)}
+                          <span className="ml-2 text-slate-500">3x</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>
