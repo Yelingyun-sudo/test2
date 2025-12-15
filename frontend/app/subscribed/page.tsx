@@ -593,7 +593,7 @@ export default function SubscribedPage() {
                 <div className="truncate pr-4" title={item.executed_at || undefined}>
                   {formatDateTime(item.executed_at)}
                 </div>
-                <div className="truncate pr-4">{item.duration_seconds}</div>
+                <div className="truncate pr-4">{formatDurationSeconds(item.duration_seconds)}</div>
                 <div className="truncate" title={item.result || undefined}>
                   {item.result || "-"}
                 </div>
@@ -718,7 +718,7 @@ export default function SubscribedPage() {
               </div>
               <div className="space-y-1">
                 <div className="text-slate-500">任务时长 (s)</div>
-                <div className="font-medium">{selectedItem.duration_seconds}</div>
+                <div className="font-medium">{formatDurationSeconds(selectedItem.duration_seconds)}</div>
               </div>
             </div>
 
