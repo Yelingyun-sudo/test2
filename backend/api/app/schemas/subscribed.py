@@ -23,3 +23,11 @@ class SubscribedListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class SubscribedArtifactsResponse(BaseModel):
+    status: str = Field(..., description="任务状态")
+    login_image_path: str | None = Field(None, description="登录截图相对路径")
+    extract_image_path: str | None = Field(None, description="提取截图相对路径")
+    video_path: str | None = Field(None, description="视频相对路径")
+    video_seek_seconds: float | None = Field(None, description="视频建议 seek 秒数")

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, Search } from "lucide-react";
 
 import { DashboardShell } from "@/components/dashboard/shell";
@@ -23,6 +23,20 @@ type SubscribedItem = {
   result?: string | null;
 };
 
+type TaskArtifacts = {
+  status: string;
+  login_image_path: string | null;
+  extract_image_path: string | null;
+  video_path: string | null;
+  video_seek_seconds: number | null;
+};
+
+type ArtifactUrls = {
+  loginImageUrl: string | null;
+  extractImageUrl: string | null;
+  videoUrl: string | null;
+};
+
 type SubscribedListResponse = {
   items: SubscribedItem[];
   total: number;
@@ -41,6 +55,19 @@ export default function SubscribedPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [loading, setLoading] = useState(false);
   const [selectedItem, setSelectedItem] = useState<SubscribedItem | null>(null);
+  const [artifacts, setArtifacts] = useState<TaskArtifacts | null>(null);
+  const [artifactUrls, setArtifactUrls] = useState<ArtifactUrls>({
+    loginImageUrl: null,
+    extractImageUrl: null,
+    videoUrl: null
+  });
+  const [artifactsLoading, setArtifactsLoading] = useState(false);
+  const artifactUrlsRef = useRef<ArtifactUrls>({
+    loginImageUrl: null,
+    extractImageUrl: null,
+    videoUrl: null
+  });
+  const videoRef = useRef<HTMLVideoElement | null>(null);
 
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(total / PAGE_SIZE)),
@@ -218,6 +245,118 @@ export default function SubscribedPage() {
 
   const handlePageChange = (nextPage: number) => {
     fetchData({ page: nextPage });
+  };
+
+  const revokeArtifactUrls = useCallback((urls: ArtifactUrls) => {
+    for (const value of Object.values(urls)) {
+      if (value) URL.revokeObjectURL(value);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!selectedItem) {
+      revokeArtifactUrls(artifactUrlsRef.current);
+      artifactUrlsRef.current = {
+        loginImageUrl: null,
+        extractImageUrl: null,
+        videoUrl: null
+      };
+      setArtifactUrls(artifactUrlsRef.current);
+      setArtifacts(null);
+      setArtifactsLoading(false);
+      return;
+    }
+
+    revokeArtifactUrls(artifactUrlsRef.current);
+    artifactUrlsRef.current = {
+      loginImageUrl: null,
+      extractImageUrl: null,
+      videoUrl: null
+    };
+    setArtifactUrls(artifactUrlsRef.current);
+    setArtifacts(null);
+
+    const status = (selectedItem.status || "").toLowerCase();
+    if (status === "pending" || status === "running") {
+      setArtifacts({
+        status,
+        login_image_path: null,
+        extract_image_path: null,
+        video_path: null,
+        video_seek_seconds: null
+      });
+      return;
+    }
+
+    const controller = new AbortController();
+    let cancelled = false;
+
+    const fetchBlobUrl = async (path: string | null): Promise<string | null> => {
+      if (!path) return null;
+      const res = await apiFetch(
+        `/subscribed/${selectedItem.id}/artifact?path=${encodeURIComponent(path)}`,
+        { signal: controller.signal }
+      );
+      if (!res.ok) return null;
+      const blob = await res.blob();
+      return URL.createObjectURL(blob);
+    };
+
+    const load = async () => {
+      setArtifactsLoading(true);
+      try {
+        const res = await apiFetch(`/subscribed/${selectedItem.id}/artifacts`, {
+          signal: controller.signal
+        });
+        if (!res.ok) throw new Error("加载任务产物失败");
+        const payload = (await res.json()) as TaskArtifacts;
+        if (cancelled) return;
+        setArtifacts(payload);
+
+        const [loginImageUrl, extractImageUrl, videoUrl] = await Promise.all([
+          fetchBlobUrl(payload.login_image_path),
+          fetchBlobUrl(payload.extract_image_path),
+          fetchBlobUrl(payload.video_path)
+        ]);
+
+        if (cancelled) {
+          revokeArtifactUrls({ loginImageUrl, extractImageUrl, videoUrl });
+          return;
+        }
+
+        artifactUrlsRef.current = { loginImageUrl, extractImageUrl, videoUrl };
+        setArtifactUrls(artifactUrlsRef.current);
+      } finally {
+        if (!cancelled) setArtifactsLoading(false);
+      }
+    };
+
+    load().catch((error) => {
+      console.error(error);
+      if (!cancelled) setArtifactsLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+      revokeArtifactUrls(artifactUrlsRef.current);
+      artifactUrlsRef.current = {
+        loginImageUrl: null,
+        extractImageUrl: null,
+        videoUrl: null
+      };
+    };
+  }, [revokeArtifactUrls, selectedItem]);
+
+  const handleVideoLoadedMetadata = () => {
+    const seekSeconds = artifacts?.video_seek_seconds;
+    if (!videoRef.current || seekSeconds === null || seekSeconds === undefined) return;
+    if (typeof seekSeconds !== "number" || Number.isNaN(seekSeconds) || seekSeconds <= 0) return;
+
+    const duration = videoRef.current.duration;
+    const hasDuration = typeof duration === "number" && Number.isFinite(duration) && duration > 0;
+    const safeSeek = hasDuration ? Math.min(seekSeconds, Math.max(0, duration - 0.1)) : seekSeconds;
+    videoRef.current.currentTime = safeSeek;
   };
 
   const handlePageJump = () => {
@@ -406,7 +545,7 @@ export default function SubscribedPage() {
           onClick={handleCloseModal}
         >
           <div
-            className="relative w-full max-w-4xl rounded-2xl bg-white shadow-2xl"
+            className="relative w-full max-w-6xl rounded-2xl bg-white shadow-2xl"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
@@ -459,12 +598,113 @@ export default function SubscribedPage() {
 
             <div className="px-6 pb-6">
               <div className="mb-2 text-sm font-semibold text-slate-700">任务结果</div>
-              <textarea
+              <Input
                 readOnly
-                value={selectedItem.result ?? ""}
+                value={(selectedItem.result ?? "").replace(/\s+/g, " ").trim()}
                 placeholder="暂无结果"
-                className="h-64 w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-mono text-sm leading-relaxed text-slate-800 shadow-inner focus:outline-none"
+                className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-mono text-sm text-slate-800 shadow-inner focus:outline-none"
               />
+            </div>
+
+            <div className="px-6 pb-6">
+              <div className="mb-2 text-sm font-semibold text-slate-700">任务产物</div>
+              <div className="grid gap-4 lg:grid-cols-3">
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="mb-3 flex items-center justify-between">
+                    <div className="text-sm font-semibold text-slate-800">登录截图</div>
+                    {artifactUrls.loginImageUrl ? (
+                      <a
+                        className="text-xs font-medium text-emerald-600 hover:underline"
+                        href={artifactUrls.loginImageUrl}
+                        download={`task-${selectedItem.id}-login.png`}
+                      >
+                        下载
+                      </a>
+                    ) : null}
+                  </div>
+                  {artifactsLoading ? (
+                    <div className="w-full aspect-[16/10] animate-pulse rounded-xl bg-slate-100" />
+                  ) : artifactUrls.loginImageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={artifactUrls.loginImageUrl}
+                      alt="登录截图"
+                      className="w-full aspect-[16/10] rounded-xl border border-slate-200 object-contain bg-slate-50"
+                    />
+                  ) : (
+                    <div className="flex w-full aspect-[16/10] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400">
+                      不存在
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="mb-3 flex items-center justify-between">
+                    <div className="text-sm font-semibold text-slate-800">提取截图</div>
+                    {artifactUrls.extractImageUrl ? (
+                      <a
+                        className="text-xs font-medium text-emerald-600 hover:underline"
+                        href={artifactUrls.extractImageUrl}
+                        download={`task-${selectedItem.id}-extract.png`}
+                      >
+                        下载
+                      </a>
+                    ) : null}
+                  </div>
+                  {artifactsLoading ? (
+                    <div className="w-full aspect-[16/10] animate-pulse rounded-xl bg-slate-100" />
+                  ) : artifactUrls.extractImageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={artifactUrls.extractImageUrl}
+                      alt="提取截图"
+                      className="w-full aspect-[16/10] rounded-xl border border-slate-200 object-contain bg-slate-50"
+                    />
+                  ) : (
+                    <div className="flex w-full aspect-[16/10] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400">
+                      不存在
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="mb-3 flex items-center justify-between">
+                    <div className="flex items-baseline gap-2">
+                      <div className="text-sm font-semibold text-slate-800">操作视频</div>
+                      {artifacts?.video_seek_seconds ? (
+                        <div className="text-xs text-slate-500">
+                          建议从 {artifacts.video_seek_seconds}s 开始播放
+                        </div>
+                      ) : null}
+                    </div>
+                    {artifactUrls.videoUrl ? (
+                      <a
+                        className="text-xs font-medium text-emerald-600 hover:underline"
+                        href={artifactUrls.videoUrl}
+                        download={`task-${selectedItem.id}.webm`}
+                      >
+                        下载
+                      </a>
+                    ) : null}
+                  </div>
+                  {artifactsLoading ? (
+                    <div className="w-full aspect-[16/10] animate-pulse rounded-xl bg-slate-100" />
+                  ) : artifactUrls.videoUrl ? (
+                    <video
+                      ref={videoRef}
+                      className="w-full aspect-[16/10] rounded-xl border border-slate-200 bg-black object-cover"
+                      controls
+                      preload="metadata"
+                      src={artifactUrls.videoUrl}
+                      onLoadedMetadata={handleVideoLoadedMetadata}
+                    />
+                  ) : (
+                    <div className="flex w-full aspect-[16/10] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400">
+                      不存在
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
