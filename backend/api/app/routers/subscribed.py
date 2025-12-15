@@ -1,14 +1,18 @@
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 from datetime import timedelta, timezone
 from pathlib import Path
 from typing import List
+from zipfile import ZIP_DEFLATED, ZipFile
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
+from starlette.background import BackgroundTask
 
 from ..db import get_db
 from ..models import SubscribedTask, TaskStatus
@@ -17,7 +21,7 @@ from ..schemas.subscribed import (
     SubscribedItem,
     SubscribedListResponse,
 )
-from website_analytics.utils import PROJECT_ROOT
+from website_analytics.utils import LOGS_DIR, PROJECT_ROOT
 
 router = APIRouter(
     prefix="/subscribed",
@@ -207,3 +211,87 @@ def get_task_artifact(
         media_type = "video/webm"
 
     return FileResponse(target, media_type=media_type)
+
+
+def _cleanup_file(path: str) -> None:
+    try:
+        Path(path).unlink(missing_ok=True)
+    except Exception:
+        return
+
+
+def _create_task_dir_zip(task_dir_abs: Path) -> Path:
+    tmp = tempfile.NamedTemporaryFile(
+        prefix=f"{task_dir_abs.name}_",
+        suffix=".zip",
+        delete=False,
+    )
+    tmp_path = Path(tmp.name)
+    tmp.close()
+
+    try:
+        with ZipFile(tmp_path, "w", compression=ZIP_DEFLATED) as zf:
+            for root, dirs, files in os.walk(
+                task_dir_abs, topdown=True, followlinks=False
+            ):
+                root_path = Path(root)
+                rel_root = root_path.relative_to(task_dir_abs)
+
+                if rel_root.parts == ():
+                    dirs[:] = [d for d in dirs if d != "traces"]
+
+                dirs[:] = [d for d in dirs if not (root_path / d).is_symlink()]
+
+                for filename in files:
+                    file_path = root_path / filename
+                    if file_path.is_symlink():
+                        continue
+
+                    rel_file = file_path.relative_to(task_dir_abs)
+                    if rel_file.parts and rel_file.parts[0] == "traces":
+                        continue
+
+                    arcname = (Path(task_dir_abs.name) / rel_file).as_posix()
+                    zf.write(file_path, arcname)
+
+        return tmp_path
+    except Exception:
+        _cleanup_file(str(tmp_path))
+        raise
+
+
+@router.get(
+    "/{task_id}/task-dir.zip",
+    summary="打包下载任务目录（zip，不含 traces/）",
+)
+def download_task_dir_zip(
+    task_id: int,
+    db: Session = Depends(get_db),
+):
+    task = db.get(SubscribedTask, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+
+    if task.status in (TaskStatus.PENDING, TaskStatus.RUNNING):
+        raise HTTPException(status_code=409, detail="任务执行中，暂不支持下载")
+
+    if not task.task_dir:
+        raise HTTPException(status_code=404, detail="任务暂无日志目录")
+
+    task_dir_abs = _resolve_task_dir(task.task_dir)
+    if not task_dir_abs.exists() or not task_dir_abs.is_dir():
+        raise HTTPException(status_code=404, detail="任务目录不存在")
+
+    try:
+        task_dir_abs.relative_to(LOGS_DIR.resolve())
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="非法 task_dir") from exc
+
+    zip_path = _create_task_dir_zip(task_dir_abs)
+    filename = f"{task_dir_abs.name}.zip"
+    return FileResponse(
+        zip_path,
+        media_type="application/zip",
+        filename=filename,
+        background=BackgroundTask(_cleanup_file, str(zip_path)),
+    )

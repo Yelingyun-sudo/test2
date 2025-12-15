@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, Pause, Play, RotateCcw, Search } from "lucide-react";
+import { toast } from "sonner";
 
 import { DashboardShell } from "@/components/dashboard/shell";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ type SubscribedItem = {
   retry_count: number;
   history_extract_count: number;
   executed_at?: string | null;
+  task_dir?: string | null;
   result?: string | null;
 };
 
@@ -46,6 +48,23 @@ type SubscribedListResponse = {
 };
 
 const PAGE_SIZE = 15;
+
+function parseDownloadFilename(contentDisposition: string | null): string | null {
+  if (!contentDisposition) return null;
+
+  const utf8Match = /filename\*=UTF-8''([^;]+)/i.exec(contentDisposition);
+  if (utf8Match?.[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1]);
+    } catch {
+      return utf8Match[1];
+    }
+  }
+
+  const asciiMatch = /filename="?([^";]+)"?/i.exec(contentDisposition);
+  if (asciiMatch?.[1]) return asciiMatch[1];
+  return null;
+}
 
 export default function SubscribedPage() {
   const [data, setData] = useState<SubscribedItem[]>([]);
@@ -79,6 +98,7 @@ export default function SubscribedPage() {
     dragValue: 0
   });
   const [artifactsLoading, setArtifactsLoading] = useState(false);
+  const [taskZipDownloading, setTaskZipDownloading] = useState(false);
   const artifactUrlsRef = useRef<ArtifactUrls>({
     loginImageUrl: null,
     extractImageUrl: null,
@@ -340,6 +360,51 @@ export default function SubscribedPage() {
     const safeSeek = hasDuration ? Math.min(seekSeconds, Math.max(0, duration - 0.1)) : seekSeconds;
     videoRef.current.currentTime = safeSeek;
   };
+
+  const handleDownloadTaskZip = useCallback(async () => {
+    if (!selectedItem) return;
+
+    const status = (selectedItem.status || "").toLowerCase();
+    if (status === "pending" || status === "running") {
+      toast.error("任务执行中，暂不支持下载");
+      return;
+    }
+
+    setTaskZipDownloading(true);
+    try {
+      const res = await apiFetch(`/subscribed/${selectedItem.id}/task-dir.zip`);
+      if (!res.ok) {
+        if (res.status === 409) toast.error("任务执行中，暂不支持下载");
+        else if (res.status === 404) toast.error("暂无可下载日志");
+        else toast.error("下载失败");
+        return;
+      }
+
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const taskDirName = selectedItem.task_dir
+        ? selectedItem.task_dir.split("/").filter(Boolean).slice(-1)[0]
+        : null;
+      const fallbackFilename = taskDirName
+        ? `${taskDirName}.zip`
+        : `task-${selectedItem.id}.zip`;
+      const filename =
+        parseDownloadFilename(res.headers.get("content-disposition")) ?? fallbackFilename;
+
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = filename.toLowerCase().endsWith(".zip") ? filename : `${filename}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+    } catch (error) {
+      console.error(error);
+      toast.error("下载失败");
+    } finally {
+      setTaskZipDownloading(false);
+    }
+  }, [selectedItem]);
 
   useEffect(() => {
     if (!viewer) return;
@@ -687,7 +752,7 @@ export default function SubscribedPage() {
               </Button>
             </div>
 
-            <div className="grid gap-4 px-6 py-5 text-sm text-slate-700 sm:grid-cols-2">
+            <div className="grid gap-4 px-6 py-5 text-sm text-slate-700 sm:grid-cols-2 lg:grid-cols-3">
               <div className="space-y-1">
                 <div className="text-slate-500">网址</div>
                 <div className="break-all font-medium text-slate-800">{selectedItem.url}</div>
@@ -733,7 +798,31 @@ export default function SubscribedPage() {
             </div>
 
             <div className="px-6 pb-6">
-              <div className="mb-2 text-sm font-semibold text-slate-700">中间产物</div>
+              <div className="mb-2 flex items-center gap-2">
+                <div className="text-sm font-semibold text-slate-700">任务日志</div>
+                <button
+                  type="button"
+                  className={cn(
+                    "text-xs font-medium text-emerald-600 hover:underline",
+                    (taskZipDownloading ||
+                      ["pending", "running"].includes(
+                        (selectedItem.status || "").toLowerCase()
+                      )) &&
+                      "cursor-not-allowed text-slate-400 hover:no-underline"
+                  )}
+                  disabled={
+                    taskZipDownloading ||
+                    ["pending", "running"].includes((selectedItem.status || "").toLowerCase())
+                  }
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDownloadTaskZip();
+                  }}
+                  aria-label="下载zip"
+                >
+                  {taskZipDownloading ? "生成中..." : "下载zip"}
+                </button>
+              </div>
               <div className="grid gap-4 lg:grid-cols-3">
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                   <div className="mb-3 flex items-center justify-between">
