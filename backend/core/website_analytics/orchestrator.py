@@ -254,7 +254,11 @@ async def execute(
             login_result = operations_results.get("login")
             if isinstance(login_result, dict):
                 login_result["last_capture_path"] = (
-                    _find_last_capture_relative_path_for_agent(working_dir, "loginAgent")
+                    _find_last_capture_relative_path_for_agent(
+                        working_dir,
+                        "loginAgent",
+                        offset=1 if login_result.get("success") is True else 0,
+                    )
                 )
 
             extract_result = operations_results.get("extract")
@@ -311,7 +315,11 @@ async def execute(
             login_result = operations_results.get("login")
             if isinstance(login_result, dict):
                 login_result["last_capture_path"] = (
-                    _find_last_capture_relative_path_for_agent(working_dir, "loginAgent")
+                    _find_last_capture_relative_path_for_agent(
+                        working_dir,
+                        "loginAgent",
+                        offset=1 if login_result.get("success") is True else 0,
+                    )
                 )
 
             extract_result = operations_results.get("extract")
@@ -377,13 +385,18 @@ def _find_last_capture_relative_path(task_dir: Path) -> str | None:
 
 
 def _find_last_capture_relative_path_for_agent(
-    task_dir: Path, agent_name: str
+    task_dir: Path, agent_name: str, *, offset: int = 0
 ) -> str | None:
-    """返回指定 agent 的最后一次 capture 相对路径（例如 captures/006-loginAgent_xxx.png）。"""
+    """返回指定 agent 的 capture 相对路径（例如 captures/006-loginAgent_xxx.png）。
+
+    - offset=0: 最新一张
+    - offset=1: 倒数第二张（上一轮）
+    """
     captures_dir = task_dir / "captures"
     if not captures_dir.is_dir():
         return None
 
+    safe_offset = max(0, int(offset))
     needle = f"-{agent_name}_"
     candidates = [
         path for path in captures_dir.glob("*.png") if needle in path.name
@@ -397,7 +410,9 @@ def _find_last_capture_relative_path_for_agent(
             return (0, -1, path.name)
         return (1, int(match.group("seq")), path.name)
 
-    best = max(candidates, key=sort_key)
+    ordered = sorted(candidates, key=sort_key)
+    index = -(1 + safe_offset) if len(ordered) > safe_offset else -1
+    best = ordered[index]
     try:
         return best.relative_to(task_dir).as_posix()
     except ValueError:
