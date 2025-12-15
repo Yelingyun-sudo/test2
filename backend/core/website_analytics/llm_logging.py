@@ -5,6 +5,7 @@ import dataclasses
 import json
 import logging
 import re
+import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -43,10 +44,23 @@ class LLMTranscriptLoggerHooks(RunHooks[TContext]):
         self._capture_browser_state = capture_browser_state
         self._capture_full_page = capture_full_page
         self._playwright_server: Any | None = None
+        self._video_start_t: float | None = None
+        self._first_content_t: float | None = None
 
     def set_playwright_server(self, server: Any | None) -> None:
         """注入 Playwright MCP server，便于在每个回合捕获截图/DOM。"""
         self._playwright_server = server
+
+    def set_video_start_t(self, timestamp_seconds: float) -> None:
+        """记录录屏开始时间（使用 perf_counter 的秒值）。"""
+        if self._video_start_t is None:
+            self._video_start_t = float(timestamp_seconds)
+
+    def get_video_seek_seconds(self) -> float | None:
+        """返回建议 seek 的秒数（首次非 about:blank 页面出现时间 - 录屏开始时间）。"""
+        if self._video_start_t is None or self._first_content_t is None:
+            return None
+        return max(0.0, self._first_content_t - self._video_start_t)
 
     async def on_llm_start(
         self,
@@ -129,6 +143,10 @@ class LLMTranscriptLoggerHooks(RunHooks[TContext]):
             ]
             dom_text = "\n".join(text_blocks).strip()
             if dom_text:
+                if self._first_content_t is None:
+                    page_url = _extract_page_url(dom_text)
+                    if page_url and page_url != "about:blank":
+                        self._first_content_t = time.perf_counter()
                 await _write_text(dom_path, dom_text)
         except Exception as exc:  # noqa: BLE001 - 只记录，不影响主流程
             logging.getLogger(__name__).warning(
@@ -163,6 +181,17 @@ def _slugify(value: str) -> str:
 
 def _build_filename(metadata: _TurnMetadata, kind: str) -> str:
     return f"{metadata.global_sequence:03d}-{metadata.agent_slug}_turn_{metadata.turn:02d}_{kind}.md"
+
+
+_PAGE_URL_RE = re.compile(r"^- Page URL:\s*(?P<url>\S+)", re.MULTILINE)
+
+
+def _extract_page_url(dom_text: str) -> str | None:
+    match = _PAGE_URL_RE.search(dom_text)
+    if not match:
+        return None
+    url = match.group("url").strip()
+    return url or None
 
 
 def _render_markdown_request(

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import os
 import re
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -140,6 +141,8 @@ async def execute(
         ) as playwright_server:
             if hasattr(llm_hooks, "set_playwright_server"):
                 llm_hooks.set_playwright_server(playwright_server)
+            if hasattr(llm_hooks, "set_video_start_t"):
+                llm_hooks.set_video_start_t(time.perf_counter())
             inspect_entry_agent = build_inspect_entry_agent(
                 playwright_server,
                 load_instruction("inspect_entry_agent.md"),
@@ -266,6 +269,10 @@ async def execute(
             working_dir
         )
         coordinator_output["video_path"] = _find_last_video_relative_path(working_dir)
+        seek_seconds = getattr(llm_hooks, "get_video_seek_seconds", lambda: None)()
+        coordinator_output["video_seek_seconds"] = (
+            round(seek_seconds, 1) if seek_seconds is not None else None
+        )
 
         result = ExecutionResult(
             success=success,
@@ -318,6 +325,10 @@ async def execute(
             working_dir
         )
         coordinator_output["video_path"] = _find_last_video_relative_path(working_dir)
+        seek_seconds = getattr(llm_hooks, "get_video_seek_seconds", lambda: None)()
+        coordinator_output["video_seek_seconds"] = (
+            round(seek_seconds, 1) if seek_seconds is not None else None
+        )
         result = ExecutionResult(
             success=False,
             exit_code=2,
