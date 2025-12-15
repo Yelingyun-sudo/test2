@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, Search } from "lucide-react";
+import { Loader2, Play, Search } from "lucide-react";
 
 import { DashboardShell } from "@/components/dashboard/shell";
 import { Button } from "@/components/ui/button";
@@ -754,7 +754,7 @@ export default function SubscribedPage() {
                   ) : artifactUrls.videoUrl ? (
                     <button
                       type="button"
-                      className="group block w-full"
+                      className="group relative block w-full"
                       onClick={() => {
                         const src = artifactUrls.videoUrl;
                         if (!src) return;
@@ -765,10 +765,11 @@ export default function SubscribedPage() {
                           seekSeconds: artifacts?.video_seek_seconds ?? null
                         });
                       }}
+                      aria-label="播放操作视频"
                     >
                       <video
                         ref={videoRef}
-                        className="w-full aspect-[16/10] rounded-xl border border-slate-200 bg-black object-cover cursor-pointer group-hover:shadow-sm"
+                        className="w-full aspect-[16/10] rounded-xl border border-slate-200 bg-black object-cover cursor-pointer group-hover:shadow-sm group-hover:brightness-95"
                         controls={false}
                         muted
                         playsInline
@@ -776,6 +777,11 @@ export default function SubscribedPage() {
                         src={artifactUrls.videoUrl}
                         onLoadedMetadata={handleVideoLoadedMetadata}
                       />
+                      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                        <div className="flex h-14 w-14 items-center justify-center rounded-full border border-white/60 bg-black/40 backdrop-blur-sm transition group-hover:scale-105 group-hover:bg-black/55">
+                          <Play className="h-7 w-7 translate-x-[1px] text-white" fill="currentColor" />
+                        </div>
+                      </div>
                     </button>
                   ) : (
                     <div className="flex w-full aspect-[16/10] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400">
