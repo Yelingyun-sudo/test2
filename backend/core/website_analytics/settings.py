@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     openai_api_key: str | None = None
     openai_base_url: str | None = None
     agent_model: str = "gpt-5.1-codex-mini"
+    # 是否把 openai-agents 的详细调试输出直接打印到 stdout
+    # 开启后会看到类似 "Invoking MCP tool ..."、"Tracing is disabled..." 等大量日志
+    agents_verbose_stdout_logging: bool = False
 
     # Playwright / 代理
     playwright_proxy_server: str | None = None
