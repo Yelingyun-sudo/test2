@@ -60,9 +60,8 @@ function shellQuoteSingle(value: string): string {
 
 function buildReplayInstruction(item: SubscribedItem): string {
   const url = (item.url ?? "").trim();
-  // 注意：按需求交换字段映射（账号=密码字段，密码=用户名字段）
-  const account = (item.password ?? "").trim();
-  const password = (item.account ?? "").trim();
+  const account = (item.account ?? "").trim();
+  const password = (item.password ?? "").trim();
   return `登录 ${url}（账号和密码分别为 ${account} 和 ${password}）并提取订阅地址`;
 }
 
@@ -144,8 +143,8 @@ export default function SubscribedPage() {
     if (!selectedItem) return;
 
     const url = (selectedItem.url ?? "").trim();
-    const account = (selectedItem.password ?? "").trim();
-    const password = (selectedItem.account ?? "").trim();
+    const account = (selectedItem.account ?? "").trim();
+    const password = (selectedItem.password ?? "").trim();
     if (!url || !account || !password) {
       toast.error("缺少网址/用户名/密码，无法生成命令");
       return;
