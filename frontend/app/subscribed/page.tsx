@@ -43,7 +43,6 @@ type ArtifactUrls = {
 type MediaFlags = {
   login: boolean;
   extract: boolean;
-  video: boolean;
 };
 
 type SubscribedListResponse = {
@@ -99,7 +98,7 @@ export default function SubscribedPage() {
   const [viewer, setViewer] = useState<{
     type: "image" | "video";
     title: string;
-    src: string;
+    src: string | null;
     seekSeconds?: number | null;
   } | null>(null);
   const [viewerVideoState, setViewerVideoState] = useState({
@@ -116,21 +115,23 @@ export default function SubscribedPage() {
   const [taskZipDownloading, setTaskZipDownloading] = useState(false);
   const [mediaReady, setMediaReady] = useState<MediaFlags>({
     login: false,
-    extract: false,
-    video: false
+    extract: false
   });
   const [mediaError, setMediaError] = useState<MediaFlags>({
     login: false,
-    extract: false,
-    video: false
+    extract: false
   });
   const artifactUrlsRef = useRef<ArtifactUrls>({
     loginImageUrl: null,
     extractImageUrl: null,
     videoUrl: null
   });
-  const videoRef = useRef<HTMLVideoElement | null>(null);
   const viewerVideoRef = useRef<HTMLVideoElement | null>(null);
+  const artifactsControllerRef = useRef<AbortController | null>(null);
+  const selectedItemIdRef = useRef<number | null>(null);
+  const videoBlobPromiseRef = useRef<Promise<string | null> | null>(null);
+  const [videoBlobStatus, setVideoBlobStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [viewerVideoFetch, setViewerVideoFetch] = useState({ loading: false, error: false, ready: false });
 
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(total / PAGE_SIZE)),
@@ -280,6 +281,71 @@ export default function SubscribedPage() {
     }
   }, []);
 
+  const fetchArtifactBlobUrl = useCallback(
+    async (taskId: number, path: string | null, signal?: AbortSignal): Promise<string | null> => {
+      if (!path) return null;
+      const res = await apiFetch(
+        `/subscribed/${taskId}/artifact?path=${encodeURIComponent(path)}`,
+        signal ? { signal } : undefined
+      );
+      if (!res.ok) return null;
+      const blob = await res.blob();
+      return URL.createObjectURL(blob);
+    },
+    []
+  );
+
+  const ensureVideoBlobUrl = useCallback(
+    async (taskId: number, videoPath: string | null, signal?: AbortSignal): Promise<string | null> => {
+      if (!videoPath) return null;
+      const existing = artifactUrlsRef.current.videoUrl;
+      if (existing) {
+        setVideoBlobStatus("ready");
+        return existing;
+      }
+
+      if (videoBlobPromiseRef.current) return videoBlobPromiseRef.current;
+      setVideoBlobStatus("loading");
+
+      const promise = fetchArtifactBlobUrl(taskId, videoPath, signal)
+        .then((videoUrl) => {
+          if (!videoUrl) {
+            if (!signal?.aborted && selectedItemIdRef.current === taskId) setVideoBlobStatus("error");
+            return null;
+          }
+
+          if (signal?.aborted || selectedItemIdRef.current !== taskId) {
+            URL.revokeObjectURL(videoUrl);
+            return null;
+          }
+
+          const nextUrls: ArtifactUrls = { ...artifactUrlsRef.current, videoUrl };
+          artifactUrlsRef.current = nextUrls;
+          setArtifactUrls(nextUrls);
+          setVideoBlobStatus("ready");
+          return videoUrl;
+        })
+        .catch((error) => {
+          const err = error as { name?: string };
+          if (err?.name === "AbortError") return null;
+          console.error(error);
+          if (!signal?.aborted && selectedItemIdRef.current === taskId) setVideoBlobStatus("error");
+          return null;
+        })
+        .finally(() => {
+          if (videoBlobPromiseRef.current === promise) videoBlobPromiseRef.current = null;
+        });
+
+      videoBlobPromiseRef.current = promise;
+      return promise;
+    },
+    [fetchArtifactBlobUrl]
+  );
+
+  useEffect(() => {
+    selectedItemIdRef.current = selectedItem?.id ?? null;
+  }, [selectedItem]);
+
   useEffect(() => {
     if (!selectedItem) {
       revokeArtifactUrls(artifactUrlsRef.current);
@@ -291,6 +357,10 @@ export default function SubscribedPage() {
       setArtifactUrls(artifactUrlsRef.current);
       setArtifacts(null);
       setArtifactsLoading(false);
+      setVideoBlobStatus("idle");
+      videoBlobPromiseRef.current = null;
+      artifactsControllerRef.current?.abort();
+      artifactsControllerRef.current = null;
       return;
     }
 
@@ -302,6 +372,8 @@ export default function SubscribedPage() {
     };
     setArtifactUrls(artifactUrlsRef.current);
     setArtifacts(null);
+    setVideoBlobStatus("idle");
+    videoBlobPromiseRef.current = null;
 
     const status = (selectedItem.status || "").toLowerCase();
     if (status === "pending" || status === "running") {
@@ -316,18 +388,11 @@ export default function SubscribedPage() {
     }
 
     const controller = new AbortController();
+    artifactsControllerRef.current?.abort();
+    artifactsControllerRef.current = controller;
     let cancelled = false;
-
-    const fetchBlobUrl = async (path: string | null): Promise<string | null> => {
-      if (!path) return null;
-      const res = await apiFetch(
-        `/subscribed/${selectedItem.id}/artifact?path=${encodeURIComponent(path)}`,
-        { signal: controller.signal }
-      );
-      if (!res.ok) return null;
-      const blob = await res.blob();
-      return URL.createObjectURL(blob);
-    };
+    let prefetchIdleId: number | null = null;
+    let prefetchTimeoutId: number | null = null;
 
     const load = async () => {
       setArtifactsLoading(true);
@@ -340,21 +405,40 @@ export default function SubscribedPage() {
         if (cancelled) return;
         setArtifacts(payload);
 
-        const [loginImageUrl, extractImageUrl, videoUrl] = await Promise.all([
-          fetchBlobUrl(payload.login_image_path),
-          fetchBlobUrl(payload.extract_image_path),
-          fetchBlobUrl(payload.video_path)
+        const [loginImageUrl, extractImageUrl] = await Promise.all([
+          fetchArtifactBlobUrl(selectedItem.id, payload.login_image_path, controller.signal),
+          fetchArtifactBlobUrl(selectedItem.id, payload.extract_image_path, controller.signal)
         ]);
 
         if (cancelled) {
-          revokeArtifactUrls({ loginImageUrl, extractImageUrl, videoUrl });
+          revokeArtifactUrls({ loginImageUrl, extractImageUrl, videoUrl: null });
           return;
         }
 
-        setMediaReady({ login: false, extract: false, video: false });
-        setMediaError({ login: false, extract: false, video: false });
-        artifactUrlsRef.current = { loginImageUrl, extractImageUrl, videoUrl };
+        setMediaReady({ login: false, extract: false });
+        setMediaError({ login: false, extract: false });
+        artifactUrlsRef.current = { loginImageUrl, extractImageUrl, videoUrl: null };
         setArtifactUrls(artifactUrlsRef.current);
+
+        if (payload.video_path) {
+          const schedulePrefetch = () => {
+            if (cancelled) return;
+            void ensureVideoBlobUrl(selectedItem.id, payload.video_path, controller.signal);
+          };
+
+          if (typeof window !== "undefined") {
+            const win = window as unknown as {
+              requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+              cancelIdleCallback?: (id: number) => void;
+            };
+
+            if (win.requestIdleCallback) {
+              prefetchIdleId = win.requestIdleCallback(schedulePrefetch, { timeout: 1500 });
+            } else {
+              prefetchTimeoutId = window.setTimeout(schedulePrefetch, 500);
+            }
+          }
+        }
       } finally {
         if (!cancelled) setArtifactsLoading(false);
       }
@@ -368,31 +452,26 @@ export default function SubscribedPage() {
     return () => {
       cancelled = true;
       controller.abort();
+      if (typeof window !== "undefined") {
+        const win = window as unknown as { cancelIdleCallback?: (id: number) => void };
+        if (prefetchIdleId !== null && win.cancelIdleCallback) win.cancelIdleCallback(prefetchIdleId);
+        if (prefetchTimeoutId !== null) window.clearTimeout(prefetchTimeoutId);
+      }
       revokeArtifactUrls(artifactUrlsRef.current);
       artifactUrlsRef.current = {
         loginImageUrl: null,
         extractImageUrl: null,
         videoUrl: null
       };
+      artifactsControllerRef.current = null;
     };
-  }, [revokeArtifactUrls, selectedItem]);
+  }, [ensureVideoBlobUrl, fetchArtifactBlobUrl, revokeArtifactUrls, selectedItem]);
 
   useEffect(() => {
     if (!selectedItem) return;
-    setMediaReady({ login: false, extract: false, video: false });
-    setMediaError({ login: false, extract: false, video: false });
+    setMediaReady({ login: false, extract: false });
+    setMediaError({ login: false, extract: false });
   }, [selectedItem]);
-
-  const handleVideoLoadedMetadata = () => {
-    const seekSeconds = artifacts?.video_seek_seconds;
-    if (!videoRef.current || seekSeconds === null || seekSeconds === undefined) return;
-    if (typeof seekSeconds !== "number" || Number.isNaN(seekSeconds) || seekSeconds <= 0) return;
-
-    const duration = videoRef.current.duration;
-    const hasDuration = typeof duration === "number" && Number.isFinite(duration) && duration > 0;
-    const safeSeek = hasDuration ? Math.min(seekSeconds, Math.max(0, duration - 0.1)) : seekSeconds;
-    videoRef.current.currentTime = safeSeek;
-  };
 
   const handleDownloadTaskZip = useCallback(async () => {
     if (!selectedItem) return;
@@ -450,6 +529,7 @@ export default function SubscribedPage() {
 
   useEffect(() => {
     if (!viewer || viewer.type !== "video") return;
+    setViewerVideoFetch({ loading: false, error: false, ready: false });
     setViewerVideoState({ paused: true, ended: false });
     setViewerPlayback({
       duration: 0,
@@ -860,16 +940,6 @@ export default function SubscribedPage() {
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                   <div className="mb-3 flex items-center justify-between">
                     <div className="text-sm font-semibold text-slate-800">登录截图</div>
-                    {artifactUrls.loginImageUrl ? (
-                      <a
-                        className="text-xs font-medium text-emerald-600 hover:underline"
-                        href={artifactUrls.loginImageUrl}
-                        download={`task-${selectedItem.id}-login.png`}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        下载
-                      </a>
-                    ) : null}
                 </div>
                   {artifactsLoading ? (
                     <div className="relative w-full aspect-[16/10] overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
@@ -920,16 +990,6 @@ export default function SubscribedPage() {
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                   <div className="mb-3 flex items-center justify-between">
                     <div className="text-sm font-semibold text-slate-800">提取截图</div>
-                    {artifactUrls.extractImageUrl ? (
-                      <a
-                        className="text-xs font-medium text-emerald-600 hover:underline"
-                        href={artifactUrls.extractImageUrl}
-                        download={`task-${selectedItem.id}-extract.png`}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        下载
-                      </a>
-                    ) : null}
                 </div>
                   {artifactsLoading ? (
                     <div className="relative w-full aspect-[16/10] overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
@@ -987,68 +1047,75 @@ export default function SubscribedPage() {
                         </div>
                       ) : null}
                     </div>
-                    {artifactUrls.videoUrl ? (
-                      <a
-                        className="text-xs font-medium text-emerald-600 hover:underline"
-                        href={artifactUrls.videoUrl}
-                        download={`task-${selectedItem.id}.webm`}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        下载
-                      </a>
-                    ) : null}
                   </div>
-                  {artifactsLoading ? (
+                  {!artifacts && artifactsLoading ? (
                     <div className="relative w-full aspect-[16/10] overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
                       <div className="absolute inset-0 animate-pulse bg-slate-100/70" />
                       <MediaLoadingOverlay label="加载中..." />
                     </div>
-                  ) : artifactUrls.videoUrl ? (
+                  ) : artifacts?.video_path ? (
                     <button
                       type="button"
                       className="group relative block w-full"
-                      onClick={() => {
-                        const src = artifactUrls.videoUrl;
-                        if (!src) return;
+                      onClick={async () => {
+                        if (!selectedItem) return;
+                        const videoPath = artifacts?.video_path;
+                        if (!videoPath) return;
+
+                        const existing = artifactUrlsRef.current.videoUrl;
                         setViewer({
                           type: "video",
                           title: "操作视频",
-                          src,
+                          src: existing,
                           seekSeconds: artifacts?.video_seek_seconds ?? null
                         });
+
+                        if (existing) return;
+
+                        setViewerVideoFetch({ loading: true, error: false, ready: false });
+                        const videoUrl = await ensureVideoBlobUrl(
+                          selectedItem.id,
+                          videoPath,
+                          artifactsControllerRef.current?.signal
+                        );
+                        if (!videoUrl) {
+                          setViewerVideoFetch({ loading: false, error: true, ready: false });
+                          return;
+                        }
+                        setViewer((prev) =>
+                          prev && prev.type === "video"
+                            ? { ...prev, src: videoUrl }
+                            : prev
+                        );
                       }}
                       aria-label="播放操作视频"
                     >
-                      {!mediaReady.video && !mediaError.video ? (
-                        <MediaLoadingOverlay label="加载中..." />
-                      ) : null}
-                      {mediaError.video ? (
-                        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400">
-                          加载失败
+                      {artifactUrls.loginImageUrl && !mediaError.login ? (
+                        <>
+                          {!mediaReady.login ? <MediaLoadingOverlay label="加载中..." /> : null}
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={artifactUrls.loginImageUrl}
+                            alt="操作视频封面"
+                            className={cn(
+                              "w-full aspect-[16/10] rounded-xl border border-slate-200 object-contain bg-slate-50 transition-opacity",
+                              mediaReady.login && !mediaError.login ? "opacity-100" : "opacity-0"
+                            )}
+                            onLoad={() => setMediaReady((prev) => ({ ...prev, login: true }))}
+                            onError={() => setMediaError((prev) => ({ ...prev, login: true }))}
+                          />
+                        </>
+                      ) : (
+                        <div className="relative w-full aspect-[16/10] overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                          <div className="absolute inset-0 bg-slate-100/60" />
+                          {artifactsLoading ? <MediaLoadingOverlay label="加载中..." /> : null}
                         </div>
-                      ) : null}
-                      <video
-                        ref={videoRef}
-                        className={cn(
-                          "w-full aspect-[16/10] rounded-xl border border-slate-200 bg-black object-cover cursor-pointer group-hover:shadow-sm group-hover:brightness-95 transition-opacity",
-                          mediaReady.video && !mediaError.video ? "opacity-100" : "opacity-0"
-                        )}
-                        controls={false}
-                        muted
-                        playsInline
-                        preload="metadata"
-                        src={artifactUrls.videoUrl}
-                        onLoadedMetadata={handleVideoLoadedMetadata}
-                        onLoadedData={() => setMediaReady((prev) => ({ ...prev, video: true }))}
-                        onError={() => setMediaError((prev) => ({ ...prev, video: true }))}
-                      />
-                      {mediaReady.video && !mediaError.video ? (
-                        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center">
-                          <div className="flex h-14 w-14 items-center justify-center rounded-full border border-white/60 bg-black/40 backdrop-blur-sm transition group-hover:scale-105 group-hover:bg-black/55">
-                            <Play className="h-7 w-7 translate-x-[1px] text-white" fill="currentColor" />
-                          </div>
+                      )}
+                      <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center">
+                        <div className="flex h-14 w-14 items-center justify-center rounded-full border border-white/60 bg-black/40 backdrop-blur-sm transition group-hover:scale-105 group-hover:bg-black/55">
+                          <Play className="h-7 w-7 translate-x-[1px] text-white" fill="currentColor" />
                         </div>
-                      ) : null}
+                      </div>
                     </button>
                   ) : (
                     <div className="flex w-full aspect-[16/10] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400">
@@ -1084,32 +1151,52 @@ export default function SubscribedPage() {
               {viewer.type === "image" ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={viewer.src}
+                  src={viewer.src ?? ""}
                   alt={viewer.title}
                   className="max-h-[80vh] w-full rounded-xl bg-white object-contain"
                 />
               ) : (
-                <div className="relative">
-                  <video
-                    ref={viewerVideoRef}
-                    className="max-h-[80vh] w-full rounded-xl bg-black object-contain"
-                    controls={false}
-                    autoPlay
-                    preload="metadata"
-                    src={viewer.src}
-                    onLoadedMetadata={handleViewerVideoLoadedMetadata}
-                    onPlay={() => {
-                      if (viewerVideoRef.current) {
-                        viewerVideoRef.current.defaultPlaybackRate = 3;
-                        viewerVideoRef.current.playbackRate = 3;
-                      }
-                      setViewerVideoState({ paused: false, ended: false });
-                    }}
-                    onPause={() => setViewerVideoState((prev) => ({ ...prev, paused: true }))}
-                    onEnded={() => setViewerVideoState({ paused: true, ended: true })}
-                    onTimeUpdate={handleViewerTimeUpdate}
-                  />
-                  {(viewerVideoState.paused || viewerVideoState.ended) && (
+                  <div className="relative">
+                  <div className="relative max-h-[80vh] w-full overflow-hidden rounded-xl bg-black">
+                    {viewerVideoFetch.loading || (!viewerVideoFetch.ready && !viewerVideoFetch.error) ? (
+                      <div className="absolute inset-0 z-20">
+                        <MediaLoadingOverlay label={videoBlobStatus === "loading" ? "加载视频中..." : "加载中..."} />
+                      </div>
+                    ) : null}
+                    {viewerVideoFetch.error ? (
+                      <div className="absolute inset-0 z-20 flex items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400">
+                        加载失败
+                      </div>
+                    ) : null}
+                    {viewer.src ? (
+                      <video
+                        ref={viewerVideoRef}
+                        className="max-h-[80vh] w-full rounded-xl bg-black object-contain"
+                        controls={false}
+                        autoPlay
+                        preload="metadata"
+                        src={viewer.src}
+                        onLoadedMetadata={handleViewerVideoLoadedMetadata}
+                        onLoadedData={() =>
+                          setViewerVideoFetch((prev) => ({ ...prev, loading: false, error: false, ready: true }))
+                        }
+                        onError={() => setViewerVideoFetch({ loading: false, error: true, ready: false })}
+                        onPlay={() => {
+                          if (viewerVideoRef.current) {
+                            viewerVideoRef.current.defaultPlaybackRate = 3;
+                            viewerVideoRef.current.playbackRate = 3;
+                          }
+                          setViewerVideoState({ paused: false, ended: false });
+                        }}
+                        onPause={() => setViewerVideoState((prev) => ({ ...prev, paused: true }))}
+                        onEnded={() => setViewerVideoState({ paused: true, ended: true })}
+                        onTimeUpdate={handleViewerTimeUpdate}
+                      />
+                    ) : null}
+                  </div>
+                  {(viewerVideoState.paused || viewerVideoState.ended) &&
+                    viewerVideoFetch.ready &&
+                    !viewerVideoFetch.error && (
                     <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                       <button
                         type="button"
