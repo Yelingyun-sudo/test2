@@ -64,12 +64,6 @@ def _format_operation_result(name: str, payload: Any) -> list[str]:
         if subscription_url:
             lines.append(f"  订阅地址: {subscription_url}")
             handled_keys.add(subscription_key)
-    elif name == "login":
-        login_form_key = "login_form_found"
-        if login_form_key in payload:
-            login_form_found = payload.get(login_form_key)
-            lines.append(f"  登录表单: {'已找到' if login_form_found else '未找到'}")
-            handled_keys.add(login_form_key)
     elif name == "inspect":
         entries_keys = (
             "entries_total",

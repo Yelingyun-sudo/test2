@@ -59,7 +59,6 @@
 - **message**: 详细的中文消息
   - 成功：`"登录成功"`
   - 失败：`"登录失败：<原因>"`
-- **login_form_found**: 是否找到了登录表单
 
 ### 示例：
 
@@ -67,8 +66,7 @@
 ```json
 {
   "success": true,
-  "message": "登录成功",
-  "login_form_found": true
+  "message": "登录成功"
 }
 ```
 
@@ -76,8 +74,7 @@
 ```json
 {
   "success": false,
-  "message": "登录失败：未找到登录表单，已访问 10 个页面均无登录控件",
-  "login_form_found": false
+  "message": "登录失败：未找到登录表单，已访问 10 个页面均无登录控件"
 }
 ```
 
@@ -85,8 +82,7 @@
 ```json
 {
   "success": false,
-  "message": "登录失败：用户名或密码错误",
-  "login_form_found": true
+  "message": "登录失败：用户名或密码错误"
 }
 ```
 
@@ -94,8 +90,7 @@
 ```json
 {
   "success": false,
-  "message": "登录失败：缺少必要信息 account",
-  "login_form_found": false
+  "message": "登录失败：缺少必要信息 account"
 }
 ```
 
@@ -103,7 +98,6 @@
 ```json
 {
   "success": false,
-  "message": "登录失败：当前工具暂不支持短信验证码流程",
-  "login_form_found": true
+  "message": "登录失败：当前工具暂不支持短信验证码流程"
 }
 ```

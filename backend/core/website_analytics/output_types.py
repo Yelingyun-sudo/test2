@@ -29,7 +29,6 @@ class LoginOutput(BaseModel):
 
     success: bool = Field(description="是否登录成功")
     message: str = Field(description="详细消息")
-    login_form_found: bool = Field(default=False, description="是否找到登录表单")
 
 
 class InspectOutput(BaseModel):
