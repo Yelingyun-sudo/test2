@@ -109,7 +109,21 @@ class AutoSwitchingPlaywrightServer(MCPServerStdio):
                 raise asyncio.CancelledError
 
     async def call_tool(self, tool_name: str, arguments: dict[str, Any] | None = None):
-        result = await super().call_tool(tool_name, arguments)
+        # Playwright MCP's `browser_snapshot` supports saving to a markdown file via
+        # `filename`, but in practice this can produce empty files (and breaks
+        # agents that rely on inlined snapshots for element refs). Strip it.
+        sanitized_arguments = arguments
+        if (
+            tool_name == "browser_snapshot"
+            and isinstance(arguments, dict)
+            and "filename" in arguments
+        ):
+            sanitized_arguments = {k: v for k, v in arguments.items() if k != "filename"}
+            logger.debug(
+                "Stripped filename from browser_snapshot call to force inline snapshot."
+            )
+
+        result = await super().call_tool(tool_name, sanitized_arguments)
 
         # 避免对自动切换产生的二次调用再次触发解析。
         if not self._auto_switch_inflight:
