@@ -11,6 +11,8 @@ from mcp.types import CallToolResult
 from agents.logger import logger
 from agents.mcp.server import MCPServerStdio
 
+from website_analytics.settings import get_settings
+
 _OPEN_TABS_HEADING = "### Open tabs"
 
 
@@ -199,19 +201,31 @@ class AutoSwitchingPlaywrightServer(MCPServerStdio):
         if not getattr(self, "session", None):
             return
 
+        settings = get_settings()
+        timeout = settings.playwright_close_timeout_seconds
+
+        # 保存对父类方法的引用，避免在嵌套函数中使用 super() 的问题
+        parent_call_tool = super().call_tool
+
         async def _call(tool_name: str, arguments: dict[str, Any] | None = None) -> Any:
             return await asyncio.wait_for(
-                super().call_tool(tool_name, arguments),
-                timeout=8,
+                parent_call_tool(tool_name, arguments),
+                timeout=timeout,
             )
 
         # 1) 优先尝试整体关闭（如果 MCP tool 支持）。
-        with suppress(Exception):
+        try:
             await _call("browser_close", {})
+            logger.debug("成功调用 browser_close，等待视频和 trace 保存完成")
             return
+        except Exception as exc:
+            logger.warning(
+                "调用 browser_close 失败（可能超时或工具不支持），将尝试逐个关闭标签: %s",
+                exc,
+            )
 
         # 2) 回退：列出标签并逐个关闭（如果 MCP tool 支持）。
-        with suppress(Exception):
+        try:
             result = await _call("browser_tabs", {"action": "list"})
             text_blocks = [
                 getattr(item, "text", "")
@@ -220,8 +234,20 @@ class AutoSwitchingPlaywrightServer(MCPServerStdio):
             ]
             tabs = _parse_open_tabs("\n".join(text_blocks))
             for tab in sorted(tabs, key=lambda t: t.index, reverse=True):
-                with suppress(Exception):
+                try:
                     await _call("browser_tabs", {"action": "close", "index": tab.index})
+                    logger.debug("已关闭标签页 index=%s", tab.index)
+                except Exception as exc:
+                    logger.warning(
+                        "关闭标签页 index=%s 失败: %s",
+                        tab.index,
+                        exc,
+                    )
+        except Exception as exc:
+            logger.warning(
+                "列出浏览器标签失败，可能无法优雅关闭: %s",
+                exc,
+            )
 
 
 __all__ = ["AutoSwitchingPlaywrightServer"]

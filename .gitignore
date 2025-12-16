@@ -48,6 +48,7 @@ backend/core/website_analytics.egg-info/
 # SQLite 运行时文件
 backend/db/wa.db-wal
 backend/db/wa.db-shm
+backend/db/wa.db
 
 # OS/editor
 .DS_Store

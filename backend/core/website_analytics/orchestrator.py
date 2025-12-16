@@ -81,7 +81,6 @@ async def execute(
     instruction: str,
     *,
     task_dir: Path | None = None,
-    enable_logging: bool = True,
     task_index: int = 1,
     headless: bool = False,
 ) -> ExecutionResult:
@@ -89,7 +88,7 @@ async def execute(
     working_dir = task_dir or generate_task_directory()
     working_dir.mkdir(parents=True, exist_ok=True)
 
-    if enable_logging:
+    if settings.agents_verbose_stdout_logging:
         enable_verbose_stdout_logging()
 
     capture_llm_state = settings.llm_snapshot
@@ -287,16 +286,15 @@ async def execute(
         end_time = datetime.now()
         duration = (end_time - start_time).total_seconds()
 
-        # 保存任务总结（单任务模式）
-        if enable_logging:
-            _save_single_task_summary(
-                instruction=instruction,
-                result=result,
-                task_index=task_index,
-                start_time=start_time,
-                end_time=end_time,
-                duration_seconds=duration,
-            )
+        # 保存任务总结
+        _save_single_task_summary(
+            instruction=instruction,
+            result=result,
+            task_index=task_index,
+            start_time=start_time,
+            end_time=end_time,
+            duration_seconds=duration,
+        )
 
         return result
     except Exception as exc:
@@ -344,16 +342,15 @@ async def execute(
             coordinator_output=coordinator_output,
         )
 
-        # 保存任务总结（单任务模式，即使失败也保存）
-        if enable_logging:
-            _save_single_task_summary(
-                instruction=instruction,
-                result=result,
-                task_index=task_index,
-                start_time=start_time,
-                end_time=end_time,
-                duration_seconds=duration,
-            )
+        # 保存任务总结（即使失败也保存）
+        _save_single_task_summary(
+            instruction=instruction,
+            result=result,
+            task_index=task_index,
+            start_time=start_time,
+            end_time=end_time,
+            duration_seconds=duration,
+        )
 
         return result
 
@@ -482,7 +479,6 @@ async def _execute_single_task(
     print_task_start(index, instruction)
     result = await execute(
         instruction,
-        enable_logging=False,
         task_index=index,
         headless=headless,
     )

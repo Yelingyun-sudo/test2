@@ -9,7 +9,6 @@ from agents import set_tracing_disabled
 
 from website_analytics.formatter import format_execution_result
 from website_analytics.orchestrator import ExecutionResult, execute, execute_batch
-from website_analytics.settings import get_settings
 
 
 def parse_args() -> argparse.Namespace:
@@ -134,9 +133,7 @@ async def run_single_instruction_async(
     # 确保 tracing 关闭（与 CLI 行为一致）
     set_tracing_disabled(True)
 
-    settings = get_settings()
     return await execute(
         instruction,
         headless=headless,
-        enable_logging=settings.agents_verbose_stdout_logging,
     )

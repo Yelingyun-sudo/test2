@@ -54,6 +54,8 @@ class Settings(BaseSettings):
 
     # Playwright / 代理
     playwright_proxy_server: str | None = None
+    # Playwright 浏览器关闭超时时间（秒），用于等待视频编码和 trace 保存完成
+    playwright_close_timeout_seconds: int = 60
 
     # 巡检与截图
     inspect_max_menu_entries: int = 3
