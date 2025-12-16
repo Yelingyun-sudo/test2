@@ -54,6 +54,24 @@ type SubscribedListResponse = {
 
 const PAGE_SIZE = 15;
 
+function shellQuoteSingle(value: string): string {
+  return `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+function buildReplayInstruction(item: SubscribedItem): string {
+  const url = (item.url ?? "").trim();
+  // 注意：按需求交换字段映射（账号=密码字段，密码=用户名字段）
+  const account = (item.password ?? "").trim();
+  const password = (item.account ?? "").trim();
+  return `登录 ${url}（账号和密码分别为 ${account} 和 ${password}）并提取订阅地址`;
+}
+
+function buildReplayCommand(item: SubscribedItem): string {
+  return `uv run python -m website_analytics.main --instruction ${shellQuoteSingle(
+    buildReplayInstruction(item)
+  )}`;
+}
+
 function parseDownloadFilename(contentDisposition: string | null): string | null {
   if (!contentDisposition) return null;
 
@@ -121,6 +139,25 @@ export default function SubscribedPage() {
     login: false,
     extract: false
   });
+
+  const handleCopyReplayCommand = useCallback(async () => {
+    if (!selectedItem) return;
+
+    const url = (selectedItem.url ?? "").trim();
+    const account = (selectedItem.password ?? "").trim();
+    const password = (selectedItem.account ?? "").trim();
+    if (!url || !account || !password) {
+      toast.error("缺少网址/用户名/密码，无法生成命令");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(buildReplayCommand(selectedItem));
+      toast.success("复制成功");
+    } catch {
+      toast.error("复制失败，请手动复制");
+    }
+  }, [selectedItem]);
   const artifactUrlsRef = useRef<ArtifactUrls>({
     loginImageUrl: null,
     extractImageUrl: null,
@@ -860,9 +897,14 @@ export default function SubscribedPage() {
                 <h3 className="text-lg font-semibold text-slate-900">订阅任务详情</h3>
                 <p className="text-sm text-slate-500">ID: {selectedItem.id ?? "-"}</p>
               </div>
-              <Button variant="outline" size="sm" onClick={handleCloseModal}>
-                关闭
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={handleCopyReplayCommand}>
+                  复制重跑命令
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleCloseModal}>
+                  关闭
+                </Button>
+              </div>
             </div>
 
             <div className="grid gap-4 px-6 py-5 text-sm text-slate-700 sm:grid-cols-2 lg:grid-cols-3">
