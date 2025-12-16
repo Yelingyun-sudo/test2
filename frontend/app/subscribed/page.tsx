@@ -1048,7 +1048,7 @@ export default function SubscribedPage() {
                       ) : null}
                     </div>
                   </div>
-                  {!artifacts && artifactsLoading ? (
+                  {artifactsLoading ? (
                     <div className="relative w-full aspect-[16/10] overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
                       <div className="absolute inset-0 animate-pulse bg-slate-100/70" />
                       <MediaLoadingOverlay label="加载中..." />
@@ -1108,7 +1108,6 @@ export default function SubscribedPage() {
                       ) : (
                         <div className="relative w-full aspect-[16/10] overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
                           <div className="absolute inset-0 bg-slate-100/60" />
-                          {artifactsLoading ? <MediaLoadingOverlay label="加载中..." /> : null}
                         </div>
                       )}
                       <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center">
@@ -1155,27 +1154,27 @@ export default function SubscribedPage() {
                   alt={viewer.title}
                   className="max-h-[80vh] w-full rounded-xl bg-white object-contain"
                 />
-              ) : (
-                  <div className="relative">
-                  <div className="relative max-h-[80vh] w-full overflow-hidden rounded-xl bg-black">
-                    {viewerVideoFetch.loading || (!viewerVideoFetch.ready && !viewerVideoFetch.error) ? (
-                      <div className="absolute inset-0 z-20">
-                        <MediaLoadingOverlay label={videoBlobStatus === "loading" ? "加载视频中..." : "加载中..."} />
-                      </div>
-                    ) : null}
+	              ) : (
+	                  <div className="relative">
+	                  <div className="relative w-full aspect-[16/10] max-h-[80vh] overflow-hidden rounded-xl bg-black">
+	                    {viewerVideoFetch.loading || (!viewerVideoFetch.ready && !viewerVideoFetch.error) ? (
+	                      <div className="absolute inset-0 z-20">
+	                        <MediaLoadingOverlay label={videoBlobStatus === "loading" ? "加载视频中..." : "加载中..."} />
+	                      </div>
+	                    ) : null}
                     {viewerVideoFetch.error ? (
                       <div className="absolute inset-0 z-20 flex items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400">
                         加载失败
                       </div>
                     ) : null}
-                    {viewer.src ? (
-                      <video
-                        ref={viewerVideoRef}
-                        className="max-h-[80vh] w-full rounded-xl bg-black object-contain"
-                        controls={false}
-                        autoPlay
-                        preload="metadata"
-                        src={viewer.src}
+	                    {viewer.src ? (
+	                      <video
+	                        ref={viewerVideoRef}
+	                        className="h-full w-full bg-black object-contain"
+	                        controls={false}
+	                        autoPlay
+	                        preload="metadata"
+	                        src={viewer.src}
                         onLoadedMetadata={handleViewerVideoLoadedMetadata}
                         onLoadedData={() =>
                           setViewerVideoFetch((prev) => ({ ...prev, loading: false, error: false, ready: true }))
@@ -1189,11 +1188,13 @@ export default function SubscribedPage() {
                           setViewerVideoState({ paused: false, ended: false });
                         }}
                         onPause={() => setViewerVideoState((prev) => ({ ...prev, paused: true }))}
-                        onEnded={() => setViewerVideoState({ paused: true, ended: true })}
-                        onTimeUpdate={handleViewerTimeUpdate}
-                      />
-                    ) : null}
-                  </div>
+	                        onEnded={() => setViewerVideoState({ paused: true, ended: true })}
+	                        onTimeUpdate={handleViewerTimeUpdate}
+	                      />
+	                    ) : (
+	                      <div className="h-full w-full" />
+	                    )}
+	                  </div>
                   {(viewerVideoState.paused || viewerVideoState.ended) &&
                     viewerVideoFetch.ready &&
                     !viewerVideoFetch.error && (
