@@ -831,22 +831,22 @@ export default function SubscribedPage() {
             </div>
 
             <div className="px-6 pb-6">
-              <div className="mb-2 flex items-center gap-2">
-                <div className="text-sm font-semibold text-slate-700">任务日志</div>
-                <button
-                  type="button"
-                  className={cn(
-                    "text-xs font-medium text-emerald-600 hover:underline",
-                    (taskZipDownloading ||
-                      ["pending", "running"].includes(
-                        (selectedItem.status || "").toLowerCase()
-                      )) &&
-                      "cursor-not-allowed text-slate-400 hover:no-underline"
-                  )}
-                  disabled={
-                    taskZipDownloading ||
-                    ["pending", "running"].includes((selectedItem.status || "").toLowerCase())
-                  }
+                <div className="mb-2 flex items-center gap-2">
+                  <div className="text-sm font-semibold text-slate-700">任务日志</div>
+                  <button
+                    type="button"
+                    className={cn(
+                      "cursor-default text-xs font-medium text-white no-underline hover:cursor-default hover:no-underline focus:outline-none focus-visible:outline-none",
+                      (taskZipDownloading ||
+                        ["pending", "running"].includes(
+                          (selectedItem.status || "").toLowerCase()
+                        )) &&
+                        "cursor-not-allowed hover:no-underline"
+                    )}
+                    disabled={
+                      taskZipDownloading ||
+                      ["pending", "running"].includes((selectedItem.status || "").toLowerCase())
+                    }
                   onClick={(e) => {
                     e.stopPropagation();
                     handleDownloadTaskZip();
