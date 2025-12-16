@@ -1064,7 +1064,7 @@ export default function SubscribedPage() {
 
       {viewer && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-white/90 p-4 backdrop-blur-sm"
           onClick={() => setViewer(null)}
           role="dialog"
           aria-modal="true"
@@ -1086,7 +1086,7 @@ export default function SubscribedPage() {
                 <img
                   src={viewer.src}
                   alt={viewer.title}
-                  className="max-h-[80vh] w-full rounded-xl bg-black object-contain"
+                  className="max-h-[80vh] w-full rounded-xl bg-white object-contain"
                 />
               ) : (
                 <div className="relative">
