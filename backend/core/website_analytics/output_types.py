@@ -29,6 +29,10 @@ class LoginOutput(BaseModel):
 
     success: bool = Field(description="是否登录成功")
     message: str = Field(description="详细消息")
+    error_type: str | None = Field(
+        default=None,
+        description="失败原因枚举值（success=false 时建议必填），取值范围同 CoordinatorOutput.error_type",
+    )
 
 
 class InspectOutput(BaseModel):
@@ -40,6 +44,10 @@ class InspectOutput(BaseModel):
     entries_success: int = Field(default=0, description="成功巡检的入口数")
     entries_failed: int = Field(default=0, description="失败的入口数")
     report_file: str = Field(default="", description="生成的报告文件路径")
+    error_type: str | None = Field(
+        default=None,
+        description="失败原因枚举值（success=false 时建议必填），取值范围同 CoordinatorOutput.error_type",
+    )
 
 
 class ExtractOutput(BaseModel):
@@ -48,6 +56,10 @@ class ExtractOutput(BaseModel):
     success: bool = Field(description="是否提取成功")
     message: str = Field(description="详细消息")
     subscription_url: str = Field(default="", description="提取到的订阅链接（成功时）")
+    error_type: str | None = Field(
+        default=None,
+        description="失败原因枚举值（success=false 时建议必填），取值范围同 CoordinatorOutput.error_type",
+    )
 
 
 class InspectEntryOutput(BaseModel):

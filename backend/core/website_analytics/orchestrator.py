@@ -77,6 +77,42 @@ class ExplorerRunContext:
 settings = get_settings()
 
 
+def _normalize_error_type(value: Any) -> str | None:
+    """将任意输入规范化为合法的 ErrorType 字符串值。"""
+    if value is None:
+        return None
+    if isinstance(value, ErrorType):
+        return value.value
+    if isinstance(value, str):
+        try:
+            return ErrorType(value).value
+        except ValueError:
+            return None
+    return None
+
+
+def _infer_error_type_from_operations(output: dict[str, Any]) -> str | None:
+    """从首个失败的子操作结果中提取 error_type。"""
+    operations_results = output.get("operations_results")
+    if not isinstance(operations_results, dict):
+        return None
+
+    operations_executed = output.get("operations_executed")
+    if isinstance(operations_executed, list) and operations_executed:
+        ordered_ops = [str(item) for item in operations_executed]
+    else:
+        ordered_ops = ["login", "extract", "inspect"]
+
+    for op_name in ordered_ops:
+        payload = operations_results.get(op_name)
+        if not isinstance(payload, dict):
+            continue
+        if payload.get("success") is False:
+            return _normalize_error_type(payload.get("error_type"))
+
+    return None
+
+
 async def execute(
     instruction: str,
     *,
@@ -224,9 +260,12 @@ async def execute(
             if success:
                 coordinator_output["error_type"] = None
             else:
-                coordinator_output["error_type"] = coordinator_output.get(
-                    "error_type"
-                ) or ErrorType.UNKNOWN_ERROR.value
+                inferred = _infer_error_type_from_operations(coordinator_output)
+                coordinator_output["error_type"] = (
+                    inferred
+                    or _normalize_error_type(coordinator_output.get("error_type"))
+                    or ErrorType.UNKNOWN_ERROR.value
+                )
 
             # 记录额外信息到日志
             logger.info(

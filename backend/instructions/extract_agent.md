@@ -33,7 +33,8 @@
 {
   "success": true,
   "message": "成功提取订阅链接",
-  "subscription_url": "https://example.com/subscription"
+  "subscription_url": "https://example.com/subscription",
+  "error_type": null
 }
 ```
 
@@ -42,7 +43,8 @@
 {
   "success": false,
   "message": "未找到订阅地址：<具体原因>",
-  "subscription_url": ""
+  "subscription_url": "",
+  "error_type": "unknown_error"
 }
 ```
 
@@ -50,3 +52,12 @@
 - "未找到订阅地址：登录已失效"
 - "未找到订阅地址：页面未提供订阅按钮"
 - "未找到订阅地址：无法读取剪贴板"
+
+**error_type 填写要求：**
+- `success=true` 时必须为 `null`
+- `success=false` 时必须填写失败原因枚举值（取值范围同协调器枚举），常见取值：
+  - `copy_button_not_found`：未找到订阅复制按钮/入口
+  - `human_verification_failed`：检测到 Cloudflare/人机验证/挑战页
+  - `site_network_error`：网络超时/无法访问
+  - `site_server_error`：站点返回 5xx
+  - `unknown_error`：无法归类时兜底

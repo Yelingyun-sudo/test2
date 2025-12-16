@@ -6,7 +6,12 @@
 
 ### Step1. 参数检查
 
-解析 JSON 参数获取 `site_url`、`account`、`password`；缺少任一字段时立即返回失败。
+1. 解析 JSON 参数获取 `site_url`、`account`、`password`；缺少任一字段时立即返回失败。
+2. 调用 `browser_navigate` 访问 `site_url`，立刻调用 `browser_snapshot` 获取页面状态
+3. 如果处于 Cloudflare/人机验证/挑战页，立即失败退出，**失败返回要求：**
+   - `success=false`
+   - `error_type="human_verification_failed"`
+   - `message` 为 Cloudflare/人机验证导致无法继续
 
 ### Step2. 探索登录入口
 
@@ -32,7 +37,7 @@
 - 如果已点击过登录相关的高优先级链接但仍未找到表单，继续探索其他链接直到达到页面上限
 - 注意：nginx 默认页等域名废弃提示页不计入"无登录入口"的判断，应优先跟随页面中的跳转链接
 
-### Step3. 登录提交
+### Step4. 登录提交
 
 **填写：**
 - 使用 `browser_fill_form` 只填账号/密码（`account` / `password`），其他字段一律不填
@@ -71,6 +76,14 @@
     - 网络超时：`网络超时`
     - 站点异常（5xx）：`站点返回 5xx 错误`
     - 工具异常：`工具异常：<错误摘要>`
+- **error_type**: 失败原因枚举值
+  - `success=true` 时必须为 `null`
+  - `success=false` 时必须填写（取值范围同协调器枚举），本登录任务常见取值：
+    - `human_verification_failed`：无法完成人机验证/挑战页（例如 Cloudflare）
+    - `login_page_not_found`：网站无法找到登录页/登录表单
+    - `site_network_error`：网站无法访问-网络错误（超时/DNS/TLS 等）
+    - `site_server_error`：网站无法访问-服务器错误（5xx）
+    - `unknown_error`：无法归类时兜底（例如页面返回了明确错误但不在枚举中）
 
 ### 示例：
 
@@ -78,7 +91,8 @@
   ```json
   {
     "success": true,
-    "message": "登录成功"
+    "message": "登录成功",
+    "error_type": null
   }
   ```
 
@@ -86,6 +100,7 @@
   ```json
   {
     "success": false,
-    "message": "登录失败：<原因>"
+    "message": "登录失败：<原因>",
+    "error_type": "unknown_error"
   }
   ```

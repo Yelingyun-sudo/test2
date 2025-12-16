@@ -87,6 +87,11 @@
 - **entries_success**: 阶段2成功巡检的入口数
 - **entries_failed**: 阶段2失败的入口数
 - **report_file**: 生成的报告文件路径（通常为 "inspect/report.md"）
+- **error_type**: 失败原因枚举值（`success=false` 时必填；成功时为 null）。取值范围同协调器枚举，常见取值：
+  - `human_verification_failed`：检测到 Cloudflare/人机验证/挑战页
+  - `site_network_error`：网络超时/无法访问
+  - `site_server_error`：站点返回 5xx
+  - `unknown_error`：无法归类时兜底
 
 ### 示例：
 
@@ -98,7 +103,8 @@
   "entries_total": 3,
   "entries_success": 3,
   "entries_failed": 0,
-  "report_file": "inspect/report.md"
+  "report_file": "inspect/report.md",
+  "error_type": null
 }
 ```
 
@@ -110,7 +116,8 @@
   "entries_total": 3,
   "entries_success": 2,
   "entries_failed": 1,
-  "report_file": "inspect/report.md"
+  "report_file": "inspect/report.md",
+  "error_type": null
 }
 ```
 
@@ -122,7 +129,8 @@
   "entries_total": 0,
   "entries_success": 0,
   "entries_failed": 0,
-  "report_file": ""
+  "report_file": "",
+  "error_type": "unknown_error"
 }
 ```
 
@@ -133,4 +141,3 @@
 - **入口巡检职责**：所有点击、截图、文本抓取由 `inspect_entry` 工具内部完成，主代理不要重复操作以免状态错乱。
 - **文本存储**：`save_page_text` 写入的是同名 `.txt` 文件，不要自行截断文本。若文本异常冗长，可按段落拆分进行展示，但需覆盖全部内容。
 - **中文输出**：概述已截图、跳过项及原因，不透出内部脚本细节。
-

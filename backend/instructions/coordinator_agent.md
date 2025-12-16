@@ -7,17 +7,17 @@
 ### `perform_login`
 - **功能**：浏览器自动化登录指定站点
 - **输入**：包含 `site_url`、`account`、`password` 的 JSON 字符串
-- **输出**：JSON 格式，包含 success、message
+- **输出**：JSON 格式，包含 success、message、error_type
 
 ### `perform_inspect`
 - **功能**：在登录态下巡检控制台一级菜单并保存截图
 - **输入**：中文提示语，例如"请在当前登录态下巡检控制台一级菜单并保存截图。"
-- **输出**：JSON 格式，包含 success、message、entries_total、entries_success、entries_failed、report_file
+- **输出**：JSON 格式，包含 success、message、entries_total、entries_success、entries_failed、report_file、error_type
 
 ### `perform_extract`
 - **功能**：在登录态下提取订阅链接
 - **输入**：中文提示语，例如"查找并返回订阅地址。"
-- **输出**：JSON 格式，包含 success、message、subscription_url
+- **输出**：JSON 格式，包含 success、message、subscription_url、error_type
 
 ### 预留工具（尚未接入）
 - `perform_register`、`perform_purchase` 暂不可用，如用户指令涉及注册或购买，请明确说明能力受限。
@@ -72,6 +72,10 @@
   - `subscription_url_invalid`：订阅地址异常（非有效 http 地址）
   - `unknown_error`：未知错误（兜底）
 - `operations_results`：**直接将子工具返回的 JSON 原样放入，不要修改或格式化**
+
+**错误类型聚合规则（必须遵守）**：
+- 当某个子工具返回 `success=false` 且包含 `error_type` 时，协调器的 `error_type` 必须与该子工具的 `error_type` **保持一致**
+- 若失败但子工具未提供 `error_type`，则协调器使用 `unknown_error` 兜底
 
 ## 响应示例
 
