@@ -12,6 +12,7 @@
    - `success=false`
    - `error_type="human_verification_failed"`
    - `message` 为 Cloudflare/人机验证导致无法继续
+4. 注：如果是简单的 访问验证，则不应该被判定为人机验证，可继续执行 Step2. 探索登录入口
 
 ### Step2. 探索登录入口
 

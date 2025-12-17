@@ -369,6 +369,15 @@ wheels = [
 ]
 
 [[package]]
+name = "kafka-python"
+version = "2.3.0"
+source = { registry = "https://mirrors.aliyun.com/pypi/simple" }
+sdist = { url = "https://mirrors.aliyun.com/pypi/packages/27/5c/d3b6d93ed625d2cb0265e6fe0f507be544f6edde577c1b118f42566389bf/kafka_python-2.3.0.tar.gz", hash = "sha256:de65b596d26b5c894f227c35c7d29a65cea8f8a1c4f0f2b4e3e2ea60d503acc8" }
+wheels = [
+    { url = "https://mirrors.aliyun.com/pypi/packages/4a/db/694fd552295ed091e7418d02b6268ee36092d4c93211136c448fe061fe32/kafka_python-2.3.0-py2.py3-none-any.whl", hash = "sha256:831ba6dff28144d0f1145c874d391f3ebb3c2c3e940cc78d74e83f0183497c98" },
+]
+
+[[package]]
 name = "mcp"
 version = "1.23.2"
 source = { registry = "https://mirrors.aliyun.com/pypi/simple" }
@@ -863,6 +872,7 @@ source = { editable = "." }
 dependencies = [
     { name = "bcrypt" },
     { name = "fastapi" },
+    { name = "kafka-python" },
     { name = "mcp" },
     { name = "openai" },
     { name = "openai-agents" },
@@ -881,6 +891,7 @@ dependencies = [
 requires-dist = [
     { name = "bcrypt", specifier = ">=3.2,<4" },
     { name = "fastapi", specifier = ">=0.124,<1" },
+    { name = "kafka-python", specifier = ">=2.0,<3" },
     { name = "mcp", specifier = ">=1.11,<2" },
     { name = "openai", specifier = ">=2.8,<3" },
     { name = "openai-agents", specifier = ">=0.6.1,<1.0" },
