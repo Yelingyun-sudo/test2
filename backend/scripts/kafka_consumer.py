@@ -26,12 +26,18 @@ consumer = KafkaConsumer(
 )
 
 if args.from_beginning:
-    # auto_offset_reset 只在“没有已提交 offset”的情况下生效；
+    # auto_offset_reset 只在"没有已提交 offset"的情况下生效；
     # 若同一个 group 之前消费过，需要显式把 position 拉回到起始位置。
-    consumer.poll(timeout_ms=1000)
-    assigned = consumer.assignment()
+    # 多次 poll 等待分区分配完成
+    for _ in range(10):
+        consumer.poll(timeout_ms=1000)
+        assigned = consumer.assignment()
+        if assigned:
+            break
+    print(f"分区分配: {assigned}")
     if assigned:
         consumer.seek_to_beginning(*assigned)
+        print("已重置到起始位置")
 
 print("开始消费消息...")
 
