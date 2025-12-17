@@ -76,6 +76,15 @@ class Settings(BaseSettings):
     task_cleaner_interval_seconds: int = 5
     task_cleaner_timeout_seconds: int = 900
 
+    # Kafka 任务导入
+    task_importer_enabled: bool = True
+    kafka_bootstrap_servers: str = "8.147.106.108:10092"
+    kafka_topic: str = "website-analytics"
+    kafka_group_id: str = "wa-importer-group"
+    kafka_sasl_username: str = "user1"
+    kafka_sasl_password: str = "your-password-here"
+    kafka_message_max_age_seconds: int = 86400
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:

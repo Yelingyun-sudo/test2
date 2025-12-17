@@ -86,8 +86,8 @@ def _ensure_indices() -> None:
             "ON subscribed_tasks (url, account, created_date)"
         )
         conn.exec_driver_sql(
-            "CREATE UNIQUE INDEX IF NOT EXISTS uq_unsubscribed_url "
-            "ON unsubscribed_tasks (url)"
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_unsubscribed_url_date "
+            "ON unsubscribed_tasks (url, created_date)"
         )
 
 
