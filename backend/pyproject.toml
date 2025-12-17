@@ -19,7 +19,8 @@ dependencies = [
     "bcrypt>=3.2,<4",
     "sqlalchemy>=2.0,<3",
     "passlib[bcrypt]>=1.7,<2",
-    "python-jose[cryptography]>=3.3,<4"
+    "python-jose[cryptography]>=3.3,<4",
+    "psutil>=6.1,<7"
 ]
 
 # Local dev install only; use `pip install -e .`, not intended for distribution.

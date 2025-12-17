@@ -104,6 +104,12 @@ class AutoSwitchingPlaywrightServer(MCPServerStdio):
             await super().__aexit__(exc_type, exc_value, traceback)
             raise
         finally:
+            # 即使父类清理完成，也检查是否有残留的 Chrome 进程
+            # 用 suppress 包装，确保清理失败不会掩盖原始异常
+            # 注意：Python 3.12 中 CancelledError 继承自 BaseException，必须显式捕获
+            with suppress(Exception, asyncio.CancelledError):
+                await self._force_cleanup_orphaned_chrome()
+
             # 只有在没有其他异常正在传播时才抛出 CancelledError
             if cancelled and exc_type is None:
                 raise asyncio.CancelledError
@@ -262,6 +268,89 @@ class AutoSwitchingPlaywrightServer(MCPServerStdio):
                 "列出浏览器标签失败，可能无法优雅关闭: %s",
                 exc,
             )
+
+    async def _force_cleanup_orphaned_chrome(self) -> None:
+        """通过进程特征查找并终止可能残留的 Chrome 进程。
+
+        识别策略：
+        1. 进程名包含 chrome (google-chrome, chrome, chromium等)
+        2. 命令行包含 'playwright_chromiumdev_profile-' (Playwright特征)
+        3. 父进程是 systemd (PID 1) - 孤儿进程标志
+
+        这是在父类清理逻辑之后的最后一道防线，用于处理 Chrome 脱离进程组
+        控制的情况（父进程变为 systemd）。
+        """
+        # 所有危险操作都包在 try 里，避免影响原始异常传播
+        try:
+            import psutil
+        except ImportError:
+            logger.warning(
+                "psutil 未安装，无法执行孤儿进程清理。"
+                "请运行: uv pip install psutil（或 pip install psutil）"
+            )
+            return
+
+        import os
+        import signal
+
+        orphaned_pids: list[int] = []
+
+        try:
+            # 查找 Playwright 启动的 Chrome 孤儿进程
+            for proc in psutil.process_iter(['pid', 'name', 'cmdline', 'ppid']):
+                try:
+                    proc_name = (proc.info.get('name') or '').lower()
+
+                    # 检查是否是 Chrome 进程（支持多种命名）
+                    if not any(keyword in proc_name for keyword in ['chrome', 'chromium']):
+                        continue
+
+                    # 检查命令行参数中是否包含 Playwright 特征
+                    cmdline = proc.info.get('cmdline') or []
+                    if not any('playwright_chromiumdev_profile-' in str(arg) for arg in cmdline):
+                        continue
+
+                    # 检查父进程是否是 systemd (PID 1) - 孤儿进程的特征
+                    if proc.info.get('ppid') != 1:
+                        continue
+
+                    orphaned_pids.append(proc.info['pid'])
+                    logger.warning(
+                        "发现 Playwright 孤儿 Chrome 进程: pid=%s name=%s",
+                        proc.info['pid'],
+                        proc_name,
+                    )
+                except (psutil.NoSuchProcess, psutil.AccessDenied, KeyError):
+                    # 进程可能已退出或无权限访问，跳过
+                    continue
+
+            # 终止发现的孤儿进程
+            for pid in orphaned_pids:
+                try:
+                    logger.warning("强制终止孤儿 Chrome 进程: pid=%s", pid)
+                    os.kill(pid, signal.SIGTERM)
+                except ProcessLookupError:
+                    pass  # 进程已退出
+                except Exception as exc:
+                    logger.error("终止孤儿进程失败 pid=%s: %s", pid, exc)
+
+            # 等待2秒后检查是否还有残留
+            if orphaned_pids:
+                await asyncio.sleep(2)
+                for pid in orphaned_pids:
+                    try:
+                        os.kill(pid, 0)  # 检查进程是否还存在
+                        # 如果还存在，使用 SIGKILL
+                        logger.warning("进程 %s 未响应 SIGTERM，使用 SIGKILL", pid)
+                        os.kill(pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass  # 进程已退出
+                    except Exception as exc:
+                        logger.error("SIGKILL 失败 pid=%s: %s", pid, exc)
+
+        except Exception as exc:
+            # 捕获所有异常，避免影响 __aexit__ 的正常流程
+            logger.error("孤儿进程清理失败: %s", exc, exc_info=True)
 
 
 __all__ = ["AutoSwitchingPlaywrightServer"]

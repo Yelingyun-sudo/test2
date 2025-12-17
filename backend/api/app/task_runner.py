@@ -156,13 +156,16 @@ async def _run_task(task_id: int, instruction: str) -> None:
     timed_out = False
 
     try:
-        timeout = settings.task_runner_timeout_seconds
+        # 为清理预留额外时间（用于 Playwright 优雅关闭和孤儿进程清理）
+        execution_timeout = settings.task_runner_timeout_seconds
+        cleanup_buffer = settings.playwright_cleanup_buffer_seconds
+
         exec_result = await asyncio.wait_for(
             run_single_instruction_async(
                 instruction,
                 headless=settings.task_runner_headless,
             ),
-            timeout=timeout,
+            timeout=execution_timeout + cleanup_buffer,  # 增加清理缓冲时间
         )
     except asyncio.TimeoutError:
         exec_result = None

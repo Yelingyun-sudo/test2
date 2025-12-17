@@ -45,6 +45,7 @@
 **提交（先回车，失败再点按钮）：**
 - 直接调用 `browser_press_key` 按 `Enter` 提交，然后立刻 `browser_snapshot` 检查结果
 - 若仍停留在登录页且未出现明确错误提示，再用 `browser_click` 点击同一登录区域内最可能的登录按钮（role=button 或 type=submit），随后 `browser_snapshot`
+- **重要：每次 `browser_snapshot` 检查结果后，必须判断是否登录成功**：如果 URL 从登录页跳转到其他页面（如 `/dashboard`、`/home`、`/console` 等），或页面出现用户信息/控制台菜单等登录后内容，**立即返回成功结果，不要继续执行任何检查**
 
 **成功后处理：**
 - 若进入控制台后出现公告/弹窗遮挡操作，点击 `×` / `Close` / `关闭` 关闭即可
