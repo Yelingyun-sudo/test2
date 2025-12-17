@@ -300,6 +300,14 @@ export default function SubscribedPage() {
     return `${days}天${hours}小时${minutes}分${seconds}秒`;
   };
 
+  const formatTaskDuration = (durationSeconds: number, status?: string) => {
+    const statusLower = (status || "").toLowerCase();
+    if (statusLower === "pending" || statusLower === "running") {
+      return "-";
+    }
+    return formatDurationSeconds(durationSeconds);
+  };
+
   const getWaitSeconds = (item: SubscribedItem) => {
     const createdAt = parseDateTime(item.created_at);
     const executedAt = parseDateTime(item.executed_at);
@@ -807,7 +815,7 @@ export default function SubscribedPage() {
                 <div className="truncate pr-4" title={item.executed_at || undefined}>
                   {formatDateTime(item.executed_at)}
                 </div>
-                <div className="truncate pr-4">{formatDurationSeconds(item.duration_seconds)}</div>
+                <div className="truncate pr-4">{formatTaskDuration(item.duration_seconds, item.status)}</div>
                 <div className="truncate" title={item.result || undefined}>
                   {item.result || "-"}
                 </div>
@@ -937,7 +945,7 @@ export default function SubscribedPage() {
               </div>
               <div className="space-y-1">
                 <div className="text-slate-500">任务时长 (s)</div>
-                <div className="font-medium">{formatDurationSeconds(selectedItem.duration_seconds)}</div>
+                <div className="font-medium">{formatTaskDuration(selectedItem.duration_seconds, selectedItem.status)}</div>
               </div>
             </div>
 
