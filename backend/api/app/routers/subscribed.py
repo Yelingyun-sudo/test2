@@ -442,9 +442,16 @@ def get_subscribed_stats(
             dt = dt.replace(tzinfo=timezone.utc)
         return dt.astimezone(tz_cn).isoformat()
 
+    # 状态优先级：running > success/failed > pending
+    recent_status_priority = case(
+        (SubscribedTask.status == TaskStatus.RUNNING, 0),
+        (SubscribedTask.status.in_([TaskStatus.SUCCESS, TaskStatus.FAILED]), 1),
+        else_=2,
+    )
+
     recent_task_records = (
         db.query(SubscribedTask)
-        .order_by(SubscribedTask.created_at.desc())
+        .order_by(recent_status_priority, SubscribedTask.created_at.desc())
         .limit(5)
         .all()
     )
