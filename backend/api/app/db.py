@@ -106,6 +106,14 @@ def _ensure_columns() -> None:
                 "ALTER TABLE subscribed_tasks ADD COLUMN task_dir VARCHAR(1024)"
             )
 
+        has_report_status = conn.exec_driver_sql(
+            "SELECT name FROM pragma_table_info('subscribed_tasks') WHERE name='report_status'"
+        ).fetchone()
+        if not has_report_status:
+            conn.exec_driver_sql(
+                "ALTER TABLE subscribed_tasks ADD COLUMN report_status VARCHAR(16)"
+            )
+
 
 def _seed_admin_user() -> None:
     """按环境变量播种管理员账号（幂等）。"""

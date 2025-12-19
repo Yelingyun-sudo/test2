@@ -9,6 +9,7 @@ from .db import init_db
 from .routers import auth, health, subscribed, unsubscribed
 from .task_cleaner import run_task_cleaner_loop
 from .task_importer import run_task_importer_loop
+from .task_reporter import run_task_reporter_loop
 from .task_runner import run_task_loop
 from .security import get_current_user
 from website_analytics.settings import get_settings
@@ -24,6 +25,8 @@ async def lifespan(app: FastAPI):
         app.state.task_cleaner = asyncio.create_task(run_task_cleaner_loop())
     if settings.task_importer_enabled:
         app.state.task_importer = asyncio.create_task(run_task_importer_loop())
+    if settings.task_reporter_enabled:
+        app.state.task_reporter = asyncio.create_task(run_task_reporter_loop())
 
     yield
 
@@ -32,19 +35,25 @@ async def lifespan(app: FastAPI):
         task = getattr(app.state, "task_runner", None)
         if task:
             task.cancel()
-            with contextlib.suppress(Exception):
+            with contextlib.suppress(Exception, asyncio.CancelledError):
                 await task
     if settings.task_cleaner_enabled:
         task = getattr(app.state, "task_cleaner", None)
         if task:
             task.cancel()
-            with contextlib.suppress(Exception):
+            with contextlib.suppress(Exception, asyncio.CancelledError):
                 await task
     if settings.task_importer_enabled:
         task = getattr(app.state, "task_importer", None)
         if task:
             task.cancel()
-            with contextlib.suppress(Exception):
+            with contextlib.suppress(Exception, asyncio.CancelledError):
+                await task
+    if settings.task_reporter_enabled:
+        task = getattr(app.state, "task_reporter", None)
+        if task:
+            task.cancel()
+            with contextlib.suppress(Exception, asyncio.CancelledError):
                 await task
 
 

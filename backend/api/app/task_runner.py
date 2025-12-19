@@ -15,7 +15,7 @@ from website_analytics.settings import get_settings
 from website_analytics.utils import to_project_relative
 
 from .db import SessionLocal
-from .models import SubscribedTask, TaskStatus
+from .models import SubscribedTask, TaskReportStatus, TaskStatus
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +96,7 @@ def _update_task_success(
     task.result = result
     task.task_dir = task_dir
     task.failure_type = None
+    task.report_status = TaskReportStatus.PENDING
     db.add(task)
     db.commit()
 
@@ -114,6 +115,7 @@ def _update_task_failure(
     task.result = result
     task.task_dir = task_dir
     task.failure_type = failure_type
+    task.report_status = TaskReportStatus.PENDING
     db.add(task)
     db.commit()
 

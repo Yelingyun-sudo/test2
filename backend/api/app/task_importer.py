@@ -74,7 +74,7 @@ def _sync_kafka_consumer_loop(stop_event: threading.Event) -> None:
     """同步阻塞的 Kafka 消费循环，在独立线程中运行"""
     settings = get_settings()
     consumer = KafkaConsumer(
-        settings.kafka_topic,
+        settings.kafka_topic_task,
         bootstrap_servers=[settings.kafka_bootstrap_servers],
         security_protocol="SASL_PLAINTEXT",
         sasl_mechanism="SCRAM-SHA-512",
@@ -111,6 +111,7 @@ def _sync_kafka_consumer_loop(stop_event: threading.Event) -> None:
                             logger.debug(f"处理结果: {result}, record={record}")
                         processed_any = True
                     except Exception as e:
+                        session.rollback()  # 防止 session 处于 failed state
                         logger.error(f"消息处理失败: {e}", exc_info=True)
                         # 处理失败不标记，下次重启会重新消费
             # 每批消息处理完后提交 offset（包括过期跳过的消息）

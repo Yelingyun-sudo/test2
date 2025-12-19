@@ -28,6 +28,12 @@ class TaskStatus(str, Enum):
     FAILED = "failed"  # 失败
 
 
+class TaskReportStatus(str, Enum):
+    PENDING = "pending"  # 待汇报（任务已完成，等待发送）
+    SUCCESS = "success"  # Kafka 发送成功
+    FAILED = "failed"  # Kafka 发送失败
+
+
 class SubscribedTask(Base):
     __tablename__ = "subscribed_tasks"
     __table_args__ = (
@@ -50,6 +56,7 @@ class SubscribedTask(Base):
 
     result = Column(Text, nullable=True)
     failure_type = Column(String(255), nullable=True)
+    report_status = Column(SAEnum(TaskReportStatus), nullable=True, default=None)
 
     created_at = Column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
