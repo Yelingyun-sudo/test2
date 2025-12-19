@@ -18,24 +18,39 @@ sys.path.insert(0, str(ROOT))
 from api.app.db import SessionLocal, init_db  # noqa: E402
 from api.app.models import SubscribedTask, TaskStatus  # noqa: E402
 
-DATA_PATH = ROOT / "resources" / "subscribed_clean.jsonl"
-
-
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""\
+示例:
+  python %(prog)s data.jsonl           增量导入，跳过重复记录
+  python %(prog)s data.jsonl --clear   清空表后全量导入
+""",
+    )
+    parser.add_argument(
+        "file",
+        type=Path,
+        nargs="?",
+        help="要导入的 JSONL 数据文件路径",
+    )
     parser.add_argument(
         "--clear",
         action="store_true",
         help="导入前清空 subscribed_tasks 表",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.file is None:
+        parser.print_help()
+        sys.exit(0)
+    return args
 
 
-def load_records():
-    if not DATA_PATH.exists():
-        raise SystemExit(f"数据文件不存在: {DATA_PATH}")
+def load_records(data_path: Path):
+    if not data_path.exists():
+        raise SystemExit(f"数据文件不存在: {data_path}")
 
-    with DATA_PATH.open("r", encoding="utf-8") as f:
+    with data_path.open("r", encoding="utf-8") as f:
         for line_no, line in enumerate(f, 1):
             stripped = line.strip()
             if not stripped:
@@ -68,7 +83,7 @@ def main() -> None:
             session.commit()
             print(f"已清空 subscribed_tasks 表：删除 {cleared} 条记录。")
 
-        for record in load_records():
+        for record in load_records(args.file):
             task = SubscribedTask(
                 url=record.get("url"),
                 account=record.get("account"),
