@@ -100,7 +100,7 @@ export function DashboardShell({ title, description, actions, children, account,
               </div>
             ) : null}
             <Button size="sm" variant="outline" onClick={handleLogout} className="hidden md:inline-flex">
-              退出
+              退出登录
             </Button>
           </div>
         </div>
@@ -115,7 +115,7 @@ export function DashboardShell({ title, description, actions, children, account,
               {accountName ? <p className="mt-1 text-xs text-slate-600">{accountName}</p> : null}
             </div>
             <Button size="sm" variant="outline" onClick={handleLogout}>
-              退出
+              退出登录
             </Button>
           </div>
           <div className="mt-2 flex gap-2 overflow-x-auto pb-1">

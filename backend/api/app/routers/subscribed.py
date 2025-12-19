@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 import tempfile
-from datetime import timedelta, timezone
+from datetime import date, timedelta, timezone
 from pathlib import Path
 from typing import List
 from zipfile import ZIP_DEFLATED, ZipFile
@@ -17,9 +17,14 @@ from starlette.background import BackgroundTask
 from ..db import get_db
 from ..models import SubscribedTask, TaskStatus
 from ..schemas.subscribed import (
+    DailyTrendItem,
+    RecentTaskItem,
+    StatusDistributionItem,
     SubscribedArtifactsResponse,
     SubscribedItem,
     SubscribedListResponse,
+    SubscribedStatsResponse,
+    SubscribedStatsSummary,
 )
 from website_analytics.utils import LOGS_DIR, PROJECT_ROOT
 
@@ -294,4 +299,173 @@ def download_task_dir_zip(
         media_type="application/zip",
         filename=filename,
         background=BackgroundTask(_cleanup_file, str(zip_path)),
+    )
+
+
+@router.get(
+    "/stats",
+    response_model=SubscribedStatsResponse,
+    summary="获取订阅任务统计数据",
+)
+def get_subscribed_stats(
+    db: Session = Depends(get_db),
+):
+    """
+    获取订阅任务的统计数据，包括：
+    - 汇总统计（总数、今日新增、成功率、平均时长等）
+    - 每日趋势（最近10天）
+    - 状态分布
+    - 最近任务列表（最近5条）
+    """
+    tz_cn = timezone(timedelta(hours=8))
+
+    # 1. 汇总统计
+    summary_result = db.query(
+        func.count(SubscribedTask.id).label("total_tasks"),
+        func.sum(
+            case((SubscribedTask.created_date == func.current_date(), 1), else_=0)
+        ).label("today_tasks"),
+        func.sum(
+            case((SubscribedTask.status == TaskStatus.SUCCESS, 1), else_=0)
+        ).label("success_count"),
+        func.sum(
+            case((SubscribedTask.status == TaskStatus.FAILED, 1), else_=0)
+        ).label("failed_count"),
+        func.sum(
+            case((SubscribedTask.status == TaskStatus.PENDING, 1), else_=0)
+        ).label("pending_count"),
+        func.sum(
+            case((SubscribedTask.status == TaskStatus.RUNNING, 1), else_=0)
+        ).label("running_count"),
+        func.avg(
+            case(
+                (SubscribedTask.status == TaskStatus.SUCCESS, SubscribedTask.duration_seconds),
+                else_=None,
+            )
+        ).label("avg_success_duration"),
+        func.avg(
+            case(
+                (SubscribedTask.status == TaskStatus.FAILED, SubscribedTask.duration_seconds),
+                else_=None,
+            )
+        ).label("avg_failed_duration"),
+    ).first()
+
+    total_tasks = summary_result.total_tasks or 0
+    today_tasks = summary_result.today_tasks or 0
+    success_count = summary_result.success_count or 0
+    failed_count = summary_result.failed_count or 0
+    pending_count = summary_result.pending_count or 0
+    running_count = summary_result.running_count or 0
+    avg_success_duration = summary_result.avg_success_duration or 0.0
+    avg_failed_duration = summary_result.avg_failed_duration or 0.0
+
+    # 计算成功率
+    total_completed = success_count + failed_count
+    success_rate = (success_count / total_completed) if total_completed > 0 else 0.0
+
+    summary = SubscribedStatsSummary(
+        total_tasks=total_tasks,
+        today_tasks=today_tasks,
+        success_count=success_count,
+        failed_count=failed_count,
+        pending_count=pending_count,
+        running_count=running_count,
+        success_rate=success_rate,
+        avg_success_duration_seconds=avg_success_duration,
+        avg_failed_duration_seconds=avg_failed_duration,
+    )
+
+    # 2. 每日趋势（最近10天）
+    today = date.today()
+    ten_days_ago = today - timedelta(days=10)
+
+    daily_trend_results = (
+        db.query(
+            SubscribedTask.created_date.label("date"),
+            func.count(SubscribedTask.id).label("total_count"),
+            func.sum(
+                case((SubscribedTask.status == TaskStatus.SUCCESS, 1), else_=0)
+            ).label("success_count"),
+            func.sum(
+                case((SubscribedTask.status == TaskStatus.FAILED, 1), else_=0)
+            ).label("failed_count"),
+        )
+        .filter(SubscribedTask.created_date >= ten_days_ago)
+        .group_by(SubscribedTask.created_date)
+        .order_by(SubscribedTask.created_date.asc())
+        .all()
+    )
+
+    daily_trend = []
+    for row in daily_trend_results:
+        total_count = row.total_count or 0
+        success_count_day = row.success_count or 0
+        failed_count_day = row.failed_count or 0
+        completed_day = success_count_day + failed_count_day
+        day_success_rate = (
+            (success_count_day / completed_day) if completed_day > 0 else 0.0
+        )
+
+        daily_trend.append(
+            DailyTrendItem(
+                date=row.date.isoformat() if row.date else "",
+                total_count=total_count,
+                success_count=success_count_day,
+                failed_count=failed_count_day,
+                success_rate=day_success_rate,
+            )
+        )
+
+    # 3. 状态分布
+    status_results = (
+        db.query(
+            SubscribedTask.status.label("status"),
+            func.count(SubscribedTask.id).label("count"),
+        )
+        .group_by(SubscribedTask.status)
+        .all()
+    )
+
+    status_distribution = []
+    for row in status_results:
+        status_value = row.status.value if hasattr(row.status, "value") else row.status
+        status_distribution.append(
+            StatusDistributionItem(status=status_value or "", count=row.count or 0)
+        )
+
+    # 4. 最近任务列表（最近5条）
+    def _format_dt(dt):
+        if not dt:
+            return None
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(tz_cn).isoformat()
+
+    recent_task_records = (
+        db.query(SubscribedTask)
+        .order_by(SubscribedTask.created_at.desc())
+        .limit(5)
+        .all()
+    )
+
+    recent_tasks = []
+    for rec in recent_task_records:
+        status_value = rec.status.value if hasattr(rec.status, "value") else rec.status
+        recent_tasks.append(
+            RecentTaskItem(
+                id=int(rec.id) if rec.id is not None else 0,
+                url=rec.url,
+                status=status_value or "",
+                created_at=_format_dt(rec.created_at),
+                duration_seconds=rec.duration_seconds,
+                result=rec.result,
+            )
+        )
+
+    return SubscribedStatsResponse(
+        summary=summary,
+        daily_trend=daily_trend,
+        status_distribution=status_distribution,
+        recent_tasks=recent_tasks,
     )

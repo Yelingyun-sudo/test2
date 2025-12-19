@@ -19,6 +19,7 @@ frontend/.next/
 frontend/.turbo/
 frontend/.vercel/
 frontend/.swc/
+*.tsbuildinfo
 
 # Env
 .env

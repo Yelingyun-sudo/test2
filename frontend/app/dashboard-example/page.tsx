@@ -31,9 +31,9 @@ const API_BASE_URL =
 
 type FormValues = z.infer<typeof schema>;
 
-const RealDashboard = dynamic(
+const Dashboard = dynamic(
   () =>
-    import("@/components/dashboard/real-dashboard").then((mod) => mod.RealDashboard),
+    import("@/components/dashboard/dashboard").then((mod) => mod.Dashboard),
   { ssr: false }
 );
 
@@ -111,7 +111,7 @@ export default function Page() {
 
   if (isAuthed) {
     return (
-      <RealDashboard onLogout={handleLogout} account={account ?? undefined} />
+      <Dashboard onLogout={handleLogout} account={account ?? undefined} />
     );
   }
 

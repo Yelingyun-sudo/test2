@@ -84,14 +84,9 @@ export function Dashboard({ onLogout, account }: DashboardProps) {
       description="左侧为常驻导航，右侧展示首页组件。登录后可浏览报表、漏斗、留存、设置等页面。"
       onLogout={onLogout}
       actions={
-        <>
-          <Button variant="outline" onClick={onLogout}>
-            退出登录
-          </Button>
-          <Button className="bg-gradient-to-r from-sky-600 to-cyan-500 text-white shadow-lg shadow-sky-200 hover:from-sky-700 hover:to-cyan-600">
-            导出报告
-          </Button>
-        </>
+        <Button className="bg-gradient-to-r from-sky-600 to-cyan-500 text-white shadow-lg shadow-sky-200 hover:from-sky-700 hover:to-cyan-600">
+          导出报告
+        </Button>
       }
     >
       <section className="grid gap-4 md:grid-cols-3">
