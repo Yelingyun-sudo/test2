@@ -69,7 +69,11 @@ def list_subscribed(
     )
 
     records: List[SubscribedTask] = (
-        query.order_by(status_priority, SubscribedTask.id.asc())
+        query.order_by(
+            status_priority,
+            SubscribedTask.executed_at.desc().nulls_last(),
+            SubscribedTask.id.asc(),
+        )
         .offset((page - 1) * page_size)
         .limit(page_size)
         .all()
@@ -451,7 +455,11 @@ def get_subscribed_stats(
 
     recent_task_records = (
         db.query(SubscribedTask)
-        .order_by(recent_status_priority, SubscribedTask.created_at.desc())
+        .order_by(
+            recent_status_priority,
+            SubscribedTask.executed_at.desc().nulls_last(),
+            SubscribedTask.id.asc(),
+        )
         .limit(5)
         .all()
     )
@@ -464,7 +472,7 @@ def get_subscribed_stats(
                 id=int(rec.id) if rec.id is not None else 0,
                 url=rec.url,
                 status=status_value or "",
-                created_at=_format_dt(rec.created_at),
+                executed_at=_format_dt(rec.executed_at),
                 duration_seconds=rec.duration_seconds,
                 result=rec.result,
             )

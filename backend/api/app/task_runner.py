@@ -124,7 +124,7 @@ def _get_pending_batch(db: Session, limit: int = 1) -> list[SubscribedTask]:
     return (
         db.query(SubscribedTask)
         .filter(SubscribedTask.status == TaskStatus.PENDING)
-        .order_by(SubscribedTask.id.desc())
+        .order_by(SubscribedTask.id.asc())
         .limit(limit)
         .all()
     )

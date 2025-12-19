@@ -66,7 +66,7 @@ class RecentTaskItem(BaseModel):
     id: int = Field(..., description="任务 ID")
     url: str = Field(..., description="订阅站点 URL")
     status: str = Field(..., description="任务状态")
-    created_at: Optional[str] = Field(None, description="任务创建时间 ISO 字符串")
+    executed_at: Optional[str] = Field(None, description="任务执行时间 ISO 字符串")
     duration_seconds: Optional[int] = Field(None, description="任务时长（秒）")
     result: Optional[str] = Field(None, description="任务结果")
 

@@ -27,7 +27,7 @@ export interface RecentTaskItem {
   id: number;
   url: string;
   status: string;
-  created_at: string | null;
+  executed_at: string | null;
   duration_seconds: number | null;
   result: string | null;
 }

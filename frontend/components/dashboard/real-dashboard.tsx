@@ -332,7 +332,7 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
                   状态
                 </th>
                 <th className="p-2 text-left text-xs font-medium text-slate-500">
-                  创建时间
+                  执行时间
                 </th>
                 <th className="p-2 text-left text-xs font-medium text-slate-500">
                   执行时长
@@ -375,10 +375,12 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
                       </span>
                     </td>
                     <td className="p-2 text-sm text-slate-700">
-                      {task.created_at ? formatDateTime(task.created_at) : "-"}
+                      {task.executed_at ? formatDateTime(task.executed_at) : "-"}
                     </td>
                     <td className="p-2 text-sm text-slate-700">
-                      {formatDurationSeconds(task.duration_seconds)}
+                      {task.status === "running" || task.status === "pending"
+                        ? "-"
+                        : formatDurationSeconds(task.duration_seconds)}
                     </td>
                     <td className="p-2 text-sm text-slate-700">
                       <div className="max-w-xs truncate" title={task.result || ""}>
