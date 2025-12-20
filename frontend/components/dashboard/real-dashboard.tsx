@@ -343,9 +343,9 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
             <colgroup>
               <col className="w-[5%]" />
               <col className="w-[18%]" />
-              <col className="w-[13%]" />
-              <col className="w-[31%]" />
-              <col className="w-[14%]" />
+              <col className="w-[12%]" />
+              <col className="w-[30%]" />
+              <col className="w-[16%]" />
               <col className="w-[19%]" />
             </colgroup>
             <thead>
