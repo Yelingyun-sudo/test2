@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Loader2, Pause, Play, RotateCcw, Search } from "lucide-react";
 import { toast } from "sonner";
@@ -99,7 +99,7 @@ function MediaLoadingOverlay({ label }: { label: string }) {
   );
 }
 
-export default function SubscribedPage() {
+function SubscribedContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -1510,5 +1510,20 @@ export default function SubscribedPage() {
         </div>
       )}
     </DashboardShell>
+  );
+}
+
+export default function SubscribedPage() {
+  return (
+    <Suspense fallback={
+      <DashboardShell title="已订阅网站">
+        <div className="flex items-center justify-center gap-2 px-4 py-12 text-sm text-slate-500">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          加载中...
+        </div>
+      </DashboardShell>
+    }>
+      <SubscribedContent />
+    </Suspense>
   );
 }
