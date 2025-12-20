@@ -32,9 +32,23 @@ export interface RecentTaskItem {
   result: string | null;
 }
 
+export interface FailureTypeDistributionItem {
+  type: string;
+  label: string;
+  count: number;
+  percentage: number;
+}
+
+export interface FailureSummary {
+  total_failed: number;
+  unique_types: number;
+}
+
 export interface StatsResponse {
   summary: StatsSummary;
   daily_trend: DailyTrendItem[];
   status_distribution: StatusDistributionItem[];
   recent_tasks: RecentTaskItem[];
+  failure_type_distribution: FailureTypeDistributionItem[];
+  failure_summary: FailureSummary;
 }

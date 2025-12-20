@@ -53,18 +53,25 @@ def _extract_success_result(summary: dict[str, Any] | None) -> str:
 
 
 def _extract_failure_result(
-    summary: dict[str, Any] | None, fallback: str | None = None
+    summary: dict[str, Any] | None,
+    fallback: str | None = None,
+    exc: Exception | None = None,
 ) -> str:
+    """提取失败结果信息，包含异常详情。"""
     if not summary:
+        if exc is not None:
+            return f"执行异常：{exc.__class__.__name__}: {str(exc)}"
         return fallback or "任务总结不存在"
     try:
         coordinator = summary.get("coordinator_output") or {}
         message = coordinator.get("message")
         if message:
             return str(message)
+        if exc is not None:
+            return f"执行异常：{exc.__class__.__name__}: {str(exc)}"
         return fallback or "任务失败，未提供错误信息"
-    except Exception as exc:  # pragma: no cover - 防御性处理
-        return f"解析失败信息时出错: {exc}"
+    except Exception as parse_exc:  # pragma: no cover - 防御性处理
+        return f"解析失败信息时出错: {parse_exc}"
 
 
 def _format_failure_type(
@@ -75,15 +82,12 @@ def _format_failure_type(
     """格式化失败类型，优先使用业务层 error_type。
 
     优先级:
-    1. 执行超时 → "timeout"
-    2. 执行异常 → 异常类名
-    3. 业务层错误 → coordinator_output.error_type
-    4. 兜底 → "run_error"
+    1. 执行超时 → "task_timeout"
+    2. 业务层错误 → coordinator_output.error_type
+    3. 执行异常或兜底 → "unknown_error"（异常详情记录在 result 中）
     """
     if timed_out:
-        return "timeout"
-    if exc is not None:
-        return exc.__class__.__name__
+        return "task_timeout"
 
     # 从 exec_result 的 coordinator_output 读取业务层 error_type
     if exec_result and exec_result.coordinator_output:
@@ -91,7 +95,8 @@ def _format_failure_type(
         if error_type:
             return str(error_type)
 
-    return "run_error"
+    # 统一为 unknown_error，异常详情在 result 字段中
+    return "unknown_error"
 
 
 def _mark_running(db: Session, task: SubscribedTask) -> None:
@@ -229,13 +234,13 @@ async def _run_task(task_id: int, instruction: str) -> None:
             if exec_result and exec_result.task_dir:
                 summary = _read_task_summary(exec_result.task_dir)
                 result_text = _extract_failure_result(
-                    summary, getattr(exec_result, "message", None)
+                    summary, getattr(exec_result, "message", None), exc=exec_error
                 )
             else:
                 fallback_msg = (
                     getattr(exec_result, "message", None) if exec_result else None
                 )
-                result_text = _extract_failure_result(None, fallback_msg)
+                result_text = _extract_failure_result(None, fallback_msg, exc=exec_error)
             failure_type = _format_failure_type(exec_error, timed_out, exec_result)
             _update_task_failure(
                 db,

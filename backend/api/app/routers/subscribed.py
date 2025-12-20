@@ -18,6 +18,10 @@ from ..db import get_db
 from ..models import SubscribedTask, TaskStatus
 from ..schemas.subscribed import (
     DailyTrendItem,
+    FailureSummary,
+    FailureTypeDistributionItem,
+    FailureTypeItem,
+    FailureTypesResponse,
     RecentTaskItem,
     StatusDistributionItem,
     SubscribedArtifactsResponse,
@@ -25,6 +29,10 @@ from ..schemas.subscribed import (
     SubscribedListResponse,
     SubscribedStatsResponse,
     SubscribedStatsSummary,
+)
+from website_analytics.output_types import (
+    FAILURE_TYPE_LABELS,
+    get_failure_types_ordered,
 )
 from website_analytics.utils import LOGS_DIR, PROJECT_ROOT
 
@@ -44,6 +52,9 @@ def list_subscribed(
     page_size: int = Query(20, ge=1, le=100, description="每页条数"),
     q: str | None = Query(None, description="按 url / account / password 包含匹配"),
     status: TaskStatus | None = Query(None, description="按任务状态过滤"),
+    failure_type: str | None = Query(
+        None, description="按失败类型过滤（通常与 status=failed 配合使用）"
+    ),
     db: Session = Depends(get_db),
 ):
     query = db.query(SubscribedTask)
@@ -58,6 +69,9 @@ def list_subscribed(
 
     if status:
         query = query.filter(SubscribedTask.status == status)
+
+    if failure_type:
+        query = query.filter(SubscribedTask.failure_type == failure_type)
 
     total = query.count()
 
@@ -103,6 +117,7 @@ def list_subscribed(
                 executed_at=_format_dt(rec.executed_at),
                 task_dir=rec.task_dir,
                 result=rec.result,
+                failure_type=rec.failure_type,
             )
         )
 
@@ -484,9 +499,80 @@ def get_subscribed_stats(
             )
         )
 
+    # 5. 失败类型分布统计
+    failure_type_results = (
+        db.query(
+            SubscribedTask.failure_type,
+            func.count(SubscribedTask.id).label("count"),
+        )
+        .filter(
+            SubscribedTask.status == TaskStatus.FAILED,
+            SubscribedTask.failure_type.isnot(None),
+        )
+        .group_by(SubscribedTask.failure_type)
+        .order_by(func.count(SubscribedTask.id).desc())
+        .all()
+    )
+
+    # Top 5 + "其他"
+    top_5_types = failure_type_results[:5]
+    others_count = sum(row.count for row in failure_type_results[5:])
+
+    failure_type_distribution = []
+    for row in top_5_types:
+        count = row.count or 0
+        percentage = (count / failed_count * 100) if failed_count > 0 else 0.0
+        failure_type_distribution.append(
+            FailureTypeDistributionItem(
+                type=row.failure_type or "",
+                label=FAILURE_TYPE_LABELS.get(
+                    row.failure_type or "", row.failure_type or ""
+                ),
+                count=count,
+                percentage=round(percentage, 1),
+            )
+        )
+
+    # 添加"其他"类别
+    if others_count > 0:
+        others_percentage = (
+            (others_count / failed_count * 100) if failed_count > 0 else 0.0
+        )
+        failure_type_distribution.append(
+            FailureTypeDistributionItem(
+                type="others",
+                label="其他",
+                count=others_count,
+                percentage=round(others_percentage, 1),
+            )
+        )
+
+    failure_summary = FailureSummary(
+        total_failed=failed_count,
+        unique_types=len(failure_type_results),
+    )
+
     return SubscribedStatsResponse(
         summary=summary,
         daily_trend=daily_trend,
         status_distribution=status_distribution,
         recent_tasks=recent_tasks,
+        failure_type_distribution=failure_type_distribution,
+        failure_summary=failure_summary,
     )
+
+
+@router.get(
+    "/failure-types",
+    response_model=FailureTypesResponse,
+    summary="获取失败类型列表",
+)
+def get_failure_types():
+    """
+    获取所有失败类型及其中文标签，按业务优先级排序。
+
+    Returns:
+        失败类型列表，包含 value 和 label 字段。
+    """
+    types_list = get_failure_types_ordered()
+    return FailureTypesResponse(items=[FailureTypeItem(**item) for item in types_list])

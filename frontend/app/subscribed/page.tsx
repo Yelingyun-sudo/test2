@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Loader2, Pause, Play, RotateCcw, Search } from "lucide-react";
 import { toast } from "sonner";
 
@@ -24,6 +25,7 @@ type SubscribedItem = {
   executed_at?: string | null;
   task_dir?: string | null;
   result?: string | null;
+  failure_type?: string | null;
 };
 
 type TaskArtifacts = {
@@ -98,12 +100,16 @@ function MediaLoadingOverlay({ label }: { label: string }) {
 }
 
 export default function SubscribedPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
   const [data, setData] = useState<SubscribedItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pageInput, setPageInput] = useState("1");
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [failureTypeFilter, setFailureTypeFilter] = useState("");
   const [loading, setLoading] = useState(false);
   const [selectedItem, setSelectedItem] = useState<SubscribedItem | null>(null);
   const [artifacts, setArtifacts] = useState<TaskArtifacts | null>(null);
@@ -138,6 +144,30 @@ export default function SubscribedPage() {
     login: false,
     extract: false
   });
+  const [failureTypeStats, setFailureTypeStats] = useState<
+    Array<{ type: string; label: string; count: number }>
+  >([]);
+  const [failureTypes, setFailureTypes] = useState<
+    Array<{ value: string; label: string }>
+  >([]);
+
+  // 获取失败类型列表
+  useEffect(() => {
+    const fetchFailureTypes = async () => {
+      try {
+        const res = await apiFetch("/subscribed/failure-types");
+        if (!res.ok) {
+          throw new Error("获取失败类型列表失败");
+        }
+        const data = await res.json() as { items: Array<{ value: string; label: string }> };
+        setFailureTypes(data.items);
+      } catch (error) {
+        console.error("获取失败类型列表失败:", error);
+        toast.error("获取失败类型列表失败");
+      }
+    };
+    fetchFailureTypes();
+  }, []);
 
   const handleCopyReplayCommand = useCallback(async () => {
     if (!selectedItem) return;
@@ -195,11 +225,44 @@ export default function SubscribedPage() {
 
   const pageItems = useMemo(() => getPageItems(page, totalPages), [page, totalPages]);
 
+  const updateURL = useCallback(
+    (params: { page?: number; q?: string; status?: string; failureType?: string }) => {
+      const newSearchParams = new URLSearchParams();
+
+      // 设置 page（默认当前页）
+      const targetPage = params.page ?? page;
+      newSearchParams.set("page", String(targetPage));
+
+      // 设置 q（搜索关键词）
+      const targetQ = params.q !== undefined ? params.q : query;
+      if (targetQ.trim()) {
+        newSearchParams.set("q", targetQ.trim());
+      }
+
+      // 设置 status
+      const targetStatus = params.status !== undefined ? params.status : statusFilter;
+      if (targetStatus) {
+        newSearchParams.set("status", targetStatus);
+      }
+
+      // 设置 failure_type（仅在 status === "failed" 时）
+      const targetFailureType = params.failureType !== undefined ? params.failureType : failureTypeFilter;
+      if (targetStatus === "failed" && targetFailureType) {
+        newSearchParams.set("failure_type", targetFailureType);
+      }
+
+      // 使用 replace 避免创建历史记录，scroll: false 防止页面滚动
+      router.replace(`?${newSearchParams.toString()}`, { scroll: false });
+    },
+    [page, query, statusFilter, failureTypeFilter, router]
+  );
+
   const fetchData = useCallback(
-    async (params?: { page?: number; q?: string; status?: string }) => {
+    async (params?: { page?: number; q?: string; status?: string; failureType?: string }) => {
       const currentPage = params?.page ?? page;
       const q = params?.q ?? query;
       const status = params?.status ?? statusFilter;
+      const failureType = params?.failureType ?? failureTypeFilter;
       setLoading(true);
       try {
         const searchParams = new URLSearchParams({
@@ -208,6 +271,7 @@ export default function SubscribedPage() {
         });
         if (q) searchParams.set("q", q);
         if (status) searchParams.set("status", status);
+        if (failureType) searchParams.set("failure_type", failureType);
 
         const res = await apiFetch(
           `/subscribed/list?${searchParams.toString()}`
@@ -224,24 +288,74 @@ export default function SubscribedPage() {
         setLoading(false);
       }
     },
-    [page, query, statusFilter]
+    [page, query, statusFilter, failureTypeFilter]
   );
 
-  useEffect(() => {
-    fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  const fetchFailureTypeStats = useCallback(async () => {
+    try {
+      const res = await apiFetch('/subscribed/stats');
+      if (!res.ok) return;
+      const payload = await res.json();
+      setFailureTypeStats(payload.failure_type_distribution || []);
+    } catch (error) {
+      console.error('Failed to fetch failure type stats:', error);
+    }
   }, []);
+
+  useEffect(() => {
+    // 从 URL 读取所有参数
+    const urlPage = searchParams.get("page");
+    const urlQuery = searchParams.get("q") || ""; // 默认空字符串
+    let urlStatus = searchParams.get("status") || "";
+    let urlFailureType = searchParams.get("failure_type") || "";
+
+    // 修正：只有 status=failed 时才保留 failure_type（与现有逻辑一致）
+    if (urlStatus !== "failed") {
+      urlFailureType = "";
+    }
+
+    // 解析并验证 page（防止 NaN）
+    let pageNum = 1;
+    if (urlPage) {
+      const parsed = parseInt(urlPage, 10);
+      if (!isNaN(parsed) && parsed >= 1) {
+        pageNum = parsed;
+      }
+    }
+
+    // 无条件更新所有状态（确保与 URL 完全同步）
+    setPage(pageNum);
+    setPageInput(String(pageNum));
+    setQuery(urlQuery); // 即使是空字符串也设置
+    setStatusFilter(urlStatus);
+    setFailureTypeFilter(urlFailureType);
+
+    // 使用 URL 参数获取数据
+    fetchData({
+      page: pageNum,
+      status: urlStatus,
+      failureType: urlFailureType,
+      q: urlQuery
+    });
+
+    fetchFailureTypeStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   useEffect(() => {
     const interval = setInterval(() => {
       fetchData();
+      fetchFailureTypeStats();
     }, 30_000);
 
     return () => clearInterval(interval);
-  }, [fetchData]);
+  }, [fetchData, fetchFailureTypeStats]);
 
   const handleSearch = () => {
-    fetchData({ page: 1, q: query.trim(), status: statusFilter });
+    const trimmedQuery = query.trim();
+
+    // 同步更新 URL（useEffect 会自动触发 fetchData）
+    updateURL({ page: 1, q: trimmedQuery });
   };
 
   const statusLabel: Record<string, string> = {
@@ -255,6 +369,36 @@ export default function SubscribedPage() {
     { value: "", label: "全部" },
     ...Object.entries(statusLabel).map(([value, label]) => ({ value, label }))
   ];
+
+  // 从 API 获取的失败类型构建标签映射
+  const failureTypeLabel: Record<string, string> = useMemo(() => {
+    return failureTypes.reduce((acc, item) => {
+      acc[item.value] = item.label;
+      return acc;
+    }, {} as Record<string, string>);
+  }, [failureTypes]);
+
+  const failureTypeOptions: Array<{ value: string; label: string }> = useMemo(() => {
+    const baseOptions = [
+      { value: "", label: "全部" }
+    ];
+
+    // 创建统计数据的映射表
+    const statsMap = new Map(
+      failureTypeStats.map(stat => [stat.type, stat.count])
+    );
+
+    // 使用从 API 获取的失败类型列表（已按业务优先级排序）
+    const optionsWithCount = failureTypes.map(option => {
+      const count = statsMap.get(option.value);
+      return {
+        value: option.value,
+        label: count !== undefined ? `${option.label}(${count})` : option.label
+      };
+    });
+
+    return [...baseOptions, ...optionsWithCount];
+  }, [failureTypeStats, failureTypes]);
 
   const renderStatus = (value?: string) => {
     if (!value) return <span className="text-slate-400">-</span>;
@@ -316,7 +460,8 @@ export default function SubscribedPage() {
   };
 
   const handlePageChange = (nextPage: number) => {
-    fetchData({ page: nextPage });
+    // 同步更新 URL（useEffect 会自动触发 fetchData）
+    updateURL({ page: nextPage });
   };
 
   const revokeArtifactUrls = useCallback((urls: ArtifactUrls) => {
@@ -707,12 +852,29 @@ export default function SubscribedPage() {
     const value = parseInt(pageInput, 10);
     if (Number.isNaN(value)) return;
     const target = Math.min(Math.max(1, value), totalPages);
-    fetchData({ page: target });
+
+    // 同步更新 URL（useEffect 会自动触发 fetchData）
+    updateURL({ page: target });
   };
 
   const handleStatusChange = (value: string) => {
     setStatusFilter(value);
-    fetchData({ page: 1, status: value, q: query.trim() });
+    const newFailureType = value !== "failed" ? "" : failureTypeFilter;
+
+    // 如果切换到非失败状态，清空失败类型筛选
+    if (value !== "failed") {
+      setFailureTypeFilter("");
+    }
+
+    // 同步更新 URL（useEffect 会自动触发 fetchData）
+    updateURL({ page: 1, status: value, failureType: newFailureType });
+  };
+
+  const handleFailureTypeChange = (value: string) => {
+    setFailureTypeFilter(value);
+
+    // 同步更新 URL（useEffect 会自动触发 fetchData）
+    updateURL({ page: 1, failureType: value });
   };
 
   const handleRowClick = (item: SubscribedItem) => {
@@ -746,6 +908,24 @@ export default function SubscribedPage() {
               ))}
             </select>
           </div>
+          {statusFilter === "failed" && (
+            <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-[0_6px_18px_rgba(15,23,42,0.06)]">
+              <span className="text-sm font-semibold text-slate-700">失败类型</span>
+              <select
+                value={failureTypeFilter}
+                onChange={(e) => handleFailureTypeChange(e.target.value)}
+                className="h-9 min-w-[160px] rounded-md bg-transparent text-sm text-slate-800 focus:outline-none"
+                disabled={loading}
+                aria-label="失败类型筛选"
+              >
+                {failureTypeOptions.map((option) => (
+                  <option key={option.value || "all"} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="relative flex items-center rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-[0_6px_18px_rgba(15,23,42,0.06)]">
             <Search className="pointer-events-none absolute left-4 h-4 w-4 text-slate-400" />
             <Input
@@ -806,7 +986,7 @@ export default function SubscribedPage() {
                 <div className="truncate pr-4" title={item.url}>
                   {item.url}
                 </div>
-                <div className="truncate pr-4 text-slate-600 flex items-center">
+                <div className="truncate pr-4 text-slate-600">
                   {renderStatus(item.status)}
                 </div>
                 <div className="truncate pr-4" title={item.created_at || undefined}>
@@ -816,8 +996,15 @@ export default function SubscribedPage() {
                   {formatDateTime(item.executed_at)}
                 </div>
                 <div className="truncate pr-4">{formatTaskDuration(item.duration_seconds, item.status)}</div>
-                <div className="truncate" title={item.result || undefined}>
-                  {item.result || "-"}
+                <div className="flex items-center gap-2 min-w-0" title={item.result || undefined}>
+                  {item.status === "failed" && item.failure_type && (
+                    <span className="inline-flex items-center rounded-md bg-rose-50 px-2 py-1 text-xs font-medium text-rose-700 ring-1 ring-inset ring-rose-600/10 flex-shrink-0">
+                      {failureTypeLabel[item.failure_type] || item.failure_type}
+                    </span>
+                  )}
+                  <span className="truncate">
+                    {item.result || "-"}
+                  </span>
                 </div>
               </div>
             ))
@@ -950,7 +1137,14 @@ export default function SubscribedPage() {
             </div>
 
             <div className="px-6 pb-6">
-              <div className="mb-2 text-sm font-semibold text-slate-700">任务结果</div>
+              <div className="mb-2 flex items-center gap-2">
+                <div className="text-sm font-semibold text-slate-700">任务结果</div>
+                {selectedItem.status === "failed" && selectedItem.failure_type && (
+                  <span className="inline-flex items-center rounded-md bg-rose-50 px-2 py-1 text-xs font-medium text-rose-700 ring-1 ring-inset ring-rose-600/10">
+                    {failureTypeLabel[selectedItem.failure_type] || selectedItem.failure_type}
+                  </span>
+                )}
+              </div>
               <Input
                 readOnly
                 value={(selectedItem.result ?? "").replace(/\s+/g, " ").trim()}

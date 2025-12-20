@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import { dashboardNavItems } from "./nav";
 
 type DashboardShellProps = {
-  title: string;
+  title?: string;
   description?: string;
   actions?: ReactNode;
   children: ReactNode;
@@ -144,19 +144,23 @@ export function DashboardShell({ title, description, actions, children, account,
 
       <div className="mx-auto max-w-7xl px-4 py-6 lg:px-8">
         <div className="space-y-6">
-          <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm backdrop-blur">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h1 className="text-2xl font-semibold text-slate-900">{title}</h1>
-                {description ? (
-                  <p className="mt-1 text-sm text-slate-500">{description}</p>
+          {(title || description) && (
+            <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm backdrop-blur">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  {title && (
+                    <h1 className="text-2xl font-semibold text-slate-900">{title}</h1>
+                  )}
+                  {description ? (
+                    <p className="mt-1 text-sm text-slate-500">{description}</p>
+                  ) : null}
+                </div>
+                {actions ? (
+                  <div className="flex flex-wrap items-center gap-3">{actions}</div>
                 ) : null}
               </div>
-              {actions ? (
-                <div className="flex flex-wrap items-center gap-3">{actions}</div>
-              ) : null}
             </div>
-          </div>
+          )}
 
           <div className="space-y-6">{children}</div>
         </div>

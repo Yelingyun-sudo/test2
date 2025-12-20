@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   CartesianGrid,
   Cell,
@@ -8,6 +9,8 @@ import {
   Bar,
   BarChart,
   Line,
+  PieChart,
+  Pie,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -68,6 +71,7 @@ const statusColor: Record<string, string> = {
 };
 
 export function RealDashboard({ onLogout, account }: DashboardProps) {
+  const router = useRouter();
   const [stats, setStats] = useState<StatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -92,8 +96,6 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
     return (
       <DashboardShell
         account={account}
-        title="数据概览"
-        description="加载中..."
         onLogout={onLogout}
       >
         <div className="flex items-center justify-center py-20">
@@ -107,8 +109,6 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
     return (
       <DashboardShell
         account={account}
-        title="数据概览"
-        description="暂无数据"
         onLogout={onLogout}
       >
         <div className="text-center py-20 text-slate-500">暂无任务数据</div>
@@ -118,8 +118,8 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
 
   const { summary, daily_trend, status_distribution, recent_tasks } = stats;
 
-  // 处理图表数据
-  const trendData = daily_trend.map((item) => ({
+  // 处理图表数据（只显示最近5天）
+  const trendData = daily_trend.slice(-5).map((item) => ({
     date: new Date(item.date).toLocaleDateString("zh-CN", {
       month: "2-digit",
       day: "2-digit"
@@ -130,17 +130,17 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
     success_rate: item.success_rate * 100 // 转换为百分比
   }));
 
+  const totalStatusCount = status_distribution.reduce((sum, item) => sum + item.count, 0);
   const distributionData = status_distribution.map((item) => ({
     name: statusLabel[item.status] || item.status,
     value: item.count,
-    color: statusColor[item.status] || "#94a3b8"
+    color: statusColor[item.status] || "#94a3b8",
+    percentage: totalStatusCount > 0 ? ((item.count / totalStatusCount) * 100).toFixed(1) : 0
   }));
 
   return (
     <DashboardShell
       account={account}
-      title="数据概览"
-      description="任务统计、趋势分析与数据概览。"
       onLogout={onLogout}
     >
       {/* KPI 卡片 */}
@@ -208,11 +208,11 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
 
       {/* 图表区域 */}
       <section className="grid gap-6 lg:grid-cols-3">
-        {/* 每日任务趋势图 */}
+        {/* 每日任务趋势图 - 2/3 宽度 */}
         <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm lg:col-span-2">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-sm text-slate-500">最近 10 天</p>
+              <p className="text-sm text-slate-500">最近 5 天</p>
               <h3 className="text-lg font-semibold text-slate-900">
                 每日任务趋势
               </h3>
@@ -280,8 +280,8 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
           </div>
         </div>
 
-        {/* 任务状态分布图 */}
-        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+        {/* 任务状态分布图 - 1/3 宽度 */}
+        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm lg:col-span-1">
           <div className="flex items-start justify-between">
             <div>
               <p className="text-sm text-slate-500">状态统计</p>
@@ -292,24 +292,44 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
           </div>
           <div className="mt-4 h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={distributionData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="name" stroke="#94a3b8" />
-                <YAxis stroke="#94a3b8" />
-                <Tooltip />
-                <Bar dataKey="value" radius={[8, 8, 4, 4]}>
+              <PieChart>
+                <Pie
+                  data={distributionData}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={90}
+                  label={(entry) => `${entry.name} (${entry.percentage}%)`}
+                >
                   {distributionData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
-                </Bar>
-              </BarChart>
+                </Pie>
+                <Tooltip
+                  content={({ payload }) => {
+                    if (!payload?.[0]) return null;
+                    const data = payload[0].payload;
+                    return (
+                      <div className="rounded-lg border bg-white p-3 shadow-lg">
+                        <p className="font-medium text-slate-900">{data.name}</p>
+                        <p className="text-sm text-slate-500">
+                          数量: <span className="font-semibold text-sky-600">{data.value}</span>
+                        </p>
+                        <p className="text-xs text-slate-400">
+                          占比: {data.percentage}%
+                        </p>
+                      </div>
+                    );
+                  }}
+                />
+              </PieChart>
             </ResponsiveContainer>
           </div>
         </div>
-      </section>
 
-      {/* 最近任务列表 */}
-      <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+        {/* 最近任务列表 - 2/3 宽度 */}
+        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm lg:col-span-2">
         <div className="flex items-start justify-between">
           <div>
             <p className="text-sm text-slate-500">最新 5 个</p>
@@ -320,6 +340,14 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
         </div>
         <div className="mt-4 overflow-x-auto">
           <table className="w-full border-collapse">
+            <colgroup>
+              <col className="w-[5%]" />
+              <col className="w-[18%]" />
+              <col className="w-[13%]" />
+              <col className="w-[33%]" />
+              <col className="w-[9%]" />
+              <col className="w-[22%]" />
+            </colgroup>
             <thead>
               <tr className="border-b border-slate-200">
                 <th className="p-2 text-left text-xs font-medium text-slate-500">
@@ -335,7 +363,7 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
                   执行时间
                 </th>
                 <th className="p-2 text-left text-xs font-medium text-slate-500">
-                  执行时长
+                  耗时
                 </th>
                 <th className="p-2 text-left text-xs font-medium text-slate-500">
                   结果
@@ -360,7 +388,7 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
                   >
                     <td className="p-2 text-sm text-slate-700">{task.id}</td>
                     <td className="p-2 text-sm text-slate-700">
-                      <div className="max-w-xs truncate" title={task.url}>
+                      <div className="max-w-[160px] truncate" title={task.url}>
                         {task.url}
                       </div>
                     </td>
@@ -383,7 +411,7 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
                         : formatDurationSeconds(task.duration_seconds)}
                     </td>
                     <td className="p-2 text-sm text-slate-700">
-                      <div className="max-w-xs truncate" title={task.result || ""}>
+                      <div className="max-w-[200px] truncate" title={task.result || ""}>
                         {task.result || "-"}
                       </div>
                     </td>
@@ -392,6 +420,98 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
               )}
             </tbody>
           </table>
+        </div>
+        </div>
+
+        {/* 失败类型分布图 - 1/3 宽度 - 饼图 */}
+        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm lg:col-span-1">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-sm text-slate-500">
+                Top 5（共 {stats.failure_summary?.total_failed || 0} 个失败）
+              </p>
+              <h3 className="text-lg font-semibold text-slate-900">
+                失败类型分布
+              </h3>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.push('/subscribed?status=failed')}
+            >
+              查看全部
+            </Button>
+          </div>
+          <div className="mt-4 h-72">
+            {stats.failure_type_distribution && stats.failure_type_distribution.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={stats.failure_type_distribution} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis type="number" stroke="#94a3b8" />
+                  <YAxis 
+                    type="category" 
+                    dataKey="label" 
+                    stroke="#94a3b8" 
+                    width={100}
+                    tick={{ fontSize: 12 }}
+                  />
+                  <Tooltip
+                    content={({ payload }) => {
+                      if (!payload?.[0]) return null;
+                      const data = payload[0].payload;
+                      return (
+                        <div className="rounded-lg border bg-white p-3 shadow-lg">
+                          <p className="font-medium text-slate-900">{data.label}</p>
+                          <p className="text-sm text-slate-500">
+                            数量: <span className="font-semibold text-red-600">{data.count}</span>
+                          </p>
+                          <p className="text-xs text-slate-400">
+                            占比: {data.percentage.toFixed(1)}%
+                          </p>
+                          <p className="mt-2 text-xs text-blue-600 hover:underline">
+                            点击查看详情 →
+                          </p>
+                        </div>
+                      );
+                    }}
+                  />
+                  <Bar 
+                    dataKey="count" 
+                    radius={[0, 8, 8, 0]}
+                    onClick={(data) => {
+                      // 点击跳转到订阅列表，自动筛选该失败类型
+                      const failureType = data.payload?.type;
+                      if (failureType && failureType !== 'others') {
+                        router.push(`/subscribed?status=failed&failure_type=${encodeURIComponent(failureType)}`);
+                      } else if (failureType === 'others') {
+                        router.push('/subscribed?status=failed');
+                      }
+                    }}
+                    cursor="pointer"
+                    label={{
+                      position: 'right',
+                      formatter: (value: number, entry: any) => {
+                        if (!entry || typeof entry.percentage === 'undefined') return '';
+                        return `${entry.percentage.toFixed(1)}%`;
+                      },
+                      fontSize: 12,
+                      fill: '#64748b'
+                    }}
+                  >
+                    {stats.failure_type_distribution.map((entry, index) => {
+                      // 渐变色谱配色：橙 → 琥珀 → 青 → 灰
+                      const colors = ['#f97316', '#fb923c', '#fbbf24', '#fcd34d', '#22d3ee', '#94a3b8'];
+                      return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
+                    })}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex h-full items-center justify-center text-sm text-slate-400">
+                暂无失败数据
+              </div>
+            )}
+          </div>
         </div>
       </section>
     </DashboardShell>

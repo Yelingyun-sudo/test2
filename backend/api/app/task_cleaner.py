@@ -52,7 +52,7 @@ def _mark_cleaned(
     db: Session, task: SubscribedTask, *, timeout_seconds: int, now: datetime
 ) -> None:
     task.status = TaskStatus.FAILED
-    task.failure_type = "cleaned"
+    task.failure_type = "task_cleaned"
     task.result = f"任务被清理：超过 {timeout_seconds}s 未完成"
 
     started_at = (

@@ -57,20 +57,27 @@
 
 **关键要求**：
 - `status`：所有操作成功用 `"success"`，否则用 `"failed"`
-- `error_type`：仅当 `status="failed"` 时填写，取值范围：
-  - `plan_expired`：订阅套餐已失效
-  - `account_banned`：账号被封禁
-  - `site_server_error`：网站无法访问-服务器错误
-  - `site_network_error`：网站无法访问-网络错误
-  - `site_domain_error`：网站无法访问-域名错误
-  - `task_timeout`：任务执行超时
-  - `task_step_limit`：任务执行步骤超限
-  - `copy_button_not_found`：未找到订阅复制按钮
-  - `anti_automation_detected`：网站有反自动化检测
-  - `login_page_not_found`：网站无法找到登录页
-  - `human_verification_failed`：无法完成人机验证
-  - `subscription_url_invalid`：订阅地址异常（非有效 http 地址）
-  - `unknown_error`：未知错误（兜底）
+- `error_type`：仅当 `status="failed"` 时填写，取值范围（按业务优先级排序）：
+  - **账号/套餐类**：
+    - `account_banned`：账号被封禁
+    - `plan_expired`：订阅套餐已失效
+  - **网站访问类**：
+    - `site_server_error`：网站无法访问-服务器错误
+    - `site_network_error`：网站无法访问-网络错误
+    - `site_domain_error`：网站无法访问-域名错误
+    - `login_page_not_found`：网站无法找到登录页
+  - **反自动化类**：
+    - `anti_automation_detected`：网站有反自动化检测
+    - `human_verification_failed`：无法完成人机验证
+  - **业务流程类**：
+    - `copy_button_not_found`：未找到订阅复制按钮
+    - `subscription_url_invalid`：订阅地址异常（非有效 http 地址）
+  - **任务限制类**：
+    - `task_timeout`：任务执行超时
+    - `task_step_limit`：任务执行步骤超限
+  - **运行时错误类**：
+    - `task_cleaned`：任务已清理
+    - `unknown_error`：未知错误（兜底）
 - `operations_results`：**直接将子工具返回的 JSON 原样放入，不要修改或格式化**
 
 **错误类型聚合规则（必须遵守）**：

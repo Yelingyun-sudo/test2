@@ -18,6 +18,7 @@ class SubscribedItem(BaseModel):
     executed_at: Optional[str] = Field(None, description="任务执行时间 ISO 字符串")
     task_dir: Optional[str] = Field(None, description="任务目录（相对 backend 根目录）")
     result: Optional[str] = Field(None, description="任务结果")
+    failure_type: Optional[str] = Field(None, description="失败类型（仅失败任务）")
 
 
 class SubscribedListResponse(BaseModel):
@@ -73,6 +74,33 @@ class RecentTaskItem(BaseModel):
     result: Optional[str] = Field(None, description="任务结果")
 
 
+class FailureTypeDistributionItem(BaseModel):
+    type: str = Field(..., description="失败类型值")
+    label: str = Field(..., description="失败类型中文标签")
+    count: int = Field(..., description="该失败类型的任务数量")
+    percentage: float = Field(..., description="占失败任务总数的百分比（0.0 - 100.0）")
+
+
+class FailureSummary(BaseModel):
+    total_failed: int = Field(..., description="失败任务总数")
+    unique_types: int = Field(..., description="失败类型数量")
+
+
+class FailureTypeItem(BaseModel):
+    """失败类型项。"""
+
+    value: str = Field(..., description="失败类型值")
+    label: str = Field(..., description="失败类型中文标签")
+
+
+class FailureTypesResponse(BaseModel):
+    """失败类型列表响应。"""
+
+    items: list[FailureTypeItem] = Field(
+        ..., description="失败类型列表（按业务优先级排序）"
+    )
+
+
 class SubscribedStatsResponse(BaseModel):
     summary: SubscribedStatsSummary = Field(..., description="汇总统计")
     daily_trend: list[DailyTrendItem] = Field(..., description="每日趋势（最近10天）")
@@ -82,3 +110,7 @@ class SubscribedStatsResponse(BaseModel):
     recent_tasks: list[RecentTaskItem] = Field(
         ..., description="最近任务列表（最近5条）"
     )
+    failure_type_distribution: list[FailureTypeDistributionItem] = Field(
+        ..., description="失败类型分布（Top 5 + 其他）"
+    )
+    failure_summary: FailureSummary = Field(..., description="失败总览")
