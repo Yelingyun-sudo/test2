@@ -108,7 +108,7 @@ def _sync_kafka_consumer_loop(stop_event: threading.Event) -> None:
                         data = msg.value  # 数组，例如: [{'url': '...'}, {'url': '...', 'account': '...', 'password': '...'}]
                         for record in data:
                             result = _process_record(session, record)
-                            logger.debug(f"处理结果: {result}, record={record}")
+                            logger.info(f"处理结果: {result}, record={record}")
                         processed_any = True
                     except Exception as e:
                         session.rollback()  # 防止 session 处于 failed state

@@ -86,6 +86,11 @@ async def process_once() -> None:
 async def run_task_cleaner_loop() -> None:
     settings = get_settings()
     interval = max(1, settings.task_cleaner_interval_seconds)
+    logger.info(
+        "任务清理器已启动, interval=%ss, timeout=%ss",
+        settings.task_cleaner_interval_seconds,
+        settings.task_cleaner_timeout_seconds,
+    )
 
     while True:
         try:

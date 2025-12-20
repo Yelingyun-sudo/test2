@@ -287,6 +287,11 @@ async def run_task_loop() -> None:
     semaphore = asyncio.Semaphore(max_concurrent)
     startup_ts = datetime.now(timezone.utc)
     recovering = True
+    logger.info(
+        "任务执行器已启动, interval=%ss, max_concurrent=%s",
+        settings.task_runner_interval_seconds,
+        settings.task_runner_max_concurrent,
+    )
 
     while True:
         try:

@@ -129,6 +129,10 @@ async def run_task_reporter_loop() -> None:
     """任务汇报主循环"""
     settings = get_settings()
     interval = max(1, settings.task_reporter_interval_seconds)
+    logger.info(
+        "任务汇报器已启动, interval=%ss",
+        settings.task_reporter_interval_seconds,
+    )
 
     while True:
         try:

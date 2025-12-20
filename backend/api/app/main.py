@@ -1,18 +1,52 @@
 import asyncio
 import contextlib
+import logging
+import logging.config
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from website_analytics.settings import get_settings
+
 from .db import init_db
 from .routers import auth, health, subscribed, unsubscribed
+from .security import get_current_user
 from .task_cleaner import run_task_cleaner_loop
 from .task_importer import run_task_importer_loop
 from .task_reporter import run_task_reporter_loop
 from .task_runner import run_task_loop
-from .security import get_current_user
-from website_analytics.settings import get_settings
+
+# 统一日志配置
+LOGGING_CONFIG = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "default": {
+            "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        },
+    },
+    "handlers": {
+        "default": {
+            "class": "logging.StreamHandler",
+            "formatter": "default",
+            "stream": "ext://sys.stderr",
+        },
+    },
+    "root": {
+        "level": "INFO",
+        "handlers": ["default"],
+    },
+    "loggers": {
+        "uvicorn": {"handlers": ["default"], "level": "INFO", "propagate": False},
+        "uvicorn.error": {"handlers": ["default"], "level": "INFO", "propagate": False},
+        "uvicorn.access": {"handlers": ["default"], "level": "INFO", "propagate": False},
+        "httpx": {"level": "WARNING"},
+        "kafka": {"level": "WARNING"},
+    },
+}
+
+logging.config.dictConfig(LOGGING_CONFIG)
 
 
 @asynccontextmanager
