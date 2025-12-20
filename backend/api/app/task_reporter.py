@@ -28,7 +28,9 @@ def _get_producer() -> KafkaProducer:
             sasl_mechanism="SCRAM-SHA-512",
             sasl_plain_username=settings.kafka_sasl_username,
             sasl_plain_password=settings.kafka_sasl_password,
-            value_serializer=lambda v: json.dumps(v, ensure_ascii=False).encode("utf-8"),
+            value_serializer=lambda v: json.dumps(v, ensure_ascii=False).encode(
+                "utf-8"
+            ),
         )
     return _producer
 

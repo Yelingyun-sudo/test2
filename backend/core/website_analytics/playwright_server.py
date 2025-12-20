@@ -84,8 +84,10 @@ class AutoSwitchingPlaywrightServer(MCPServerStdio):
             await self._best_effort_close_browser()
         except asyncio.CancelledError:
             cancelled = True
-            if task and task.cancelling() > cancel_count_before and hasattr(
-                task, "uncancel"
+            if (
+                task
+                and task.cancelling() > cancel_count_before
+                and hasattr(task, "uncancel")
             ):
                 task.uncancel()
             with suppress(Exception):
@@ -97,8 +99,10 @@ class AutoSwitchingPlaywrightServer(MCPServerStdio):
             return await super().__aexit__(exc_type, exc_value, traceback)
         except asyncio.CancelledError:
             cancelled = True
-            if task and task.cancelling() > cancel_count_before and hasattr(
-                task, "uncancel"
+            if (
+                task
+                and task.cancelling() > cancel_count_before
+                and hasattr(task, "uncancel")
             ):
                 task.uncancel()
             await super().__aexit__(exc_type, exc_value, traceback)
@@ -124,7 +128,9 @@ class AutoSwitchingPlaywrightServer(MCPServerStdio):
             and isinstance(arguments, dict)
             and "filename" in arguments
         ):
-            sanitized_arguments = {k: v for k, v in arguments.items() if k != "filename"}
+            sanitized_arguments = {
+                k: v for k, v in arguments.items() if k != "filename"
+            }
             logger.debug(
                 "Stripped filename from browser_snapshot call to force inline snapshot."
             )
@@ -297,27 +303,31 @@ class AutoSwitchingPlaywrightServer(MCPServerStdio):
 
         try:
             # 查找 Playwright 启动的 Chrome 孤儿进程
-            for proc in psutil.process_iter(['pid', 'name', 'cmdline', 'ppid']):
+            for proc in psutil.process_iter(["pid", "name", "cmdline", "ppid"]):
                 try:
-                    proc_name = (proc.info.get('name') or '').lower()
+                    proc_name = (proc.info.get("name") or "").lower()
 
                     # 检查是否是 Chrome 进程（支持多种命名）
-                    if not any(keyword in proc_name for keyword in ['chrome', 'chromium']):
+                    if not any(
+                        keyword in proc_name for keyword in ["chrome", "chromium"]
+                    ):
                         continue
 
                     # 检查命令行参数中是否包含 Playwright 特征
-                    cmdline = proc.info.get('cmdline') or []
-                    if not any('playwright_chromiumdev_profile-' in str(arg) for arg in cmdline):
+                    cmdline = proc.info.get("cmdline") or []
+                    if not any(
+                        "playwright_chromiumdev_profile-" in str(arg) for arg in cmdline
+                    ):
                         continue
 
                     # 检查父进程是否是 systemd (PID 1) - 孤儿进程的特征
-                    if proc.info.get('ppid') != 1:
+                    if proc.info.get("ppid") != 1:
                         continue
 
-                    orphaned_pids.append(proc.info['pid'])
+                    orphaned_pids.append(proc.info["pid"])
                     logger.warning(
                         "发现 Playwright 孤儿 Chrome 进程: pid=%s name=%s",
-                        proc.info['pid'],
+                        proc.info["pid"],
                         proc_name,
                     )
                 except (psutil.NoSuchProcess, psutil.AccessDenied, KeyError):

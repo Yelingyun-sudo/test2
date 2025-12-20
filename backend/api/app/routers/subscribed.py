@@ -329,27 +329,33 @@ def get_subscribed_stats(
         func.sum(
             case((SubscribedTask.created_date == func.current_date(), 1), else_=0)
         ).label("today_tasks"),
-        func.sum(
-            case((SubscribedTask.status == TaskStatus.SUCCESS, 1), else_=0)
-        ).label("success_count"),
-        func.sum(
-            case((SubscribedTask.status == TaskStatus.FAILED, 1), else_=0)
-        ).label("failed_count"),
-        func.sum(
-            case((SubscribedTask.status == TaskStatus.PENDING, 1), else_=0)
-        ).label("pending_count"),
-        func.sum(
-            case((SubscribedTask.status == TaskStatus.RUNNING, 1), else_=0)
-        ).label("running_count"),
+        func.sum(case((SubscribedTask.status == TaskStatus.SUCCESS, 1), else_=0)).label(
+            "success_count"
+        ),
+        func.sum(case((SubscribedTask.status == TaskStatus.FAILED, 1), else_=0)).label(
+            "failed_count"
+        ),
+        func.sum(case((SubscribedTask.status == TaskStatus.PENDING, 1), else_=0)).label(
+            "pending_count"
+        ),
+        func.sum(case((SubscribedTask.status == TaskStatus.RUNNING, 1), else_=0)).label(
+            "running_count"
+        ),
         func.avg(
             case(
-                (SubscribedTask.status == TaskStatus.SUCCESS, SubscribedTask.duration_seconds),
+                (
+                    SubscribedTask.status == TaskStatus.SUCCESS,
+                    SubscribedTask.duration_seconds,
+                ),
                 else_=None,
             )
         ).label("avg_success_duration"),
         func.avg(
             case(
-                (SubscribedTask.status == TaskStatus.FAILED, SubscribedTask.duration_seconds),
+                (
+                    SubscribedTask.status == TaskStatus.FAILED,
+                    SubscribedTask.duration_seconds,
+                ),
                 else_=None,
             )
         ).label("avg_failed_duration"),

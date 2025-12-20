@@ -434,9 +434,7 @@ def _find_last_capture_relative_path_for_agent(
 
     safe_offset = max(0, int(offset))
     needle = f"-{agent_name}_"
-    candidates = [
-        path for path in captures_dir.glob("*.png") if needle in path.name
-    ]
+    candidates = [path for path in captures_dir.glob("*.png") if needle in path.name]
     if not candidates:
         return None
 
@@ -526,8 +524,10 @@ async def _execute_single_task(
     duration = (end_time - start_time).total_seconds()
 
     status_raw = (result.coordinator_output or {}).get("status")
-    status = str(status_raw).lower() if status_raw is not None else (
-        "success" if result.success else "failed"
+    status = (
+        str(status_raw).lower()
+        if status_raw is not None
+        else ("success" if result.success else "failed")
     )
     print_task_complete(index, status, duration)
 

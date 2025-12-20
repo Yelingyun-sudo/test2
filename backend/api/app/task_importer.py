@@ -20,9 +20,7 @@ logger = logging.getLogger(__name__)
 TZ_CHINA = timezone(timedelta(hours=8))
 
 
-def _insert_subscribed_task(
-    session, record: dict, now: datetime, today: date
-) -> bool:
+def _insert_subscribed_task(session, record: dict, now: datetime, today: date) -> bool:
     """写入 subscribed_tasks 表，返回是否成功"""
     task = SubscribedTask(
         url=record["url"],
@@ -133,4 +131,3 @@ async def run_task_importer_loop() -> None:
     except asyncio.CancelledError:
         stop_event.set()  # 通知线程停止
         raise
-

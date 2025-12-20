@@ -17,11 +17,12 @@ class UnsubscribedTask(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     url = Column(String(2048), nullable=False, index=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
     created_date = Column(
         Date, nullable=False, default=lambda: datetime.now(TZ_CHINA).date()
     )
 
     def __repr__(self) -> str:  # pragma: no cover - 调试辅助
         return f"<UnsubscribedTask id={self.id} url={self.url}>"
-

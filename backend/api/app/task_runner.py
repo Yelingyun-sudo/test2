@@ -11,6 +11,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from website_analytics.cli import run_single_instruction_async
+from website_analytics.orchestrator import ExecutionResult
 from website_analytics.settings import get_settings
 from website_analytics.utils import to_project_relative
 
@@ -66,12 +67,31 @@ def _extract_failure_result(
         return f"解析失败信息时出错: {exc}"
 
 
-def _format_failure_type(exc: Exception | None, timed_out: bool) -> str:
+def _format_failure_type(
+    exc: Exception | None,
+    timed_out: bool,
+    exec_result: ExecutionResult | None = None,
+) -> str:
+    """格式化失败类型，优先使用业务层 error_type。
+
+    优先级:
+    1. 执行超时 → "timeout"
+    2. 执行异常 → 异常类名
+    3. 业务层错误 → coordinator_output.error_type
+    4. 兜底 → "run_error"
+    """
     if timed_out:
         return "timeout"
-    if exc is None:
-        return "run_error"
-    return exc.__class__.__name__
+    if exc is not None:
+        return exc.__class__.__name__
+
+    # 从 exec_result 的 coordinator_output 读取业务层 error_type
+    if exec_result and exec_result.coordinator_output:
+        error_type = exec_result.coordinator_output.get("error_type")
+        if error_type:
+            return str(error_type)
+
+    return "run_error"
 
 
 def _mark_running(db: Session, task: SubscribedTask) -> None:
@@ -216,7 +236,7 @@ async def _run_task(task_id: int, instruction: str) -> None:
                     getattr(exec_result, "message", None) if exec_result else None
                 )
                 result_text = _extract_failure_result(None, fallback_msg)
-            failure_type = _format_failure_type(exec_error, timed_out)
+            failure_type = _format_failure_type(exec_error, timed_out, exec_result)
             _update_task_failure(
                 db,
                 task_obj,

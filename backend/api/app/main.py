@@ -40,7 +40,11 @@ LOGGING_CONFIG = {
     "loggers": {
         "uvicorn": {"handlers": ["default"], "level": "INFO", "propagate": False},
         "uvicorn.error": {"handlers": ["default"], "level": "INFO", "propagate": False},
-        "uvicorn.access": {"handlers": ["default"], "level": "INFO", "propagate": False},
+        "uvicorn.access": {
+            "handlers": ["default"],
+            "level": "INFO",
+            "propagate": False,
+        },
         "httpx": {"level": "WARNING"},
         "kafka": {"level": "WARNING"},
     },
