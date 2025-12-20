@@ -109,6 +109,17 @@ export default function Page() {
     toast.success("已退出登录", { duration: 2000 });
   };
 
+  // 水合完成前显示加载状态，避免登录框闪烁
+  if (!hydrated) {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-sky-50 via-white to-slate-50">
+        <div className="flex min-h-screen items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-sky-200 border-t-sky-600" />
+        </div>
+      </main>
+    );
+  }
+
   if (isAuthed) {
     return (
       <RealDashboard onLogout={handleLogout} account={account ?? undefined} />
