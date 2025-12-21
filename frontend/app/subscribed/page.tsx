@@ -110,6 +110,7 @@ function SubscribedContent() {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [failureTypeFilter, setFailureTypeFilter] = useState("");
+  const [timeRangeFilter, setTimeRangeFilter] = useState("");
   const [loading, setLoading] = useState(false);
   const [selectedItem, setSelectedItem] = useState<SubscribedItem | null>(null);
   const [artifacts, setArtifacts] = useState<TaskArtifacts | null>(null);
@@ -226,7 +227,7 @@ function SubscribedContent() {
   const pageItems = useMemo(() => getPageItems(page, totalPages), [page, totalPages]);
 
   const updateURL = useCallback(
-    (params: { page?: number; q?: string; status?: string; failureType?: string }) => {
+    (params: { page?: number; q?: string; status?: string; failureType?: string; timeRange?: string }) => {
       const newSearchParams = new URLSearchParams();
 
       // 设置 page（默认当前页）
@@ -251,18 +252,25 @@ function SubscribedContent() {
         newSearchParams.set("failure_type", targetFailureType);
       }
 
+      // 设置 executed_within（时间范围）
+      const targetTimeRange = params.timeRange !== undefined ? params.timeRange : timeRangeFilter;
+      if (targetTimeRange) {
+        newSearchParams.set("executed_within", targetTimeRange);
+      }
+
       // 使用 replace 避免创建历史记录，scroll: false 防止页面滚动
       router.replace(`?${newSearchParams.toString()}`, { scroll: false });
     },
-    [page, query, statusFilter, failureTypeFilter, router]
+    [page, query, statusFilter, failureTypeFilter, timeRangeFilter, router]
   );
 
   const fetchData = useCallback(
-    async (params?: { page?: number; q?: string; status?: string; failureType?: string }) => {
+    async (params?: { page?: number; q?: string; status?: string; failureType?: string; timeRange?: string }) => {
       const currentPage = params?.page ?? page;
       const q = params?.q ?? query;
       const status = params?.status ?? statusFilter;
       const failureType = params?.failureType ?? failureTypeFilter;
+      const timeRange = params?.timeRange ?? timeRangeFilter;
       setLoading(true);
       try {
         const searchParams = new URLSearchParams({
@@ -272,6 +280,7 @@ function SubscribedContent() {
         if (q) searchParams.set("q", q);
         if (status) searchParams.set("status", status);
         if (failureType) searchParams.set("failure_type", failureType);
+        if (timeRange) searchParams.set("executed_within", timeRange);
 
         const res = await apiFetch(
           `/subscribed/list?${searchParams.toString()}`
@@ -288,7 +297,7 @@ function SubscribedContent() {
         setLoading(false);
       }
     },
-    [page, query, statusFilter, failureTypeFilter]
+    [page, query, statusFilter, failureTypeFilter, timeRangeFilter]
   );
 
   const fetchFailureTypeStats = useCallback(async () => {
@@ -308,6 +317,7 @@ function SubscribedContent() {
     const urlQuery = searchParams.get("q") || ""; // 默认空字符串
     let urlStatus = searchParams.get("status") || "";
     let urlFailureType = searchParams.get("failure_type") || "";
+    const urlTimeRange = searchParams.get("executed_within") || "";
 
     // 修正：只有 status=failed 时才保留 failure_type（与现有逻辑一致）
     if (urlStatus !== "failed") {
@@ -329,13 +339,15 @@ function SubscribedContent() {
     setQuery(urlQuery); // 即使是空字符串也设置
     setStatusFilter(urlStatus);
     setFailureTypeFilter(urlFailureType);
+    setTimeRangeFilter(urlTimeRange);
 
     // 使用 URL 参数获取数据
     fetchData({
       page: pageNum,
       status: urlStatus,
       failureType: urlFailureType,
-      q: urlQuery
+      q: urlQuery,
+      timeRange: urlTimeRange
     });
 
     fetchFailureTypeStats();
@@ -399,6 +411,15 @@ function SubscribedContent() {
 
     return [...baseOptions, ...optionsWithCount];
   }, [failureTypeStats, failureTypes]);
+
+  const timeRangeOptions: Array<{ value: string; label: string }> = [
+    { value: "", label: "全部时间" },
+    { value: "today", label: "今天" },
+    { value: "yesterday", label: "昨天" },
+    { value: "3d", label: "最近3天" },
+    { value: "7d", label: "最近7天" },
+    { value: "30d", label: "最近30天" }
+  ];
 
   const renderStatus = (value?: string) => {
     if (!value) return <span className="text-slate-400">-</span>;
@@ -877,6 +898,13 @@ function SubscribedContent() {
     updateURL({ page: 1, failureType: value });
   };
 
+  const handleTimeRangeChange = (value: string) => {
+    setTimeRangeFilter(value);
+
+    // 同步更新 URL（useEffect 会自动触发 fetchData）
+    updateURL({ page: 1, timeRange: value });
+  };
+
   const handleRowClick = (item: SubscribedItem) => {
     setViewer(null);
     setSelectedItem(item);
@@ -897,7 +925,7 @@ function SubscribedContent() {
             <select
               value={statusFilter}
               onChange={(e) => handleStatusChange(e.target.value)}
-              className="h-9 min-w-[120px] rounded-md bg-transparent text-sm text-slate-800 focus:outline-none"
+              className="h-9 min-w-[100px] rounded-md bg-transparent text-sm text-slate-800 focus:outline-none"
               disabled={loading}
               aria-label="状态筛选"
             >
@@ -926,11 +954,27 @@ function SubscribedContent() {
               </select>
             </div>
           )}
+          <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-[0_6px_18px_rgba(15,23,42,0.06)]">
+            <span className="text-sm font-semibold text-slate-700">时间范围</span>
+            <select
+              value={timeRangeFilter}
+              onChange={(e) => handleTimeRangeChange(e.target.value)}
+              className="h-9 min-w-[120px] rounded-md bg-transparent text-sm text-slate-800 focus:outline-none"
+              disabled={loading}
+              aria-label="时间范围筛选"
+            >
+              {timeRangeOptions.map((option) => (
+                <option key={option.value || "all"} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
           <div className="relative flex items-center rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-[0_6px_18px_rgba(15,23,42,0.06)]">
             <Search className="pointer-events-none absolute left-4 h-4 w-4 text-slate-400" />
             <Input
               placeholder="按 URL 搜索"
-              className="h-10 w-64 border-0 bg-transparent pl-9 pr-24 text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="h-10 w-56 border-0 bg-transparent pl-9 pr-24 text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => {

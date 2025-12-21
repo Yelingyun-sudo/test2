@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 import tempfile
-from datetime import date, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import List
 from zipfile import ZIP_DEFLATED, ZipFile
@@ -42,6 +42,47 @@ router = APIRouter(
 )
 
 
+def _parse_time_range(
+    range_key: str | None, tz_cn: timezone
+) -> tuple[datetime | None, datetime | None]:
+    """
+    解析预设时间范围，返回 (开始时间, 结束时间)
+
+    Args:
+        range_key: 时间范围键值（today/3d/7d/30d）
+        tz_cn: 中国时区
+
+    Returns:
+        (start_time, end_time) 或 (None, None)
+    """
+    if not range_key:
+        return None, None
+
+    now_cn = datetime.now(tz_cn)
+    today_start = now_cn.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end = now_cn.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+    if range_key == "today":
+        return today_start, today_end
+    elif range_key == "yesterday":
+        yesterday_start = today_start - timedelta(days=1)
+        yesterday_end = yesterday_start.replace(
+            hour=23, minute=59, second=59, microsecond=999999
+        )
+        return yesterday_start, yesterday_end
+    elif range_key == "3d":
+        start = today_start - timedelta(days=2)
+        return start, today_end
+    elif range_key == "7d":
+        start = today_start - timedelta(days=6)
+        return start, today_end
+    elif range_key == "30d":
+        start = today_start - timedelta(days=29)
+        return start, today_end
+    else:
+        return None, None
+
+
 @router.get(
     "/list",
     response_model=SubscribedListResponse,
@@ -54,6 +95,9 @@ def list_subscribed(
     status: TaskStatus | None = Query(None, description="按任务状态过滤"),
     failure_type: str | None = Query(
         None, description="按失败类型过滤（通常与 status=failed 配合使用）"
+    ),
+    executed_within: str | None = Query(
+        None, description="按执行时间范围过滤（today/yesterday/3d/7d/30d）"
     ),
     db: Session = Depends(get_db),
 ):
@@ -73,9 +117,17 @@ def list_subscribed(
     if failure_type:
         query = query.filter(SubscribedTask.failure_type == failure_type)
 
-    total = query.count()
-
     tz_cn = timezone(timedelta(hours=8))
+    if executed_within:
+        start_time, end_time = _parse_time_range(executed_within, tz_cn)
+        if start_time and end_time:
+            query = query.filter(
+                SubscribedTask.executed_at.isnot(None),
+                SubscribedTask.executed_at >= start_time,
+                SubscribedTask.executed_at <= end_time,
+            )
+
+    total = query.count()
     status_priority = case(
         (SubscribedTask.status == TaskStatus.RUNNING, 0),
         (SubscribedTask.status.in_([TaskStatus.SUCCESS, TaskStatus.FAILED]), 1),

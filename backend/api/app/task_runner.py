@@ -240,7 +240,9 @@ async def _run_task(task_id: int, instruction: str) -> None:
                 fallback_msg = (
                     getattr(exec_result, "message", None) if exec_result else None
                 )
-                result_text = _extract_failure_result(None, fallback_msg, exc=exec_error)
+                result_text = _extract_failure_result(
+                    None, fallback_msg, exc=exec_error
+                )
             failure_type = _format_failure_type(exec_error, timed_out, exec_result)
             _update_task_failure(
                 db,
