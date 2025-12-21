@@ -80,7 +80,7 @@ export function Dashboard({ onLogout, account }: DashboardProps) {
   return (
     <DashboardShell
       account={account}
-      title="概览仪表板"
+      title="系统概览"
       description="左侧为常驻导航，右侧展示首页组件。登录后可浏览报表、漏斗、留存、设置等页面。"
       onLogout={onLogout}
       actions={

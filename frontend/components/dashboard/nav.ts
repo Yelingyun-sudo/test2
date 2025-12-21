@@ -1,6 +1,6 @@
 import type { ComponentType } from "react";
 import {
-  CircleOff,
+  CheckSquare,
   LayoutDashboard,
   ListChecks
 } from "lucide-react";
@@ -15,7 +15,7 @@ export type DashboardNavItem = {
 
 export const dashboardNavItems: DashboardNavItem[] = [
   {
-    title: "概览仪表板",
+    title: "系统概览",
     href: "/",
     desc: "真实数据概览，统计与趋势。",
     status: "可用",
@@ -26,7 +26,7 @@ export const dashboardNavItems: DashboardNavItem[] = [
     href: "/unsubscribed",
     desc: "注册取证任务列表，支持分页检索。",
     status: "规划中",
-    icon: CircleOff
+    icon: CheckSquare
   },
   {
     title: "订阅链接任务",
