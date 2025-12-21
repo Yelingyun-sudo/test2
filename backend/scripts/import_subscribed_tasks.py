@@ -90,8 +90,6 @@ def main() -> None:
                 password=record.get("password"),
                 status=TaskStatus.PENDING,
                 duration_seconds=0,
-                retry_count=0,
-                history_extract_count=0,
                 executed_at=None,
                 result=None,
                 failure_type=None,

@@ -117,7 +117,6 @@ def _update_task_success(
 ) -> None:
     task.status = TaskStatus.SUCCESS
     task.duration_seconds = int(duration)
-    task.history_extract_count = (task.history_extract_count or 0) + 1
     task.result = result
     task.task_dir = task_dir
     task.failure_type = None

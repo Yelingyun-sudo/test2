@@ -49,8 +49,6 @@ class SubscribedTask(Base):
 
     status = Column(SAEnum(TaskStatus), nullable=False, default=TaskStatus.PENDING)
     duration_seconds = Column(Integer, nullable=False, default=0)
-    retry_count = Column(Integer, nullable=False, default=0)
-    history_extract_count = Column(Integer, nullable=False, default=0)
     executed_at = Column(DateTime(timezone=True), nullable=True)
     task_dir = Column(String(1024), nullable=True)
 

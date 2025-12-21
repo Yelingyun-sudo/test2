@@ -164,8 +164,6 @@ def list_subscribed(
                 status=status_value or "",
                 created_at=_format_dt(rec.created_at),
                 duration_seconds=rec.duration_seconds,
-                retry_count=rec.retry_count,
-                history_extract_count=rec.history_extract_count,
                 executed_at=_format_dt(rec.executed_at),
                 task_dir=rec.task_dir,
                 result=rec.result,

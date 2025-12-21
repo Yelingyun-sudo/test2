@@ -20,8 +20,6 @@ type SubscribedItem = {
   status: string;
   created_at?: string | null;
   duration_seconds: number;
-  retry_count: number;
-  history_extract_count: number;
   executed_at?: string | null;
   task_dir?: string | null;
   result?: string | null;
