@@ -135,7 +135,8 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
     name: statusLabel[item.status] || item.status,
     value: item.count,
     color: statusColor[item.status] || "#94a3b8",
-    percentage: totalStatusCount > 0 ? ((item.count / totalStatusCount) * 100).toFixed(1) : 0
+    percentage: totalStatusCount > 0 ? ((item.count / totalStatusCount) * 100).toFixed(1) : 0,
+    status: item.status  // 保存原始状态值用于路由跳转
   }));
 
   return (
@@ -301,6 +302,14 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
                   cy="50%"
                   outerRadius={90}
                   label={(entry) => `${entry.name} (${entry.percentage}%)`}
+                  onClick={(data) => {
+                    // 点击饼图扇区跳转到订阅列表，自动筛选该状态
+                    const status = data.payload?.status;
+                    if (status) {
+                      router.push(`/subscribed?status=${encodeURIComponent(status)}`);
+                    }
+                  }}
+                  cursor="pointer"
                 >
                   {distributionData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
