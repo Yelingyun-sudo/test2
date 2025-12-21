@@ -917,7 +917,7 @@ function SubscribedContent() {
 
   return (
     <DashboardShell
-      title="已订阅网站"
+      title="订阅链接任务"
       actions={
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-[0_6px_18px_rgba(15,23,42,0.06)]">
@@ -1128,11 +1128,11 @@ function SubscribedContent() {
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
-            aria-label="订阅任务详情"
+            aria-label="订阅链接任务详情"
           >
             <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
               <div className="space-y-1">
-                <h3 className="text-lg font-semibold text-slate-900">订阅任务详情</h3>
+                <h3 className="text-lg font-semibold text-slate-900">订阅链接任务详情</h3>
                 <p className="text-sm text-slate-500">ID: {selectedItem.id ?? "-"}</p>
               </div>
               <div className="flex items-center gap-2">
@@ -1560,7 +1560,7 @@ function SubscribedContent() {
 export default function SubscribedPage() {
   return (
     <Suspense fallback={
-      <DashboardShell title="已订阅网站">
+      <DashboardShell title="订阅链接任务">
         <div className="flex items-center justify-center gap-2 px-4 py-12 text-sm text-slate-500">
           <Loader2 className="h-4 w-4 animate-spin" />
           加载中...

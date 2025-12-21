@@ -22,16 +22,16 @@ export const dashboardNavItems: DashboardNavItem[] = [
     icon: LayoutDashboard
   },
   {
-    title: "未订阅网站",
+    title: "注册取证任务",
     href: "/unsubscribed",
-    desc: "待订阅列表、可扩展批量操作。",
+    desc: "注册取证任务列表，支持分页检索。",
     status: "规划中",
     icon: CircleOff
   },
   {
-    title: "已订阅网站",
+    title: "订阅链接任务",
     href: "/subscribed",
-    desc: "订阅列表，分页检索。",
+    desc: "订阅链接提取任务，支持筛选与检索。",
     status: "可用",
     icon: ListChecks
   }

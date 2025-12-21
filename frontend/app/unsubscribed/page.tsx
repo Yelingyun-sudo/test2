@@ -114,8 +114,8 @@ export default function UnsubscribedPage() {
 
   return (
     <DashboardShell
-      title="未订阅网站"
-      description="读取未订阅任务表，支持分页与检索。"
+      title="注册取证任务"
+      description="管理注册取证任务，支持按 URL 检索。"
       actions={
         <div className="flex items-center gap-2">
           <div className="relative flex items-center rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-[0_6px_18px_rgba(15,23,42,0.06)]">
