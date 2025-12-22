@@ -169,12 +169,12 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
           </div>
         </div>
 
-        {/* 今日新增 */}
+        {/* 今日已执行 */}
         <div className="rounded-2xl border bg-gradient-to-br from-sky-500/10 to-sky-600/10 text-sky-700 border-sky-100 p-5 shadow-sm backdrop-blur">
-          <p className="text-sm text-slate-600">今日新增</p>
+          <p className="text-sm text-slate-600">今日已执行</p>
           <div className="mt-2 flex items-baseline gap-3">
             <div className="text-3xl font-semibold">
-              {summary.today_tasks}
+              {summary.today_success_count + summary.today_failed_count}
             </div>
             <div className="flex items-baseline gap-1">
               <span className="text-xs text-slate-600">消耗</span>
@@ -192,6 +192,52 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
           </div>
         </div>
 
+        {/* 今日成功任务 */}
+        <div className="rounded-2xl border bg-gradient-to-br from-emerald-500/10 to-emerald-600/10 text-emerald-700 border-emerald-100 p-5 shadow-sm backdrop-blur">
+          <p className="text-sm text-slate-600">今日成功任务</p>
+          <div className="mt-2 flex items-baseline gap-3">
+            <div className="text-3xl font-semibold text-emerald-700">
+              {summary.today_success_count}
+            </div>
+            <div className="flex items-baseline gap-1">
+              <span className="text-xs text-slate-600">平均</span>
+              <span className="text-base text-slate-600">
+                {formatTokenCount(summary.today_avg_success_tokens)}
+              </span>
+              <span className="text-xs text-slate-600">Token</span>
+            </div>
+          </div>
+          <div className="mt-2">
+            <div className="inline-flex items-center gap-2 rounded-full bg-white/60 px-3 py-1 text-xs font-medium text-slate-600">
+              <span className="h-2 w-2 rounded-full bg-emerald-400/60" />
+              平均耗时：{formatDurationSeconds(summary.today_avg_success_duration_seconds)}
+            </div>
+          </div>
+        </div>
+
+        {/* 今日失败任务 */}
+        <div className="rounded-2xl border bg-gradient-to-br from-rose-500/10 to-rose-600/10 text-rose-700 border-rose-100 p-5 shadow-sm backdrop-blur">
+          <p className="text-sm text-slate-600">今日失败任务</p>
+          <div className="mt-2 flex items-baseline gap-3">
+            <div className="text-3xl font-semibold text-rose-700">
+              {summary.today_failed_count}
+            </div>
+            <div className="flex items-baseline gap-1">
+              <span className="text-xs text-slate-600">平均</span>
+              <span className="text-base text-slate-600">
+                {formatTokenCount(summary.today_avg_failed_tokens)}
+              </span>
+              <span className="text-xs text-slate-600">Token</span>
+            </div>
+          </div>
+          <div className="mt-2">
+            <div className="inline-flex items-center gap-2 rounded-full bg-white/60 px-3 py-1 text-xs font-medium text-slate-600">
+              <span className="h-2 w-2 rounded-full bg-rose-400/60" />
+              平均耗时：{formatDurationSeconds(summary.today_avg_failed_duration_seconds)}
+            </div>
+          </div>
+        </div>
+
         {/* 今日成功率 */}
         <div className="rounded-2xl border bg-gradient-to-br from-violet-500/10 to-indigo-600/10 text-indigo-700 border-indigo-100 p-5 shadow-sm backdrop-blur">
           <p className="text-sm text-slate-600">今日成功率</p>
@@ -201,34 +247,6 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
           <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-white/60 px-3 py-1 text-xs font-medium text-slate-600">
             <span className="h-2 w-2 rounded-full bg-indigo-400/60" />
             成功 {summary.today_success_count} · 失败 {summary.today_failed_count}
-          </div>
-        </div>
-
-        {/* 今日成功任务 */}
-        <div className="rounded-2xl border bg-gradient-to-br from-emerald-500/10 to-emerald-600/10 text-emerald-700 border-emerald-100 p-5 shadow-sm backdrop-blur">
-          <p className="text-sm text-slate-600">今日成功任务</p>
-          <div className="mt-2 text-3xl font-semibold text-emerald-700">
-            {summary.today_success_count} 个
-          </div>
-          <div className="mt-2">
-            <div className="inline-flex items-center gap-2 rounded-full bg-white/60 px-3 py-1 text-xs font-medium text-slate-600">
-              <span className="h-2 w-2 rounded-full bg-emerald-400/60" />
-              {formatDurationSeconds(summary.today_avg_success_duration_seconds)} · {formatTokenCount(summary.today_avg_success_tokens)} Token
-            </div>
-          </div>
-        </div>
-
-        {/* 今日失败任务 */}
-        <div className="rounded-2xl border bg-gradient-to-br from-rose-500/10 to-rose-600/10 text-rose-700 border-rose-100 p-5 shadow-sm backdrop-blur">
-          <p className="text-sm text-slate-600">今日失败任务</p>
-          <div className="mt-2 text-3xl font-semibold text-rose-700">
-            {summary.today_failed_count} 个
-          </div>
-          <div className="mt-2">
-            <div className="inline-flex items-center gap-2 rounded-full bg-white/60 px-3 py-1 text-xs font-medium text-slate-600">
-              <span className="h-2 w-2 rounded-full bg-rose-400/60" />
-              {formatDurationSeconds(summary.today_avg_failed_duration_seconds)} · {formatTokenCount(summary.today_avg_failed_tokens)} Token
-            </div>
           </div>
         </div>
       </section>
