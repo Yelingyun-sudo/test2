@@ -147,7 +147,7 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
       {/* KPI 卡片 */}
       <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         {/* 总任务数 */}
-        <div className="rounded-2xl border bg-gradient-to-br from-emerald-500/10 to-emerald-600/10 text-emerald-700 border-emerald-100 p-5 shadow-sm backdrop-blur">
+        <div className="rounded-2xl border bg-gradient-to-br from-amber-500/10 to-amber-600/10 text-amber-700 border-amber-100 p-5 shadow-sm backdrop-blur">
           <p className="text-sm text-slate-600">总任务数</p>
           <div className="mt-2 flex items-baseline gap-3">
             <div className="text-3xl font-semibold">
@@ -163,7 +163,7 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
           </div>
           <div className="mt-2">
             <div className="inline-flex items-center gap-2 rounded-full bg-white/60 px-3 py-1 text-xs font-medium text-slate-600">
-              <span className="h-2 w-2 rounded-full bg-emerald-400/60" />
+              <span className="h-2 w-2 rounded-full bg-amber-400/60" />
               平均 {daily_trend.length > 0 ? Math.round(summary.total_tasks / daily_trend.length) : 0} 个/天
             </div>
           </div>
