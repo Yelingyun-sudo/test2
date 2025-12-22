@@ -4,7 +4,7 @@ import asyncio
 import os
 import re
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -60,6 +60,7 @@ class ExecutionResult:
     exit_code: int = 0
     task_dir: Path | None = None
     coordinator_output: dict[str, Any] | None = None
+    llm_usage: dict[str, int] | None = None
 
     @property
     def message(self) -> str:
@@ -70,8 +71,46 @@ class ExecutionResult:
 
 
 @dataclass
+class LLMUsageStats:
+    """LLM token 使用统计（运行时累加）。"""
+
+    total_input_tokens: int = 0
+    total_output_tokens: int = 0
+    total_cached_tokens: int = 0
+    total_reasoning_tokens: int = 0
+    total_tokens: int = 0
+    llm_turn_count: int = 0
+
+    def to_dict(self) -> dict[str, int] | None:
+        """转换为字典格式（用于 JSON 序列化）。
+
+        Returns:
+            token 统计字典，如果没有任何 LLM 调用则返回 None
+        """
+        if self.llm_turn_count == 0:
+            return None
+
+        result = {
+            "total_input_tokens": self.total_input_tokens,
+            "total_output_tokens": self.total_output_tokens,
+            "total_tokens": self.total_tokens,
+            "llm_turns": self.llm_turn_count,
+        }
+
+        # 仅包含非零的可选字段
+        if self.total_cached_tokens > 0:
+            result["total_cached_tokens"] = self.total_cached_tokens
+
+        if self.total_reasoning_tokens > 0:
+            result["total_reasoning_tokens"] = self.total_reasoning_tokens
+
+        return result
+
+
+@dataclass
 class ExplorerRunContext:
     task_dir: Path
+    llm_usage: LLMUsageStats = field(default_factory=LLMUsageStats)
 
 
 settings = get_settings()
@@ -316,11 +355,15 @@ async def execute(
             round(seek_seconds, 1) if seek_seconds is not None else None
         )
 
+        # 从 context 获取 LLM token 使用统计
+        llm_usage = run_context.llm_usage.to_dict()
+
         result = ExecutionResult(
             success=success,
             exit_code=exit_code,
             task_dir=working_dir,
             coordinator_output=coordinator_output,
+            llm_usage=llm_usage,
         )
         end_time = datetime.now()
         duration = (end_time - start_time).total_seconds()
@@ -374,11 +417,16 @@ async def execute(
         coordinator_output["video_seek_seconds"] = (
             round(seek_seconds, 1) if seek_seconds is not None else None
         )
+
+        # 从 context 获取 LLM token 使用统计
+        llm_usage = run_context.llm_usage.to_dict()
+
         result = ExecutionResult(
             success=False,
             exit_code=2,
             task_dir=working_dir,
             coordinator_output=coordinator_output,
+            llm_usage=llm_usage,
         )
 
         # 保存任务总结（即使失败也保存）
@@ -502,6 +550,7 @@ def _save_single_task_summary(
         exit_code=result.exit_code,
         start_time=start,
         end_time=end,
+        llm_usage=result.llm_usage,
     )
     save_task_summary(task_summary, result.task_dir)
 
@@ -549,6 +598,7 @@ async def _execute_single_task(
         exit_code=result.exit_code,
         start_time=start_time.isoformat(),
         end_time=end_time.isoformat(),
+        llm_usage=result.llm_usage,
     )
 
     # 立即保存任务总结

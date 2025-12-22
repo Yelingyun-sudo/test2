@@ -102,7 +102,6 @@ class LLMTranscriptLoggerHooks(RunHooks[TContext]):
         agent: Agent[TContext],
         response: Any,
     ) -> None:
-        _ = context
         agent_name = agent.name or agent.__class__.__name__
         metadata = self._pending_turns.pop(agent_name, None)
         if metadata is None:
@@ -119,6 +118,30 @@ class LLMTranscriptLoggerHooks(RunHooks[TContext]):
 
         content = _render_markdown_response(agent, metadata, response)
         await _write_text(file_path, content)
+
+        # 实时累加 token 统计到 context
+        if hasattr(response, "usage") and response.usage is not None:
+            usage = response.usage
+            ctx = context.context  # 获取实际的 ExplorerRunContext
+            stats = ctx.llm_usage  # 获取 LLMUsageStats 实例
+
+            # 累加基础 token 数据
+            stats.total_input_tokens += getattr(usage, "input_tokens", 0)
+            stats.total_output_tokens += getattr(usage, "output_tokens", 0)
+            stats.total_tokens += getattr(usage, "total_tokens", 0)
+
+            # 处理可选的详细字段
+            if hasattr(usage, "input_tokens_details"):
+                details = usage.input_tokens_details
+                if details and hasattr(details, "cached_tokens"):
+                    stats.total_cached_tokens += details.cached_tokens or 0
+
+            if hasattr(usage, "output_tokens_details"):
+                details = usage.output_tokens_details
+                if details and hasattr(details, "reasoning_tokens"):
+                    stats.total_reasoning_tokens += details.reasoning_tokens or 0
+
+            stats.llm_turn_count += 1
 
     async def _capture_state(self, metadata: _TurnMetadata, kind: str) -> None:
         """可选：在每个回合的 request/response 旁保存截图和 DOM."""

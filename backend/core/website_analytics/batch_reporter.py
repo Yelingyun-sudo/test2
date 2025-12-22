@@ -22,6 +22,7 @@ class TaskResult:
     exit_code: int
     start_time: str
     end_time: str
+    llm_usage: dict[str, int] | None = None
 
     @property
     def message(self) -> str:
