@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/button";
 import { DashboardShell } from "./shell";
 import { apiFetch } from "@/lib/api";
 import { formatDateTime } from "@/lib/datetime";
-import { cn } from "@/lib/utils";
+import { cn, formatTokenCount } from "@/lib/utils";
 import { toast } from "sonner";
 import type { StatsResponse } from "@/lib/types";
 
@@ -149,60 +149,86 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
         {/* 总任务数 */}
         <div className="rounded-2xl border bg-gradient-to-br from-emerald-500/10 to-emerald-600/10 text-emerald-700 border-emerald-100 p-5 shadow-sm backdrop-blur">
           <p className="text-sm text-slate-600">总任务数</p>
-          <div className="mt-2 text-3xl font-semibold">
-            {summary.total_tasks.toLocaleString()}
+          <div className="mt-2 flex items-baseline gap-3">
+            <div className="text-3xl font-semibold">
+              {summary.total_tasks.toLocaleString()}
+            </div>
+            <div className="flex items-baseline gap-1">
+              <span className="text-xs text-slate-600">消耗</span>
+              <span className="text-base text-slate-600">
+                {formatTokenCount(summary.total_tokens)}
+              </span>
+              <span className="text-xs text-slate-600">token</span>
+            </div>
           </div>
-          <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-white/60 px-3 py-1 text-xs font-medium text-slate-600">
-            <span className="h-2 w-2 rounded-full bg-emerald-400/60" />
-            平均 {daily_trend.length > 0 ? Math.round(summary.total_tasks / daily_trend.length) : 0} 个/天
+          <div className="mt-2">
+            <div className="inline-flex items-center gap-2 rounded-full bg-white/60 px-3 py-1 text-xs font-medium text-slate-600">
+              <span className="h-2 w-2 rounded-full bg-emerald-400/60" />
+              平均 {daily_trend.length > 0 ? Math.round(summary.total_tasks / daily_trend.length) : 0} 个/天
+            </div>
           </div>
         </div>
 
         {/* 今日新增 */}
         <div className="rounded-2xl border bg-gradient-to-br from-sky-500/10 to-sky-600/10 text-sky-700 border-sky-100 p-5 shadow-sm backdrop-blur">
           <p className="text-sm text-slate-600">今日新增</p>
-          <div className="mt-2 text-3xl font-semibold">
-            {summary.today_tasks}
+          <div className="mt-2 flex items-baseline gap-3">
+            <div className="text-3xl font-semibold">
+              {summary.today_tasks}
+            </div>
+            <div className="flex items-baseline gap-1">
+              <span className="text-xs text-slate-600">消耗</span>
+              <span className="text-base text-slate-600">
+                {formatTokenCount(summary.today_tokens)}
+              </span>
+              <span className="text-xs text-slate-600">token</span>
+            </div>
           </div>
-          <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-white/60 px-3 py-1 text-xs font-medium text-slate-600">
-            <span className="h-2 w-2 rounded-full bg-sky-400/60" />
-            待执行 {summary.pending_count} · 执行中 {summary.running_count}
+          <div className="mt-2">
+            <div className="inline-flex items-center gap-2 rounded-full bg-white/60 px-3 py-1 text-xs font-medium text-slate-600">
+              <span className="h-2 w-2 rounded-full bg-sky-400/60" />
+              待执行 {summary.pending_count} · 执行中 {summary.running_count}
+            </div>
           </div>
         </div>
 
-        {/* 成功率 */}
+        {/* 今日成功率 */}
         <div className="rounded-2xl border bg-gradient-to-br from-violet-500/10 to-indigo-600/10 text-indigo-700 border-indigo-100 p-5 shadow-sm backdrop-blur">
-          <p className="text-sm text-slate-600">成功率</p>
+          <p className="text-sm text-slate-600">今日成功率</p>
           <div className="mt-2 text-3xl font-semibold">
-            {(summary.success_rate * 100).toFixed(1)}%
+            {(summary.today_success_rate * 100).toFixed(1)}%
           </div>
           <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-white/60 px-3 py-1 text-xs font-medium text-slate-600">
             <span className="h-2 w-2 rounded-full bg-indigo-400/60" />
-            成功 {summary.success_count} · 失败 {summary.failed_count}
+            成功 {summary.today_success_count} · 失败 {summary.today_failed_count}
           </div>
         </div>
 
-        {/* 成功平均时长 */}
+        {/* 今日成功任务 */}
         <div className="rounded-2xl border bg-gradient-to-br from-emerald-500/10 to-emerald-600/10 text-emerald-700 border-emerald-100 p-5 shadow-sm backdrop-blur">
-          <p className="text-sm text-slate-600">成功平均时长</p>
-          <div className="mt-2 text-2xl font-semibold">
-            {formatDurationSeconds(summary.avg_success_duration_seconds)}
+          <p className="text-sm text-slate-600">今日成功任务</p>
+          <div className="mt-2 text-3xl font-semibold text-emerald-700">
+            {summary.today_success_count} 个
           </div>
-          <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-white/60 px-3 py-1 text-xs font-medium text-slate-600">
-            <span className="h-2 w-2 rounded-full bg-emerald-400/60" />
-            共 {summary.success_count} 个成功任务
+          <div className="mt-2">
+            <div className="inline-flex items-center gap-2 rounded-full bg-white/60 px-3 py-1 text-xs font-medium text-slate-600">
+              <span className="h-2 w-2 rounded-full bg-emerald-400/60" />
+              {formatDurationSeconds(summary.today_avg_success_duration_seconds)} · {formatTokenCount(summary.today_avg_success_tokens)} Token
+            </div>
           </div>
         </div>
 
-        {/* 失败平均时长 */}
+        {/* 今日失败任务 */}
         <div className="rounded-2xl border bg-gradient-to-br from-rose-500/10 to-rose-600/10 text-rose-700 border-rose-100 p-5 shadow-sm backdrop-blur">
-          <p className="text-sm text-slate-600">失败平均时长</p>
-          <div className="mt-2 text-2xl font-semibold">
-            {formatDurationSeconds(summary.avg_failed_duration_seconds)}
+          <p className="text-sm text-slate-600">今日失败任务</p>
+          <div className="mt-2 text-3xl font-semibold text-rose-700">
+            {summary.today_failed_count} 个
           </div>
-          <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-white/60 px-3 py-1 text-xs font-medium text-slate-600">
-            <span className="h-2 w-2 rounded-full bg-rose-400/60" />
-            共 {summary.failed_count} 个失败任务
+          <div className="mt-2">
+            <div className="inline-flex items-center gap-2 rounded-full bg-white/60 px-3 py-1 text-xs font-medium text-slate-600">
+              <span className="h-2 w-2 rounded-full bg-rose-400/60" />
+              {formatDurationSeconds(summary.today_avg_failed_duration_seconds)} · {formatTokenCount(summary.today_avg_failed_tokens)} Token
+            </div>
           </div>
         </div>
       </section>
@@ -233,9 +259,32 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
                   domain={[0, 100]}
                 />
                 <Tooltip
-                  formatter={(value: number, name: string) =>
-                    name === "成功率" ? [`${value.toFixed(1)}%`, name] : [value, name]
-                  }
+                  content={({ payload, label }) => {
+                    if (!payload || payload.length === 0) return null;
+                    return (
+                      <div className="rounded-lg border border-sky-100 bg-sky-50/90 backdrop-blur-sm p-3 shadow-md">
+                        <p className="font-medium text-slate-900 mb-2">{label}</p>
+                        <div className="space-y-1">
+                          {payload.map((entry, index) => (
+                            <div key={index} className="flex items-center justify-between gap-4">
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className="inline-block h-3 w-3 rounded-sm"
+                                  style={{ backgroundColor: entry.color ?? '#94a3b8' }}
+                                />
+                                <span className="text-xs text-slate-600">{entry.name ?? '未知'}</span>
+                              </div>
+                              <span className="text-sm font-semibold text-slate-900">
+                                {entry.name === "成功率"
+                                  ? `${Number(entry.value ?? 0).toFixed(1)}%`
+                                  : entry.value ?? 0}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }}
                 />
                 <Legend
                   formatter={(value) => <span style={{ color: '#475569', fontSize: '12px', fontWeight: 500 }}>{value}</span>}
@@ -301,7 +350,7 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
                   cx="50%"
                   cy="50%"
                   outerRadius={90}
-                  label={(entry) => `${entry.name} (${entry.percentage}%)`}
+                  label={(entry) => `${entry.name ?? '未知'} (${entry.percentage ?? 0}%)`}
                   onClick={(data) => {
                     // 点击饼图扇区跳转到订阅列表，自动筛选该状态
                     const status = data.payload?.status;
@@ -312,7 +361,7 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
                   cursor="pointer"
                 >
                   {distributionData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
+                    <Cell key={`cell-${index}`} fill={entry.color ?? '#94a3b8'} />
                   ))}
                 </Pie>
                 <Tooltip
@@ -320,13 +369,16 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
                     if (!payload?.[0]) return null;
                     const data = payload[0].payload;
                     return (
-                      <div className="rounded-lg border bg-white p-3 shadow-lg">
-                        <p className="font-medium text-slate-900">{data.name}</p>
+                      <div className="rounded-lg border border-sky-100 bg-sky-50/90 backdrop-blur-sm p-3 shadow-md">
+                        <p className="font-medium text-slate-900">{data.name ?? '未知'}</p>
                         <p className="text-sm text-slate-500">
-                          数量: <span className="font-semibold text-sky-600">{data.value}</span>
+                          数量: <span className="font-semibold text-sky-600">{data.value ?? 0}</span>
                         </p>
                         <p className="text-xs text-slate-400">
-                          占比: {data.percentage}%
+                          占比: {data.percentage ?? 0}%
+                        </p>
+                        <p className="mt-2 text-xs text-blue-600 hover:underline">
+                          点击查看详情 →
                         </p>
                       </div>
                     );
@@ -469,7 +521,7 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
                       if (!payload?.[0]) return null;
                       const data = payload[0].payload;
                       return (
-                        <div className="rounded-lg border bg-white p-3 shadow-lg">
+                        <div className="rounded-lg border border-sky-100 bg-sky-50/90 backdrop-blur-sm p-3 shadow-md">
                           <p className="font-medium text-slate-900">{data.label}</p>
                           <p className="text-sm text-slate-500">
                             数量: <span className="font-semibold text-red-600">{data.count}</span>

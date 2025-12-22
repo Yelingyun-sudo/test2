@@ -8,6 +8,17 @@ export interface StatsSummary {
   success_rate: number;
   avg_success_duration_seconds: number;
   avg_failed_duration_seconds: number;
+  total_tokens: number;
+  today_tokens: number;
+  avg_success_tokens: number;
+  avg_failed_tokens: number;
+  today_success_count: number;
+  today_failed_count: number;
+  today_success_rate: number;
+  today_avg_success_duration_seconds: number;
+  today_avg_failed_duration_seconds: number;
+  today_avg_success_tokens: number;
+  today_avg_failed_tokens: number;
 }
 
 export interface DailyTrendItem {

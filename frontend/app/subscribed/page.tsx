@@ -1148,29 +1148,29 @@ function SubscribedContent() {
                     <TooltipContent
                       side="top"
                       align="center"
-                      className="w-64 p-4 bg-slate-900/95 text-white shadow-xl"
+                      className="w-64 p-4 bg-sky-50/95 backdrop-blur-sm border border-sky-100 shadow-md"
                     >
                       <div className="space-y-3">
-                        <div className="flex items-center gap-2 border-b border-slate-700 pb-2">
-                          <span className="text-sm font-semibold">📊 Token 使用详情</span>
+                        <div className="flex items-center gap-2 border-b border-sky-200 pb-2">
+                          <span className="text-sm font-semibold text-slate-900">📊 Token 使用详情</span>
                         </div>
 
                         <div className="space-y-2 text-xs">
                           <div className="flex justify-between">
-                            <span className="text-slate-300">输入 Token</span>
-                            <span className="font-mono text-blue-300">
+                            <span className="text-slate-600">输入 Token</span>
+                            <span className="font-mono text-blue-600">
                               {formatNumber(selectedItem.llm_usage.total_input_tokens)}
                             </span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-slate-300">输出 Token</span>
-                            <span className="font-mono text-green-300">
+                            <span className="text-slate-600">输出 Token</span>
+                            <span className="font-mono text-green-600">
                               {formatNumber(selectedItem.llm_usage.total_output_tokens)}
                             </span>
                           </div>
-                          <div className="flex justify-between border-t border-slate-700 pt-2">
-                            <span className="font-medium text-white">总计</span>
-                            <span className="font-mono font-bold text-white">
+                          <div className="flex justify-between border-t border-sky-200 pt-2">
+                            <span className="font-medium text-slate-900">总计</span>
+                            <span className="font-mono font-bold text-slate-900">
                               {formatNumber(selectedItem.llm_usage.total_tokens)}
                             </span>
                           </div>
@@ -1178,19 +1178,19 @@ function SubscribedContent() {
 
                         {(selectedItem.llm_usage.total_cached_tokens ||
                           selectedItem.llm_usage.total_reasoning_tokens) && (
-                          <div className="space-y-2 border-t border-slate-700 pt-2 text-xs">
+                          <div className="space-y-2 border-t border-sky-200 pt-2 text-xs">
                             {selectedItem.llm_usage.total_cached_tokens && (
                               <div className="flex justify-between">
-                                <span className="text-slate-300">缓存优化</span>
-                                <span className="font-mono text-orange-300">
+                                <span className="text-slate-600">缓存优化</span>
+                                <span className="font-mono text-orange-600">
                                   {formatNumber(selectedItem.llm_usage.total_cached_tokens)}
                                 </span>
                               </div>
                             )}
                             {selectedItem.llm_usage.total_reasoning_tokens && (
                               <div className="flex justify-between">
-                                <span className="text-slate-300">推理 Token</span>
-                                <span className="font-mono text-purple-300">
+                                <span className="text-slate-600">推理 Token</span>
+                                <span className="font-mono text-purple-600">
                                   {formatNumber(selectedItem.llm_usage.total_reasoning_tokens)}
                                 </span>
                               </div>
@@ -1198,9 +1198,9 @@ function SubscribedContent() {
                           </div>
                         )}
 
-                        <div className="flex justify-between border-t border-slate-700 pt-2 text-xs">
-                          <span className="text-slate-300">LLM 调用轮次</span>
-                          <span className="font-mono text-cyan-300">
+                        <div className="flex justify-between border-t border-sky-200 pt-2 text-xs">
+                          <span className="text-slate-600">LLM 调用轮次</span>
+                          <span className="font-mono text-cyan-600">
                             {selectedItem.llm_usage.llm_turns} 次
                           </span>
                         </div>

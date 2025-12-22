@@ -60,6 +60,21 @@ class SubscribedStatsSummary(BaseModel):
     avg_failed_duration_seconds: float = Field(
         ..., description="失败任务平均时长（秒）"
     )
+    total_tokens: int = Field(..., description="所有任务总 token 数")
+    today_tokens: int = Field(..., description="今日任务总 token 数")
+    avg_success_tokens: float = Field(..., description="成功任务平均 token")
+    avg_failed_tokens: float = Field(..., description="失败任务平均 token")
+    today_success_count: int = Field(..., description="今日成功任务数")
+    today_failed_count: int = Field(..., description="今日失败任务数")
+    today_success_rate: float = Field(..., description="今日成功率（0.0 - 1.0）")
+    today_avg_success_duration_seconds: float = Field(
+        ..., description="今日成功任务平均时长（秒）"
+    )
+    today_avg_failed_duration_seconds: float = Field(
+        ..., description="今日失败任务平均时长（秒）"
+    )
+    today_avg_success_tokens: float = Field(..., description="今日成功任务平均 token")
+    today_avg_failed_tokens: float = Field(..., description="今日失败任务平均 token")
 
 
 class DailyTrendItem(BaseModel):

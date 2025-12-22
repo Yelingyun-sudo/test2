@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 from pydantic import ValidationError
-from sqlalchemy import case, func
+from sqlalchemy import Integer, case, func
 from sqlalchemy.orm import Session
 
 from ..db import get_db
@@ -318,12 +318,13 @@ def get_subscribed_stats(
     - 最近任务列表（最近5条）
     """
     tz_cn = timezone(timedelta(hours=8))
+    cn_today = datetime.now(tz_cn).date()
 
     # 1. 汇总统计
     summary_result = db.query(
         func.count(SubscribedTask.id).label("total_tasks"),
         func.sum(
-            case((SubscribedTask.created_date == func.current_date(), 1), else_=0)
+            case((SubscribedTask.created_date == cn_today, 1), else_=0)
         ).label("today_tasks"),
         func.sum(case((SubscribedTask.status == TaskStatus.SUCCESS, 1), else_=0)).label(
             "success_count"
@@ -355,6 +356,123 @@ def get_subscribed_stats(
                 else_=None,
             )
         ).label("avg_failed_duration"),
+        func.sum(
+            func.coalesce(
+                func.cast(
+                    func.json_extract(SubscribedTask.llm_usage, "$.total_tokens"),
+                    Integer,
+                ),
+                0,
+            )
+        ).label("total_tokens"),
+        func.sum(
+            case(
+                (
+                    SubscribedTask.created_date == cn_today,
+                    func.coalesce(
+                        func.cast(
+                            func.json_extract(
+                                SubscribedTask.llm_usage, "$.total_tokens"
+                            ),
+                            Integer,
+                        ),
+                        0,
+                    ),
+                ),
+                else_=0,
+            )
+        ).label("today_tokens"),
+        func.avg(
+            case(
+                (
+                    SubscribedTask.status == TaskStatus.SUCCESS,
+                    func.cast(
+                        func.json_extract(SubscribedTask.llm_usage, "$.total_tokens"),
+                        Integer,
+                    ),
+                ),
+                else_=None,
+            )
+        ).label("avg_success_tokens"),
+        func.avg(
+            case(
+                (
+                    SubscribedTask.status == TaskStatus.FAILED,
+                    func.cast(
+                        func.json_extract(SubscribedTask.llm_usage, "$.total_tokens"),
+                        Integer,
+                    ),
+                ),
+                else_=None,
+            )
+        ).label("avg_failed_tokens"),
+        # 今日任务详细统计（双重条件聚合）
+        func.sum(
+            case(
+                (
+                    (SubscribedTask.created_date == cn_today)
+                    & (SubscribedTask.status == TaskStatus.SUCCESS),
+                    1,
+                ),
+                else_=0,
+            )
+        ).label("today_success_count"),
+        func.sum(
+            case(
+                (
+                    (SubscribedTask.created_date == cn_today)
+                    & (SubscribedTask.status == TaskStatus.FAILED),
+                    1,
+                ),
+                else_=0,
+            )
+        ).label("today_failed_count"),
+        func.avg(
+            case(
+                (
+                    (SubscribedTask.created_date == cn_today)
+                    & (SubscribedTask.status == TaskStatus.SUCCESS),
+                    SubscribedTask.duration_seconds,
+                ),
+                else_=None,
+            )
+        ).label("today_avg_success_duration"),
+        func.avg(
+            case(
+                (
+                    (SubscribedTask.created_date == cn_today)
+                    & (SubscribedTask.status == TaskStatus.FAILED),
+                    SubscribedTask.duration_seconds,
+                ),
+                else_=None,
+            )
+        ).label("today_avg_failed_duration"),
+        func.avg(
+            case(
+                (
+                    (SubscribedTask.created_date == cn_today)
+                    & (SubscribedTask.status == TaskStatus.SUCCESS),
+                    func.cast(
+                        func.json_extract(SubscribedTask.llm_usage, "$.total_tokens"),
+                        Integer,
+                    ),
+                ),
+                else_=None,
+            )
+        ).label("today_avg_success_tokens"),
+        func.avg(
+            case(
+                (
+                    (SubscribedTask.created_date == cn_today)
+                    & (SubscribedTask.status == TaskStatus.FAILED),
+                    func.cast(
+                        func.json_extract(SubscribedTask.llm_usage, "$.total_tokens"),
+                        Integer,
+                    ),
+                ),
+                else_=None,
+            )
+        ).label("today_avg_failed_tokens"),
     ).first()
 
     total_tasks = summary_result.total_tasks or 0
@@ -365,10 +483,26 @@ def get_subscribed_stats(
     running_count = summary_result.running_count or 0
     avg_success_duration = summary_result.avg_success_duration or 0.0
     avg_failed_duration = summary_result.avg_failed_duration or 0.0
+    total_tokens = summary_result.total_tokens or 0
+    today_tokens = summary_result.today_tokens or 0
+    avg_success_tokens = summary_result.avg_success_tokens or 0.0
+    avg_failed_tokens = summary_result.avg_failed_tokens or 0.0
+    today_success_count = summary_result.today_success_count or 0
+    today_failed_count = summary_result.today_failed_count or 0
+    today_avg_success_duration = summary_result.today_avg_success_duration or 0.0
+    today_avg_failed_duration = summary_result.today_avg_failed_duration or 0.0
+    today_avg_success_tokens = summary_result.today_avg_success_tokens or 0.0
+    today_avg_failed_tokens = summary_result.today_avg_failed_tokens or 0.0
 
     # 计算成功率
     total_completed = success_count + failed_count
     success_rate = (success_count / total_completed) if total_completed > 0 else 0.0
+
+    # 计算今日成功率
+    today_completed = today_success_count + today_failed_count
+    today_success_rate = (
+        (today_success_count / today_completed) if today_completed > 0 else 0.0
+    )
 
     summary = SubscribedStatsSummary(
         total_tasks=total_tasks,
@@ -380,10 +514,21 @@ def get_subscribed_stats(
         success_rate=success_rate,
         avg_success_duration_seconds=avg_success_duration,
         avg_failed_duration_seconds=avg_failed_duration,
+        total_tokens=total_tokens,
+        today_tokens=today_tokens,
+        avg_success_tokens=avg_success_tokens,
+        avg_failed_tokens=avg_failed_tokens,
+        today_success_count=today_success_count,
+        today_failed_count=today_failed_count,
+        today_success_rate=today_success_rate,
+        today_avg_success_duration_seconds=today_avg_success_duration,
+        today_avg_failed_duration_seconds=today_avg_failed_duration,
+        today_avg_success_tokens=today_avg_success_tokens,
+        today_avg_failed_tokens=today_avg_failed_tokens,
     )
 
     # 2. 每日趋势（最近10天）
-    today = date.today()
+    today = cn_today
     ten_days_ago = today - timedelta(days=10)
 
     daily_trend_results = (
