@@ -323,9 +323,9 @@ def get_subscribed_stats(
     # 1. 汇总统计
     summary_result = db.query(
         func.count(SubscribedTask.id).label("total_tasks"),
-        func.sum(
-            case((SubscribedTask.created_date == cn_today, 1), else_=0)
-        ).label("today_tasks"),
+        func.sum(case((SubscribedTask.created_date == cn_today, 1), else_=0)).label(
+            "today_tasks"
+        ),
         func.sum(case((SubscribedTask.status == TaskStatus.SUCCESS, 1), else_=0)).label(
             "success_count"
         ),
