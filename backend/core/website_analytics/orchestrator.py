@@ -109,7 +109,20 @@ class LLMUsageStats:
 
 @dataclass
 class TaskContext:
+    """任务执行上下文，贯穿整个任务生命周期。"""
+
+    # 任务标识
     task_dir: Path
+    task_id: str = ""  # 任务唯一标识（task_dir.name）
+
+    # 任务元数据
+    instruction: str = ""  # 任务指令
+    index: int = 1  # 任务序号
+
+    # 时间追踪
+    start_time: datetime = field(default_factory=datetime.now)
+
+    # LLM 统计
     llm_usage: LLMUsageStats = field(default_factory=LLMUsageStats)
 
 
@@ -174,7 +187,13 @@ async def execute(
         capture_full_page=capture_llm_full_page,
     )
 
-    task_context = TaskContext(task_dir=working_dir)
+    task_context = TaskContext(
+        task_dir=working_dir,
+        task_id=working_dir.name,
+        instruction=instruction,
+        index=task_index,
+        start_time=start_time,
+    )
     call_model_filter = build_call_model_input_filter(compact_enabled=True)
     model_settings = ModelSettings(
         store=False,
@@ -366,23 +385,18 @@ async def execute(
             llm_usage=llm_usage,
         )
         end_time = datetime.now()
-        duration = (end_time - start_time).total_seconds()
 
         # 保存任务总结
         _save_single_task_summary(
-            instruction=instruction,
+            context=task_context,
             result=result,
-            task_index=task_index,
-            start_time=start_time,
             end_time=end_time,
-            duration_seconds=duration,
         )
 
         return result
     except Exception as exc:
         # fast fail: 构造标准的失败输出
         end_time = datetime.now()
-        duration = (end_time - start_time).total_seconds()
         coordinator_output = {
             "status": "failed",
             "message": f"执行失败：{exc}",
@@ -431,12 +445,9 @@ async def execute(
 
         # 保存任务总结（即使失败也保存）
         _save_single_task_summary(
-            instruction=instruction,
+            context=task_context,
             result=result,
-            task_index=task_index,
-            start_time=start_time,
             end_time=end_time,
-            duration_seconds=duration,
         )
 
         return result
@@ -523,33 +534,26 @@ def _find_last_video_relative_path(task_dir: Path) -> str | None:
 
 
 def _save_single_task_summary(
-    instruction: str,
+    context: TaskContext,
     result: ExecutionResult,
-    task_index: int,
-    *,
-    start_time: datetime | None,
-    end_time: datetime | None,
-    duration_seconds: float | None,
+    end_time: datetime,
 ) -> None:
     """保存单个任务的总结文件（用于单任务模式）。"""
     if not result.task_dir:
         return
 
-    task_id = result.task_dir.name
+    duration = (end_time - context.start_time).total_seconds()
     relative_task_dir = to_project_relative(result.task_dir)
-    start = start_time.isoformat() if start_time else ""
-    end = end_time.isoformat() if end_time else ""
-    duration = duration_seconds if duration_seconds is not None else 0.0
     task_summary = TaskResult(
-        task_id=task_id,
-        index=task_index,
-        instruction=instruction,
+        task_id=context.task_id,
+        index=context.index,
+        instruction=context.instruction,
         duration_seconds=duration,
         task_dir=relative_task_dir,
         coordinator_output=result.coordinator_output,
         exit_code=result.exit_code,
-        start_time=start,
-        end_time=end,
+        start_time=context.start_time.isoformat(),
+        end_time=end_time.isoformat(),
         llm_usage=result.llm_usage,
     )
     save_task_summary(task_summary, result.task_dir)
