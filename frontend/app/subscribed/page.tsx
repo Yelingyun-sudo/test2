@@ -8,9 +8,24 @@ import { toast } from "sonner";
 import { DashboardShell } from "@/components/dashboard/shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { apiFetch } from "@/lib/api";
 import { formatDateTime, parseDateTime } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
+
+type LLMUsage = {
+  total_input_tokens: number;
+  total_output_tokens: number;
+  total_tokens: number;
+  llm_turns: number;
+  total_cached_tokens?: number;
+  total_reasoning_tokens?: number;
+};
 
 type SubscribedItem = {
   id: number;
@@ -24,6 +39,7 @@ type SubscribedItem = {
   task_dir?: string | null;
   result?: string | null;
   failure_type?: string | null;
+  llm_usage?: LLMUsage | null;
 };
 
 type TaskArtifacts = {
@@ -95,6 +111,11 @@ function MediaLoadingOverlay({ label }: { label: string }) {
       <div className="text-xs text-slate-500">{label}</div>
     </div>
   );
+}
+
+function formatNumber(num: number | undefined): string {
+  if (num === undefined || num === null) return "0";
+  return num.toLocaleString("zh-CN");
 }
 
 function SubscribedContent() {
@@ -1176,6 +1197,81 @@ function SubscribedContent() {
                 <div className="text-slate-500">任务时长 (s)</div>
                 <div className="font-medium">{formatTaskDuration(selectedItem.duration_seconds, selectedItem.status)}</div>
               </div>
+              {selectedItem.llm_usage && (
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="space-y-1 cursor-help">
+                        <div className="text-slate-500">Token 使用</div>
+                        <div className="font-medium text-blue-600 underline decoration-dashed decoration-slate-300 underline-offset-2">
+                          🤖 {formatNumber(selectedItem.llm_usage.total_tokens)}
+                        </div>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent
+                      side="top"
+                      align="center"
+                      className="w-64 p-4 bg-slate-900/95 text-white shadow-xl"
+                    >
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 border-b border-slate-700 pb-2">
+                          <span className="text-sm font-semibold">📊 Token 使用详情</span>
+                        </div>
+
+                        <div className="space-y-2 text-xs">
+                          <div className="flex justify-between">
+                            <span className="text-slate-300">输入 Token</span>
+                            <span className="font-mono text-blue-300">
+                              {formatNumber(selectedItem.llm_usage.total_input_tokens)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-300">输出 Token</span>
+                            <span className="font-mono text-green-300">
+                              {formatNumber(selectedItem.llm_usage.total_output_tokens)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between border-t border-slate-700 pt-2">
+                            <span className="font-medium text-white">总计</span>
+                            <span className="font-mono font-bold text-white">
+                              {formatNumber(selectedItem.llm_usage.total_tokens)}
+                            </span>
+                          </div>
+                        </div>
+
+                        {(selectedItem.llm_usage.total_cached_tokens ||
+                          selectedItem.llm_usage.total_reasoning_tokens) && (
+                          <div className="space-y-2 border-t border-slate-700 pt-2 text-xs">
+                            {selectedItem.llm_usage.total_cached_tokens && (
+                              <div className="flex justify-between">
+                                <span className="text-slate-300">缓存优化</span>
+                                <span className="font-mono text-orange-300">
+                                  {formatNumber(selectedItem.llm_usage.total_cached_tokens)}
+                                </span>
+                              </div>
+                            )}
+                            {selectedItem.llm_usage.total_reasoning_tokens && (
+                              <div className="flex justify-between">
+                                <span className="text-slate-300">推理 Token</span>
+                                <span className="font-mono text-purple-300">
+                                  {formatNumber(selectedItem.llm_usage.total_reasoning_tokens)}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="flex justify-between border-t border-slate-700 pt-2 text-xs">
+                          <span className="text-slate-300">LLM 调用轮次</span>
+                          <span className="font-mono text-cyan-300">
+                            {selectedItem.llm_usage.llm_turns} 次
+                          </span>
+                        </div>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
             </div>
 
             <div className="px-6 pb-6">

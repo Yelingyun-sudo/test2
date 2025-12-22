@@ -5,6 +5,17 @@ from typing import Optional
 from pydantic import BaseModel, Field
 
 
+class LLMUsage(BaseModel):
+    """LLM token 使用统计。"""
+
+    total_input_tokens: int = Field(..., description="总输入 token 数")
+    total_output_tokens: int = Field(..., description="总输出 token 数")
+    total_tokens: int = Field(..., description="总 token 数")
+    llm_turns: int = Field(..., description="LLM 调用轮次")
+    total_cached_tokens: Optional[int] = Field(None, description="缓存 token 数")
+    total_reasoning_tokens: Optional[int] = Field(None, description="推理 token 数")
+
+
 class SubscribedItem(BaseModel):
     id: int = Field(..., description="任务 ID")
     url: str = Field(..., description="订阅站点 URL")
@@ -17,6 +28,7 @@ class SubscribedItem(BaseModel):
     task_dir: Optional[str] = Field(None, description="任务目录（相对 backend 根目录）")
     result: Optional[str] = Field(None, description="任务结果")
     failure_type: Optional[str] = Field(None, description="失败类型（仅失败任务）")
+    llm_usage: Optional[LLMUsage] = Field(None, description="LLM token 使用统计")
 
 
 class SubscribedListResponse(BaseModel):

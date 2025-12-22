@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 
 from sqlalchemy import (
+    JSON,
     Column,
     Date,
     DateTime,
@@ -55,6 +56,9 @@ class SubscribedTask(Base):
     result = Column(Text, nullable=True)
     failure_type = Column(String(255), nullable=True)
     report_status = Column(SAEnum(TaskReportStatus), nullable=True, default=None)
+
+    # LLM token 使用统计（存储为 JSON）
+    llm_usage = Column(JSON, nullable=True, comment="LLM token 使用统计")
 
     created_at = Column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

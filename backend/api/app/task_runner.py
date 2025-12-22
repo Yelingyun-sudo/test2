@@ -114,6 +114,7 @@ def _update_task_success(
     duration: float,
     result: str,
     task_dir: str | None,
+    llm_usage: dict[str, Any] | None = None,
 ) -> None:
     task.status = TaskStatus.SUCCESS
     task.duration_seconds = int(duration)
@@ -121,6 +122,7 @@ def _update_task_success(
     task.task_dir = task_dir
     task.failure_type = None
     task.report_status = TaskReportStatus.PENDING
+    task.llm_usage = llm_usage
     db.add(task)
     db.commit()
 
@@ -133,6 +135,7 @@ def _update_task_failure(
     result: str,
     failure_type: str,
     task_dir: str | None,
+    llm_usage: dict[str, Any] | None = None,
 ) -> None:
     task.status = TaskStatus.FAILED
     task.duration_seconds = int(duration)
@@ -140,6 +143,7 @@ def _update_task_failure(
     task.task_dir = task_dir
     task.failure_type = failure_type
     task.report_status = TaskReportStatus.PENDING
+    task.llm_usage = llm_usage
     db.add(task)
     db.commit()
 
@@ -216,12 +220,14 @@ async def _run_task(task_id: int, instruction: str) -> None:
         if exec_result and exec_result.success and exec_result.task_dir:
             summary = _read_task_summary(exec_result.task_dir)
             result_text = _extract_success_result(summary)
+            llm_usage = summary.get("llm_usage") if summary else None
             _update_task_success(
                 db,
                 task_obj,
                 duration=duration,
                 result=result_text,
                 task_dir=task_dir_value,
+                llm_usage=llm_usage,
             )
             logger.info(
                 "任务成功: id=%s, url=%s, result=%s",
@@ -230,11 +236,13 @@ async def _run_task(task_id: int, instruction: str) -> None:
                 result_text,
             )
         else:
+            llm_usage = None
             if exec_result and exec_result.task_dir:
                 summary = _read_task_summary(exec_result.task_dir)
                 result_text = _extract_failure_result(
                     summary, getattr(exec_result, "message", None), exc=exec_error
                 )
+                llm_usage = summary.get("llm_usage") if summary else None
             else:
                 fallback_msg = (
                     getattr(exec_result, "message", None) if exec_result else None
@@ -250,6 +258,7 @@ async def _run_task(task_id: int, instruction: str) -> None:
                 result=result_text,
                 failure_type=failure_type,
                 task_dir=task_dir_value,
+                llm_usage=llm_usage,
             )
             logger.warning(
                 "任务失败: id=%s, url=%s, failure_type=%s, result=%s",

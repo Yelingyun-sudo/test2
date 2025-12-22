@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import tempfile
 from datetime import date, datetime, timedelta, timezone
@@ -10,6 +11,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
+from pydantic import ValidationError
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 from starlette.background import BackgroundTask
@@ -22,6 +24,7 @@ from ..schemas.subscribed import (
     FailureTypeDistributionItem,
     FailureTypeItem,
     FailureTypesResponse,
+    LLMUsage,
     RecentTaskItem,
     StatusDistributionItem,
     SubscribedArtifactsResponse,
@@ -35,6 +38,8 @@ from website_analytics.output_types import (
     get_failure_types_ordered,
 )
 from website_analytics.utils import LOGS_DIR, PROJECT_ROOT
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/subscribed",
@@ -155,6 +160,19 @@ def list_subscribed(
     items = []
     for rec in records:
         status_value = rec.status.value if hasattr(rec.status, "value") else rec.status
+
+        # 安全地转换 llm_usage
+        llm_usage_value = None
+        if rec.llm_usage is not None:
+            try:
+                llm_usage_value = LLMUsage(**rec.llm_usage)
+            except (ValidationError, TypeError) as exc:
+                logger.error(
+                    "任务 ID=%s 的 llm_usage 数据格式错误，已跳过: %s",
+                    rec.id,
+                    exc,
+                )
+
         items.append(
             SubscribedItem(
                 id=int(rec.id) if rec.id is not None else None,  # type: ignore[arg-type]
@@ -168,6 +186,7 @@ def list_subscribed(
                 task_dir=rec.task_dir,
                 result=rec.result,
                 failure_type=rec.failure_type,
+                llm_usage=llm_usage_value,
             )
         )
 
