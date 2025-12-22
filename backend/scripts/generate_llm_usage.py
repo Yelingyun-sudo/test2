@@ -204,9 +204,9 @@ def process_task_directory(
             json.dump(summary_data, f, indent=2, ensure_ascii=False)
             f.write("\n")
 
-        print(f"  ✓ 已写入 task_summary.json")
+        print("  ✓ 已写入 task_summary.json")
     else:
-        print(f"  [预览] 将写入 task_summary.json")
+        print("  [预览] 将写入 task_summary.json")
 
     return "updated"
 
