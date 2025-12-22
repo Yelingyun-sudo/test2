@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 
 from sqlalchemy import or_
@@ -25,23 +23,12 @@ def _build_instruction(task: SubscribedTask) -> str:
     return f"登录 {task.url}（账号和密码分别为 {task.account} 和 {task.password}）并提取订阅地址"
 
 
-def _read_task_summary(task_dir: Path) -> dict[str, Any] | None:
-    summary_path = task_dir / "task_summary.json"
-    if not summary_path.exists():
-        return None
+def _extract_success_result(exec_result: ExecutionResult | None) -> str:
+    """从 ExecutionResult 提取成功结果（订阅地址）。"""
+    if not exec_result or not exec_result.coordinator_output:
+        return "任务结果不可用"
     try:
-        with summary_path.open("r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception as exc:  # pragma: no cover - 防御性处理
-        logger.warning("读取 task_summary.json 失败: %s", exc)
-        return None
-
-
-def _extract_success_result(summary: dict[str, Any] | None) -> str:
-    if not summary:
-        return "未找到任务总结文件"
-    try:
-        coordinator = summary.get("coordinator_output") or {}
+        coordinator = exec_result.coordinator_output
         operations_results = coordinator.get("operations_results") or {}
         extract_result = operations_results.get("extract") or {}
         url = extract_result.get("subscription_url")
@@ -49,29 +36,35 @@ def _extract_success_result(summary: dict[str, Any] | None) -> str:
             return str(url)
         return "未返回订阅地址"
     except Exception as exc:  # pragma: no cover - 防御性处理
-        return f"解析任务总结失败: {exc}"
+        return f"解析任务结果失败: {exc}"
 
 
 def _extract_failure_result(
-    summary: dict[str, Any] | None,
-    fallback: str | None = None,
+    exec_result: ExecutionResult | None,
     exc: Exception | None = None,
 ) -> str:
-    """提取失败结果信息，包含异常详情。"""
-    if not summary:
-        if exc is not None:
-            return f"执行异常：{exc.__class__.__name__}: {str(exc)}"
-        return fallback or "任务总结不存在"
-    try:
-        coordinator = summary.get("coordinator_output") or {}
-        message = coordinator.get("message")
-        if message:
-            return str(message)
-        if exc is not None:
-            return f"执行异常：{exc.__class__.__name__}: {str(exc)}"
-        return fallback or "任务失败，未提供错误信息"
-    except Exception as parse_exc:  # pragma: no cover - 防御性处理
-        return f"解析失败信息时出错: {parse_exc}"
+    """从 ExecutionResult 提取失败结果信息。"""
+    # 优先使用 ExecutionResult 中的消息
+    if exec_result and exec_result.coordinator_output:
+        try:
+            message = exec_result.coordinator_output.get("message")
+            if message:
+                return str(message)
+        except Exception as parse_exc:  # pragma: no cover - 防御性处理
+            return f"解析失败信息时出错: {parse_exc}"
+
+    # 其次使用 ExecutionResult.message 属性
+    if exec_result:
+        try:
+            return exec_result.message
+        except Exception:
+            pass
+
+    # 最后使用异常信息
+    if exc is not None:
+        return f"执行异常：{exc.__class__.__name__}: {str(exc)}"
+
+    return "任务失败，未提供错误信息"
 
 
 def _format_failure_type(
@@ -218,9 +211,8 @@ async def _run_task(task_id: int, instruction: str) -> None:
             return
 
         if exec_result and exec_result.success and exec_result.task_dir:
-            summary = _read_task_summary(exec_result.task_dir)
-            result_text = _extract_success_result(summary)
-            llm_usage = summary.get("llm_usage") if summary else None
+            result_text = _extract_success_result(exec_result)
+            llm_usage = exec_result.llm_usage
             _update_task_success(
                 db,
                 task_obj,
@@ -236,20 +228,8 @@ async def _run_task(task_id: int, instruction: str) -> None:
                 result_text,
             )
         else:
-            llm_usage = None
-            if exec_result and exec_result.task_dir:
-                summary = _read_task_summary(exec_result.task_dir)
-                result_text = _extract_failure_result(
-                    summary, getattr(exec_result, "message", None), exc=exec_error
-                )
-                llm_usage = summary.get("llm_usage") if summary else None
-            else:
-                fallback_msg = (
-                    getattr(exec_result, "message", None) if exec_result else None
-                )
-                result_text = _extract_failure_result(
-                    None, fallback_msg, exc=exec_error
-                )
+            result_text = _extract_failure_result(exec_result, exc=exec_error)
+            llm_usage = exec_result.llm_usage if exec_result else None
             failure_type = _format_failure_type(exec_error, timed_out, exec_result)
             _update_task_failure(
                 db,
