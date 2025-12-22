@@ -122,7 +122,7 @@ class LLMTranscriptLoggerHooks(RunHooks[TContext]):
         # 实时累加 token 统计到 context
         if hasattr(response, "usage") and response.usage is not None:
             usage = response.usage
-            ctx = context.context  # 获取实际的 ExplorerRunContext
+            ctx = context.context  # 获取实际的 TaskContext
             stats = ctx.llm_usage  # 获取 LLMUsageStats 实例
 
             # 累加基础 token 数据

@@ -108,7 +108,7 @@ class LLMUsageStats:
 
 
 @dataclass
-class ExplorerRunContext:
+class TaskContext:
     task_dir: Path
     llm_usage: LLMUsageStats = field(default_factory=LLMUsageStats)
 
@@ -174,7 +174,7 @@ async def execute(
         capture_full_page=capture_llm_full_page,
     )
 
-    run_context = ExplorerRunContext(task_dir=working_dir)
+    task_context = TaskContext(task_dir=working_dir)
     call_model_filter = build_call_model_input_filter(compact_enabled=True)
     model_settings = ModelSettings(
         store=False,
@@ -267,7 +267,7 @@ async def execute(
                 instruction,
                 max_turns=50,
                 hooks=llm_hooks,
-                context=run_context,
+                context=task_context,
                 run_config=coordinator_run_config,
             )
 
@@ -356,7 +356,7 @@ async def execute(
         )
 
         # 从 context 获取 LLM token 使用统计
-        llm_usage = run_context.llm_usage.to_dict()
+        llm_usage = task_context.llm_usage.to_dict()
 
         result = ExecutionResult(
             success=success,
@@ -419,7 +419,7 @@ async def execute(
         )
 
         # 从 context 获取 LLM token 使用统计
-        llm_usage = run_context.llm_usage.to_dict()
+        llm_usage = task_context.llm_usage.to_dict()
 
         result = ExecutionResult(
             success=False,
