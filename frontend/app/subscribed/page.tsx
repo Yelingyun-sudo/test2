@@ -87,23 +87,6 @@ function buildReplayCommand(item: SubscribedItem): string {
   )}`;
 }
 
-function parseDownloadFilename(contentDisposition: string | null): string | null {
-  if (!contentDisposition) return null;
-
-  const utf8Match = /filename\*=UTF-8''([^;]+)/i.exec(contentDisposition);
-  if (utf8Match?.[1]) {
-    try {
-      return decodeURIComponent(utf8Match[1]);
-    } catch {
-      return utf8Match[1];
-    }
-  }
-
-  const asciiMatch = /filename="?([^";]+)"?/i.exec(contentDisposition);
-  if (asciiMatch?.[1]) return asciiMatch[1];
-  return null;
-}
-
 function MediaLoadingOverlay({ label }: { label: string }) {
   return (
     <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white/75 backdrop-blur-sm">
@@ -155,7 +138,6 @@ function SubscribedContent() {
     dragValue: 0
   });
   const [artifactsLoading, setArtifactsLoading] = useState(false);
-  const [taskZipDownloading, setTaskZipDownloading] = useState(false);
   const [mediaReady, setMediaReady] = useState<MediaFlags>({
     login: false,
     extract: false
@@ -700,51 +682,6 @@ function SubscribedContent() {
     if (!selectedItem) return;
     setMediaReady({ login: false, extract: false });
     setMediaError({ login: false, extract: false });
-  }, [selectedItem]);
-
-  const handleDownloadTaskZip = useCallback(async () => {
-    if (!selectedItem) return;
-
-    const status = (selectedItem.status || "").toLowerCase();
-    if (status === "pending" || status === "running") {
-      toast.error("任务执行中，暂不支持下载");
-      return;
-    }
-
-    setTaskZipDownloading(true);
-    try {
-      const res = await apiFetch(`/subscribed/${selectedItem.id}/task-dir.zip`);
-      if (!res.ok) {
-        if (res.status === 409) toast.error("任务执行中，暂不支持下载");
-        else if (res.status === 404) toast.error("暂无可下载日志");
-        else toast.error("下载失败");
-        return;
-      }
-
-      const blob = await res.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      const taskDirName = selectedItem.task_dir
-        ? selectedItem.task_dir.split("/").filter(Boolean).slice(-1)[0]
-        : null;
-      const fallbackFilename = taskDirName
-        ? `${taskDirName}.zip`
-        : `task-${selectedItem.id}.zip`;
-      const filename =
-        parseDownloadFilename(res.headers.get("content-disposition")) ?? fallbackFilename;
-
-      const link = document.createElement("a");
-      link.href = objectUrl;
-      link.download = filename.toLowerCase().endsWith(".zip") ? filename : `${filename}.zip`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
-    } catch (error) {
-      console.error(error);
-      toast.error("下载失败");
-    } finally {
-      setTaskZipDownloading(false);
-    }
   }, [selectedItem]);
 
   useEffect(() => {
@@ -1292,31 +1229,7 @@ function SubscribedContent() {
             </div>
 
             <div className="px-6 pb-6">
-                <div className="mb-2 flex items-center gap-2">
-                  <div className="text-sm font-semibold text-slate-700">任务日志</div>
-                  <button
-                    type="button"
-                    className={cn(
-                      "cursor-default text-xs font-medium text-white no-underline hover:cursor-default hover:no-underline focus:outline-none focus-visible:outline-none",
-                      (taskZipDownloading ||
-                        ["pending", "running"].includes(
-                          (selectedItem.status || "").toLowerCase()
-                        )) &&
-                        "cursor-not-allowed hover:no-underline"
-                    )}
-                    disabled={
-                      taskZipDownloading ||
-                      ["pending", "running"].includes((selectedItem.status || "").toLowerCase())
-                    }
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDownloadTaskZip();
-                  }}
-                  aria-label="下载zip"
-                >
-                  {taskZipDownloading ? "生成中..." : "下载zip"}
-                </button>
-              </div>
+              <div className="mb-2 text-sm font-semibold text-slate-700">任务日志</div>
               <div className="grid gap-4 lg:grid-cols-3">
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                   <div className="mb-3 flex items-center justify-between">
