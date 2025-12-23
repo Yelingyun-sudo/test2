@@ -72,6 +72,7 @@ def init_db() -> None:
     from .models import subscription_task as subscription_task_model  # noqa: F401
     from .models import evidence_task as evidence_task_model  # noqa: F401
     from .models import payment_task as payment_task_model  # noqa: F401
+    from .models import website as website_model  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
     _ensure_indices()
@@ -93,6 +94,10 @@ def _ensure_indices() -> None:
         conn.exec_driver_sql(
             "CREATE UNIQUE INDEX IF NOT EXISTS uq_payment_url_date "
             "ON payment_tasks (url, created_date)"
+        )
+        conn.exec_driver_sql(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_websites_url "
+            "ON websites (url)"
         )
 
 
