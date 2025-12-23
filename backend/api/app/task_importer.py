@@ -33,6 +33,17 @@ def _insert_subscription_task(session, record: dict, now: datetime, today: date)
     session.add(task)
     try:
         session.commit()
+
+        # 同步到 websites 表
+        from .repositories.websites import sync_credential_from_subscription_task
+
+        sync_credential_from_subscription_task(
+            session,
+            url=record["url"],
+            account=record["account"],
+            password=record["password"],
+        )
+
         return True
     except IntegrityError:
         session.rollback()
