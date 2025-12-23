@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""将 subscribed_clean.jsonl 导入 subscription_tasks 表。"""
+"""将 subscription_clean.jsonl 导入 subscription_tasks 表。"""
 
 from __future__ import annotations
 

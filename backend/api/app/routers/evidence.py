@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from ..db import get_db
 from ..models import EvidenceTask
-from ..schemas.unsubscribed import UnsubscribedItem, UnsubscribedListResponse
+from ..schemas.evidence import EvidenceItem, EvidenceListResponse
 
 router = APIRouter(
     prefix="/evidence",
@@ -19,10 +19,10 @@ router = APIRouter(
 
 @router.get(
     "/list",
-    response_model=UnsubscribedListResponse,
+    response_model=EvidenceListResponse,
     summary="未订阅网站列表（分页 + 简单检索，读取数据库）",
 )
-def list_unsubscribed(
+def list_evidence(
     page: int = Query(1, ge=1, description="页码，从 1 开始"),
     page_size: int = Query(15, ge=1, le=100, description="每页条数"),
     q: str | None = Query(None, description="按 url 包含匹配"),
@@ -51,15 +51,15 @@ def list_unsubscribed(
         return dt.astimezone(tz_cn).isoformat()
 
     sliced = [
-        UnsubscribedItem(
-            id=int(rec.id) if rec.id is not None else 0,  # type: ignore[arg-type]
+        EvidenceItem(
+            id=int(rec.id),
             url=rec.url,
             created_at=_format_dt(rec.created_at),
         )
         for rec in records
     ]
 
-    return UnsubscribedListResponse(
+    return EvidenceListResponse(
         items=sliced,
         total=total,
         page=page,

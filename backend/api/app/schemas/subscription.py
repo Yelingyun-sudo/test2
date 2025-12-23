@@ -16,7 +16,7 @@ class LLMUsage(BaseModel):
     total_reasoning_tokens: Optional[int] = Field(None, description="推理 token 数")
 
 
-class SubscribedItem(BaseModel):
+class SubscriptionItem(BaseModel):
     id: int = Field(..., description="任务 ID")
     url: str = Field(..., description="订阅站点 URL")
     account: str = Field(..., description="账号")
@@ -31,14 +31,14 @@ class SubscribedItem(BaseModel):
     llm_usage: Optional[LLMUsage] = Field(None, description="LLM token 使用统计")
 
 
-class SubscribedListResponse(BaseModel):
-    items: list[SubscribedItem]
+class SubscriptionListResponse(BaseModel):
+    items: list[SubscriptionItem]
     total: int
     page: int
     page_size: int
 
 
-class SubscribedArtifactsResponse(BaseModel):
+class SubscriptionArtifactsResponse(BaseModel):
     status: str = Field(..., description="任务状态")
     login_image_path: Optional[str] = Field(None, description="登录截图相对路径")
     extract_image_path: Optional[str] = Field(None, description="提取截图相对路径")
@@ -46,7 +46,7 @@ class SubscribedArtifactsResponse(BaseModel):
     video_seek_seconds: Optional[float] = Field(None, description="视频建议 seek 秒数")
 
 
-class SubscribedStatsSummary(BaseModel):
+class SubscriptionStatsSummary(BaseModel):
     total_tasks: int = Field(..., description="总任务数")
     today_tasks: int = Field(..., description="今日新增任务数")
     success_count: int = Field(..., description="成功任务数")
@@ -126,8 +126,8 @@ class FailureTypesResponse(BaseModel):
     )
 
 
-class SubscribedStatsResponse(BaseModel):
-    summary: SubscribedStatsSummary = Field(..., description="汇总统计")
+class SubscriptionStatsResponse(BaseModel):
+    summary: SubscriptionStatsSummary = Field(..., description="汇总统计")
     daily_trend: list[DailyTrendItem] = Field(..., description="每日趋势（最近10天）")
     status_distribution: list[StatusDistributionItem] = Field(
         ..., description="状态分布"

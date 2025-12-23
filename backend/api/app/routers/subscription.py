@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from ..db import get_db
 from ..models import SubscriptionTask, TaskStatus
-from ..schemas.subscribed import (
+from ..schemas.subscription import (
     DailyTrendItem,
     FailureSummary,
     FailureTypeDistributionItem,
@@ -23,11 +23,11 @@ from ..schemas.subscribed import (
     LLMUsage,
     RecentTaskItem,
     StatusDistributionItem,
-    SubscribedArtifactsResponse,
-    SubscribedItem,
-    SubscribedListResponse,
-    SubscribedStatsResponse,
-    SubscribedStatsSummary,
+    SubscriptionArtifactsResponse,
+    SubscriptionItem,
+    SubscriptionListResponse,
+    SubscriptionStatsResponse,
+    SubscriptionStatsSummary,
 )
 from website_analytics.output_types import (
     FAILURE_TYPE_LABELS,
@@ -97,10 +97,10 @@ def _parse_time_range(
 
 @router.get(
     "/list",
-    response_model=SubscribedListResponse,
+    response_model=SubscriptionListResponse,
     summary="订阅网站列表（分页 + 简单检索，读取数据库）",
 )
-def list_subscribed(
+def list_subscription(
     page: int = Query(1, ge=1, description="页码，从 1 开始"),
     page_size: int = Query(20, ge=1, le=100, description="每页条数"),
     q: str | None = Query(None, description="按 url / account / password 包含匹配"),
@@ -157,9 +157,9 @@ def list_subscribed(
         .all()
     )
 
-    def _format_dt(dt):
+    def _format_dt(dt) -> str:
         if not dt:
-            return None
+            return ""
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
         return dt.astimezone(tz_cn).isoformat()
@@ -181,8 +181,8 @@ def list_subscribed(
                 )
 
         items.append(
-            SubscribedItem(
-                id=int(rec.id) if rec.id is not None else None,  # type: ignore[arg-type]
+            SubscriptionItem(
+                id=int(rec.id),
                 url=rec.url,
                 account=rec.account,
                 password=rec.password,
@@ -197,7 +197,7 @@ def list_subscribed(
             )
         )
 
-    return SubscribedListResponse(
+    return SubscriptionListResponse(
         items=items, total=total, page=page, page_size=page_size
     )
 
@@ -226,7 +226,7 @@ def _read_task_summary(task_dir_abs: Path) -> dict:
 
 @router.get(
     "/{task_id}/artifacts",
-    response_model=SubscribedArtifactsResponse,
+    response_model=SubscriptionArtifactsResponse,
     summary="获取任务产物路径（截图/视频）",
 )
 def get_task_artifacts(
@@ -240,7 +240,7 @@ def get_task_artifacts(
     status_value = task.status.value if hasattr(task.status, "value") else task.status
     task_dir = task.task_dir
     if not task_dir:
-        return SubscribedArtifactsResponse(status=status_value or "")
+        return SubscriptionArtifactsResponse(status=status_value or "")
 
     task_dir_abs = _resolve_task_dir(task_dir)
     summary = _read_task_summary(task_dir_abs)
@@ -260,7 +260,7 @@ def get_task_artifacts(
     video_path = coordinator.get("video_path")
     video_seek_seconds = coordinator.get("video_seek_seconds")
 
-    return SubscribedArtifactsResponse(
+    return SubscriptionArtifactsResponse(
         status=status_value or "",
         login_image_path=str(login_image_path) if login_image_path else None,
         extract_image_path=str(extract_image_path) if extract_image_path else None,
@@ -315,10 +315,10 @@ def get_task_artifact(
 
 @router.get(
     "/stats",
-    response_model=SubscribedStatsResponse,
+    response_model=SubscriptionStatsResponse,
     summary="获取订阅任务统计数据",
 )
-def get_subscribed_stats(
+def get_subscription_stats(
     executed_within: str | None = Query(
         None, description="按执行时间范围过滤失败类型统计（today/yesterday/3d/7d/30d）"
     ),
@@ -552,7 +552,7 @@ def get_subscribed_stats(
         (today_success_count / today_completed) if today_completed > 0 else 0.0
     )
 
-    summary = SubscribedStatsSummary(
+    summary = SubscriptionStatsSummary(
         total_tasks=total_tasks,
         today_tasks=today_tasks,
         success_count=success_count,
@@ -737,7 +737,7 @@ def get_subscribed_stats(
         unique_types=len(failure_type_results),
     )
 
-    return SubscribedStatsResponse(
+    return SubscriptionStatsResponse(
         summary=summary,
         daily_trend=daily_trend,
         status_distribution=status_distribution,

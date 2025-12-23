@@ -10,9 +10,9 @@ import { apiFetch } from "@/lib/api";
 import { formatDateTime } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
 
-type UnsubscribedItem = { id: number; url: string; created_at: string };
-type UnsubscribedListResponse = {
-  items: UnsubscribedItem[];
+type EvidenceItem = { id: number; url: string; created_at: string };
+type EvidenceListResponse = {
+  items: EvidenceItem[];
   total: number;
   page: number;
   page_size: number;
@@ -20,8 +20,8 @@ type UnsubscribedListResponse = {
 
 const PAGE_SIZE = 15;
 
-export default function UnsubscribedPage() {
-  const [data, setData] = useState<UnsubscribedItem[]>([]);
+export default function EvidencePage() {
+  const [data, setData] = useState<EvidenceItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pageInput, setPageInput] = useState("1");
@@ -70,7 +70,7 @@ export default function UnsubscribedPage() {
           `/evidence/list?${searchParams.toString()}`
         );
         if (!res.ok) throw new Error("加载失败");
-        const payload = (await res.json()) as UnsubscribedListResponse;
+        const payload = (await res.json()) as EvidenceListResponse;
         setData(payload.items);
         setTotal(payload.total);
         setPage(payload.page);

@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from website_analytics.settings import get_settings
 
 from .db import init_db
-from .routers import auth, health, payment, subscribed, unsubscribed
+from .routers import auth, health, payment, subscription, evidence
 from .security import get_current_user
 from .task_cleaner import run_task_cleaner_loop
 from .task_importer import run_task_importer_loop
@@ -117,12 +117,12 @@ def create_app() -> FastAPI:
     # 受保护接口：统一依赖要求已登录
     protected_dep = [Depends(get_current_user)]
     app.include_router(
-        subscribed.router,
+        subscription.router,
         prefix=settings.api_prefix,
         dependencies=protected_dep,
     )
     app.include_router(
-        unsubscribed.router,
+        evidence.router,
         prefix=settings.api_prefix,
         dependencies=protected_dep,
     )

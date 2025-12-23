@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 TZ_CHINA = timezone(timedelta(hours=8))
 
 
-def _insert_subscribed_task(session, record: dict, now: datetime, today: date) -> bool:
+def _insert_subscription_task(session, record: dict, now: datetime, today: date) -> bool:
     """写入 subscription_tasks 表，返回是否成功"""
     task = SubscriptionTask(
         url=record["url"],
@@ -39,7 +39,7 @@ def _insert_subscribed_task(session, record: dict, now: datetime, today: date) -
         return False  # 重复数据，跳过
 
 
-def _insert_unsubscribed_task(
+def _insert_evidence_task(
     session, record: dict, now: datetime, today: date
 ) -> bool:
     """写入 evidence_tasks 表，返回是否成功"""
@@ -59,11 +59,11 @@ def _process_record(session, record: dict) -> str:
     today = now.astimezone(TZ_CHINA).date()
 
     if "account" in record and "password" in record and "url" in record:
-        success = _insert_subscribed_task(session, record, now, today)
-        return "subscribed_inserted" if success else "subscribed_skipped"
+        success = _insert_subscription_task(session, record, now, today)
+        return "subscription_inserted" if success else "subscription_skipped"
     elif "url" in record:
-        success = _insert_unsubscribed_task(session, record, now, today)
-        return "unsubscribed_inserted" if success else "unsubscribed_skipped"
+        success = _insert_evidence_task(session, record, now, today)
+        return "evidence_inserted" if success else "evidence_skipped"
     else:
         return "invalid_record"
 

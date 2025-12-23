@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""将 unsubscribed_clean.jsonl 导入 evidence_tasks 表。"""
+"""将 evidence_clean.jsonl 导入 evidence_tasks 表。"""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ sys.path.insert(0, str(ROOT))
 from api.app.db import SessionLocal, init_db  # noqa: E402
 from api.app.models import EvidenceTask  # noqa: E402
 
-DATA_PATH = ROOT / "resources" / "unsubscribed_clean.jsonl"
+DATA_PATH = ROOT / "resources" / "evidence_clean.jsonl"
 
 
 def parse_args() -> argparse.Namespace:

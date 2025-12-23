@@ -27,7 +27,7 @@ type LLMUsage = {
   total_reasoning_tokens?: number;
 };
 
-type SubscribedItem = {
+type SubscriptionItem = {
   id: number;
   url: string;
   account: string;
@@ -61,8 +61,8 @@ type MediaFlags = {
   extract: boolean;
 };
 
-type SubscribedListResponse = {
-  items: SubscribedItem[];
+type SubscriptionListResponse = {
+  items: SubscriptionItem[];
   total: number;
   page: number;
   page_size: number;
@@ -74,14 +74,14 @@ function shellQuoteSingle(value: string): string {
   return `'${value.replace(/'/g, `'\\''`)}'`;
 }
 
-function buildReplayInstruction(item: SubscribedItem): string {
+function buildReplayInstruction(item: SubscriptionItem): string {
   const url = (item.url ?? "").trim();
   const account = (item.account ?? "").trim();
   const password = (item.password ?? "").trim();
   return `登录 ${url}（账号和密码分别为 ${account} 和 ${password}）并提取订阅地址`;
 }
 
-function buildReplayCommand(item: SubscribedItem): string {
+function buildReplayCommand(item: SubscriptionItem): string {
   return `uv run python -m website_analytics.main --instruction ${shellQuoteSingle(
     buildReplayInstruction(item)
   )}`;
@@ -101,11 +101,11 @@ function formatNumber(num: number | undefined): string {
   return num.toLocaleString("zh-CN");
 }
 
-function SubscribedContent() {
+function SubscriptionContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const [data, setData] = useState<SubscribedItem[]>([]);
+  const [data, setData] = useState<SubscriptionItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pageInput, setPageInput] = useState("1");
@@ -114,7 +114,7 @@ function SubscribedContent() {
   const [failureTypeFilter, setFailureTypeFilter] = useState("");
   const [timeRangeFilter, setTimeRangeFilter] = useState("");
   const [loading, setLoading] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<SubscribedItem | null>(null);
+  const [selectedItem, setSelectedItem] = useState<SubscriptionItem | null>(null);
   const [artifacts, setArtifacts] = useState<TaskArtifacts | null>(null);
   const [artifactUrls, setArtifactUrls] = useState<ArtifactUrls>({
     loginImageUrl: null,
@@ -287,7 +287,7 @@ function SubscribedContent() {
           `/subscription/list?${searchParams.toString()}`
         );
         if (!res.ok) throw new Error("加载失败");
-        const payload = (await res.json()) as SubscribedListResponse;
+        const payload = (await res.json()) as SubscriptionListResponse;
         setData(payload.items);
         setTotal(payload.total);
         setPage(payload.page);
@@ -483,7 +483,7 @@ function SubscribedContent() {
     return formatDurationSeconds(durationSeconds);
   };
 
-  const getWaitSeconds = (item: SubscribedItem) => {
+  const getWaitSeconds = (item: SubscriptionItem) => {
     const createdAt = parseDateTime(item.created_at);
     const executedAt = parseDateTime(item.executed_at);
     if (!createdAt || !executedAt) return null;
@@ -870,7 +870,7 @@ function SubscribedContent() {
     updateURL({ page: 1, timeRange: value });
   };
 
-  const handleRowClick = (item: SubscribedItem) => {
+  const handleRowClick = (item: SubscriptionItem) => {
     setViewer(null);
     setSelectedItem(item);
   };
@@ -1573,7 +1573,7 @@ function SubscribedContent() {
   );
 }
 
-export default function SubscribedPage() {
+export default function SubscriptionPage() {
   return (
     <Suspense fallback={
       <DashboardShell title="订阅链接任务">
@@ -1583,7 +1583,7 @@ export default function SubscribedPage() {
         </div>
       </DashboardShell>
     }>
-      <SubscribedContent />
+      <SubscriptionContent />
     </Suspense>
   );
 }
