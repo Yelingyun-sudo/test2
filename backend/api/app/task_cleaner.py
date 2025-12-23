@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from website_analytics.settings import get_settings
 
 from .db import SessionLocal
-from .models import SubscribedTask, TaskStatus
+from .models import SubscriptionTask, TaskStatus
 
 logger = logging.getLogger(__name__)
 
@@ -24,32 +24,32 @@ def _normalize_dt(dt: Optional[datetime]) -> Optional[datetime]:
     return dt
 
 
-def _get_stale_task(db: Session, cutoff: datetime) -> SubscribedTask | None:
+def _get_stale_task(db: Session, cutoff: datetime) -> SubscriptionTask | None:
     return (
-        db.query(SubscribedTask)
+        db.query(SubscriptionTask)
         .filter(
-            SubscribedTask.status == TaskStatus.RUNNING,
+            SubscriptionTask.status == TaskStatus.RUNNING,
             or_(
                 and_(
-                    SubscribedTask.executed_at.isnot(None),
-                    SubscribedTask.executed_at < cutoff,
+                    SubscriptionTask.executed_at.isnot(None),
+                    SubscriptionTask.executed_at < cutoff,
                 ),
                 and_(
-                    SubscribedTask.executed_at.is_(None),
-                    SubscribedTask.created_at < cutoff,
+                    SubscriptionTask.executed_at.is_(None),
+                    SubscriptionTask.created_at < cutoff,
                 ),
             ),
         )
         .order_by(
-            SubscribedTask.executed_at.asc().nullsfirst(),
-            SubscribedTask.created_at.asc(),
+            SubscriptionTask.executed_at.asc().nullsfirst(),
+            SubscriptionTask.created_at.asc(),
         )
         .first()
     )
 
 
 def _mark_cleaned(
-    db: Session, task: SubscribedTask, *, timeout_seconds: int, now: datetime
+    db: Session, task: SubscriptionTask, *, timeout_seconds: int, now: datetime
 ) -> None:
     task.status = TaskStatus.FAILED
     task.failure_type = "task_cleaned"

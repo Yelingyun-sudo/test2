@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""将 unsubscribed_clean.jsonl 导入 unsubscribed_tasks 表。"""
+"""将 unsubscribed_clean.jsonl 导入 evidence_tasks 表。"""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from api.app.db import SessionLocal, init_db  # noqa: E402
-from api.app.models import UnsubscribedTask  # noqa: E402
+from api.app.models import EvidenceTask  # noqa: E402
 
 DATA_PATH = ROOT / "resources" / "unsubscribed_clean.jsonl"
 
@@ -26,7 +26,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--clear",
         action="store_true",
-        help="导入前清空 unsubscribed_tasks 表",
+        help="导入前清空 evidence_tasks 表",
     )
     return parser.parse_args()
 
@@ -60,17 +60,17 @@ def main() -> None:
     try:
         if args.clear:
             cleared = (
-                session.query(UnsubscribedTask)
+                session.query(EvidenceTask)
                 .delete(synchronize_session=False)  # type: ignore[arg-type]
             )
             session.commit()
-            print(f"已清空 unsubscribed_tasks 表：删除 {cleared} 条记录。")
+            print(f"已清空 evidence_tasks 表：删除 {cleared} 条记录。")
 
         for record in load_records():
             url = record.get("url")
             if not url:
                 continue
-            task = UnsubscribedTask(url=url, created_at=now)
+            task = EvidenceTask(url=url, created_at=now)
             session.add(task)
             try:
                 session.commit()

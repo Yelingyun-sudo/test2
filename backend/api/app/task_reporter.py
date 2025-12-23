@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from website_analytics.settings import get_settings
 
 from .db import SessionLocal
-from .models import SubscribedTask, TaskReportStatus, TaskStatus
+from .models import SubscriptionTask, TaskReportStatus, TaskStatus
 
 logger = logging.getLogger(__name__)
 
@@ -35,20 +35,20 @@ def _get_producer() -> KafkaProducer:
     return _producer
 
 
-def _get_pending_report_task(db: Session) -> SubscribedTask | None:
+def _get_pending_report_task(db: Session) -> SubscriptionTask | None:
     """获取一条待汇报的任务"""
     return (
-        db.query(SubscribedTask)
+        db.query(SubscriptionTask)
         .filter(
-            SubscribedTask.report_status == TaskReportStatus.PENDING,
-            SubscribedTask.status.in_([TaskStatus.SUCCESS, TaskStatus.FAILED]),
+            SubscriptionTask.report_status == TaskReportStatus.PENDING,
+            SubscriptionTask.status.in_([TaskStatus.SUCCESS, TaskStatus.FAILED]),
         )
-        .order_by(SubscribedTask.id.asc())
+        .order_by(SubscriptionTask.id.asc())
         .first()
     )
 
 
-def _build_message(task: SubscribedTask) -> dict:
+def _build_message(task: SubscriptionTask) -> dict:
     """构建汇报消息"""
     message = {
         "domain": task.url,
@@ -62,7 +62,7 @@ def _build_message(task: SubscribedTask) -> dict:
 
 
 def _update_report_status(
-    db: Session, task: SubscribedTask, status: TaskReportStatus
+    db: Session, task: SubscriptionTask, status: TaskReportStatus
 ) -> None:
     """更新任务的汇报状态"""
     task.report_status = status
@@ -70,7 +70,7 @@ def _update_report_status(
     db.commit()
 
 
-def _report_task(task: SubscribedTask) -> bool:
+def _report_task(task: SubscriptionTask) -> bool:
     """
     汇报单个任务到 Kafka。
     返回 True 表示成功，False 表示失败。

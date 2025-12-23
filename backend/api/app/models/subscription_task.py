@@ -35,11 +35,11 @@ class TaskReportStatus(str, Enum):
     FAILED = "failed"  # Kafka 发送失败
 
 
-class SubscribedTask(Base):
-    __tablename__ = "subscribed_tasks"
+class SubscriptionTask(Base):
+    __tablename__ = "subscription_tasks"
     __table_args__ = (
         UniqueConstraint(
-            "url", "account", "created_date", name="uq_tasks_url_account_date"
+            "url", "account", "created_date", name="uq_subscription_url_account_date"
         ),
     )
 
@@ -68,4 +68,4 @@ class SubscribedTask(Base):
     )
 
     def __repr__(self) -> str:  # pragma: no cover - 调试辅助
-        return f"<SubscribedTask id={self.id} url={self.url}>"
+        return f"<SubscriptionTask id={self.id} url={self.url}>"

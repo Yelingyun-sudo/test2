@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""将 task_summary.json 中的 llm_usage 数据同步到 subscribed_tasks 表。
+"""将 task_summary.json 中的 llm_usage 数据同步到 subscription_tasks 表。
 
 从日志目录扫描所有任务的 task_summary.json 文件，提取 llm_usage 字段，
-并根据 task_dir 匹配更新到数据库的 subscribed_tasks 表中。
+并根据 task_dir 匹配更新到数据库的 subscription_tasks 表中。
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from api.app.db import SessionLocal, init_db  # noqa: E402
-from api.app.models import SubscribedTask  # noqa: E402
+from api.app.models import SubscriptionTask  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
@@ -144,8 +144,8 @@ def sync_llm_usage(
         llm_usage = item["llm_usage"]
 
         # 查询数据库中匹配的记录
-        task = session.query(SubscribedTask).filter(
-            SubscribedTask.task_dir == task_dir
+        task = session.query(SubscriptionTask).filter(
+            SubscriptionTask.task_dir == task_dir
         ).first()
 
         if not task:

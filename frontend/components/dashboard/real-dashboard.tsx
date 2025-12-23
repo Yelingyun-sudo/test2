@@ -79,7 +79,7 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
   useEffect(() => {
     async function fetchStats() {
       try {
-        const res = await apiFetch("/subscribed/stats");
+        const res = await apiFetch("/subscription/stats");
         const data = await res.json();
         setStats(data);
       } catch (error) {
@@ -373,7 +373,7 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
                     // 点击饼图扇区跳转到订阅列表，自动筛选该状态
                     const status = data.payload?.status;
                     if (status) {
-                      router.push(`/subscribed?status=${encodeURIComponent(status)}`);
+                      router.push(`/subscription?status=${encodeURIComponent(status)}`);
                     }
                   }}
                   cursor="pointer"
@@ -516,7 +516,7 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => router.push('/subscribed?status=failed')}
+              onClick={() => router.push('/subscription?status=failed')}
             >
               查看全部
             </Button>
@@ -561,9 +561,9 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
                       // 点击跳转到订阅列表，自动筛选该失败类型
                       const failureType = data.payload?.type;
                       if (failureType && failureType !== 'others') {
-                        router.push(`/subscribed?status=failed&failure_type=${encodeURIComponent(failureType)}`);
+                        router.push(`/subscription?status=failed&failure_type=${encodeURIComponent(failureType)}`);
                       } else if (failureType === 'others') {
-                        router.push('/subscribed?status=failed');
+                        router.push('/subscription?status=failed');
                       }
                     }}
                     cursor="pointer"

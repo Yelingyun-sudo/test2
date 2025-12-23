@@ -13,7 +13,7 @@ from sqlalchemy import Integer, case, func
 from sqlalchemy.orm import Session
 
 from ..db import get_db
-from ..models import SubscribedTask, TaskStatus
+from ..models import SubscriptionTask, TaskStatus
 from ..schemas.subscribed import (
     DailyTrendItem,
     FailureSummary,
@@ -38,8 +38,8 @@ from website_analytics.utils import PROJECT_ROOT
 logger = logging.getLogger(__name__)
 
 router = APIRouter(
-    prefix="/subscribed",
-    tags=["subscribed"],
+    prefix="/subscription",
+    tags=["subscription"],
 )
 
 
@@ -113,44 +113,44 @@ def list_subscribed(
     ),
     db: Session = Depends(get_db),
 ):
-    query = db.query(SubscribedTask)
+    query = db.query(SubscriptionTask)
 
     if q:
         keyword = f"%{q.lower()}%"
         query = query.filter(
-            func.lower(SubscribedTask.url).like(keyword)
-            | func.lower(SubscribedTask.account).like(keyword)
-            | func.lower(SubscribedTask.password).like(keyword)
+            func.lower(SubscriptionTask.url).like(keyword)
+            | func.lower(SubscriptionTask.account).like(keyword)
+            | func.lower(SubscriptionTask.password).like(keyword)
         )
 
     if status:
-        query = query.filter(SubscribedTask.status == status)
+        query = query.filter(SubscriptionTask.status == status)
 
     if failure_type:
-        query = query.filter(SubscribedTask.failure_type == failure_type)
+        query = query.filter(SubscriptionTask.failure_type == failure_type)
 
     tz_cn = timezone(timedelta(hours=8))
     if executed_within:
         start_time, end_time = _parse_time_range(executed_within, tz_cn)
         if start_time and end_time:
             query = query.filter(
-                SubscribedTask.executed_at.isnot(None),
-                SubscribedTask.executed_at >= start_time,
-                SubscribedTask.executed_at <= end_time,
+                SubscriptionTask.executed_at.isnot(None),
+                SubscriptionTask.executed_at >= start_time,
+                SubscriptionTask.executed_at <= end_time,
             )
 
     total = query.count()
     status_priority = case(
-        (SubscribedTask.status == TaskStatus.RUNNING, 0),
-        (SubscribedTask.status.in_([TaskStatus.SUCCESS, TaskStatus.FAILED]), 1),
+        (SubscriptionTask.status == TaskStatus.RUNNING, 0),
+        (SubscriptionTask.status.in_([TaskStatus.SUCCESS, TaskStatus.FAILED]), 1),
         else_=2,
     )
 
-    records: List[SubscribedTask] = (
+    records: List[SubscriptionTask] = (
         query.order_by(
             status_priority,
-            SubscribedTask.executed_at.desc().nulls_last(),
-            SubscribedTask.id.asc(),
+            SubscriptionTask.executed_at.desc().nulls_last(),
+            SubscriptionTask.id.asc(),
         )
         .offset((page - 1) * page_size)
         .limit(page_size)
@@ -233,7 +233,7 @@ def get_task_artifacts(
     task_id: int,
     db: Session = Depends(get_db),
 ):
-    task = db.get(SubscribedTask, task_id)
+    task = db.get(SubscriptionTask, task_id)
     if not task:
         raise HTTPException(status_code=404, detail="任务不存在")
 
@@ -280,7 +280,7 @@ def get_task_artifact(
     path: str = Query(..., description="相对任务目录的产物路径"),
     db: Session = Depends(get_db),
 ):
-    task = db.get(SubscribedTask, task_id)
+    task = db.get(SubscriptionTask, task_id)
     if not task:
         raise HTTPException(status_code=404, detail="任务不存在")
     if not task.task_dir:
@@ -349,27 +349,27 @@ def get_subscribed_stats(
 
     # 1. 汇总统计
     summary_result = db.query(
-        func.count(SubscribedTask.id).label("total_tasks"),
-        func.sum(case((SubscribedTask.created_date == cn_today, 1), else_=0)).label(
+        func.count(SubscriptionTask.id).label("total_tasks"),
+        func.sum(case((SubscriptionTask.created_date == cn_today, 1), else_=0)).label(
             "today_tasks"
         ),
-        func.sum(case((SubscribedTask.status == TaskStatus.SUCCESS, 1), else_=0)).label(
+        func.sum(case((SubscriptionTask.status == TaskStatus.SUCCESS, 1), else_=0)).label(
             "success_count"
         ),
-        func.sum(case((SubscribedTask.status == TaskStatus.FAILED, 1), else_=0)).label(
+        func.sum(case((SubscriptionTask.status == TaskStatus.FAILED, 1), else_=0)).label(
             "failed_count"
         ),
-        func.sum(case((SubscribedTask.status == TaskStatus.PENDING, 1), else_=0)).label(
+        func.sum(case((SubscriptionTask.status == TaskStatus.PENDING, 1), else_=0)).label(
             "pending_count"
         ),
-        func.sum(case((SubscribedTask.status == TaskStatus.RUNNING, 1), else_=0)).label(
+        func.sum(case((SubscriptionTask.status == TaskStatus.RUNNING, 1), else_=0)).label(
             "running_count"
         ),
         func.avg(
             case(
                 (
-                    SubscribedTask.status == TaskStatus.SUCCESS,
-                    SubscribedTask.duration_seconds,
+                    SubscriptionTask.status == TaskStatus.SUCCESS,
+                    SubscriptionTask.duration_seconds,
                 ),
                 else_=None,
             )
@@ -377,8 +377,8 @@ def get_subscribed_stats(
         func.avg(
             case(
                 (
-                    SubscribedTask.status == TaskStatus.FAILED,
-                    SubscribedTask.duration_seconds,
+                    SubscriptionTask.status == TaskStatus.FAILED,
+                    SubscriptionTask.duration_seconds,
                 ),
                 else_=None,
             )
@@ -386,7 +386,7 @@ def get_subscribed_stats(
         func.sum(
             func.coalesce(
                 func.cast(
-                    func.json_extract(SubscribedTask.llm_usage, "$.total_tokens"),
+                    func.json_extract(SubscriptionTask.llm_usage, "$.total_tokens"),
                     Integer,
                 ),
                 0,
@@ -395,13 +395,13 @@ def get_subscribed_stats(
         func.sum(
             case(
                 (
-                    (SubscribedTask.executed_at.isnot(None))
-                    & (SubscribedTask.executed_at >= today_start_utc)
-                    & (SubscribedTask.executed_at <= today_end_utc),
+                    (SubscriptionTask.executed_at.isnot(None))
+                    & (SubscriptionTask.executed_at >= today_start_utc)
+                    & (SubscriptionTask.executed_at <= today_end_utc),
                     func.coalesce(
                         func.cast(
                             func.json_extract(
-                                SubscribedTask.llm_usage, "$.total_tokens"
+                                SubscriptionTask.llm_usage, "$.total_tokens"
                             ),
                             Integer,
                         ),
@@ -414,9 +414,9 @@ def get_subscribed_stats(
         func.avg(
             case(
                 (
-                    SubscribedTask.status == TaskStatus.SUCCESS,
+                    SubscriptionTask.status == TaskStatus.SUCCESS,
                     func.cast(
-                        func.json_extract(SubscribedTask.llm_usage, "$.total_tokens"),
+                        func.json_extract(SubscriptionTask.llm_usage, "$.total_tokens"),
                         Integer,
                     ),
                 ),
@@ -426,9 +426,9 @@ def get_subscribed_stats(
         func.avg(
             case(
                 (
-                    SubscribedTask.status == TaskStatus.FAILED,
+                    SubscriptionTask.status == TaskStatus.FAILED,
                     func.cast(
-                        func.json_extract(SubscribedTask.llm_usage, "$.total_tokens"),
+                        func.json_extract(SubscriptionTask.llm_usage, "$.total_tokens"),
                         Integer,
                     ),
                 ),
@@ -439,10 +439,10 @@ def get_subscribed_stats(
         func.sum(
             case(
                 (
-                    (SubscribedTask.executed_at.isnot(None))
-                    & (SubscribedTask.executed_at >= today_start_utc)
-                    & (SubscribedTask.executed_at <= today_end_utc)
-                    & (SubscribedTask.status == TaskStatus.SUCCESS),
+                    (SubscriptionTask.executed_at.isnot(None))
+                    & (SubscriptionTask.executed_at >= today_start_utc)
+                    & (SubscriptionTask.executed_at <= today_end_utc)
+                    & (SubscriptionTask.status == TaskStatus.SUCCESS),
                     1,
                 ),
                 else_=0,
@@ -451,10 +451,10 @@ def get_subscribed_stats(
         func.sum(
             case(
                 (
-                    (SubscribedTask.executed_at.isnot(None))
-                    & (SubscribedTask.executed_at >= today_start_utc)
-                    & (SubscribedTask.executed_at <= today_end_utc)
-                    & (SubscribedTask.status == TaskStatus.FAILED),
+                    (SubscriptionTask.executed_at.isnot(None))
+                    & (SubscriptionTask.executed_at >= today_start_utc)
+                    & (SubscriptionTask.executed_at <= today_end_utc)
+                    & (SubscriptionTask.status == TaskStatus.FAILED),
                     1,
                 ),
                 else_=0,
@@ -463,11 +463,11 @@ def get_subscribed_stats(
         func.avg(
             case(
                 (
-                    (SubscribedTask.executed_at.isnot(None))
-                    & (SubscribedTask.executed_at >= today_start_utc)
-                    & (SubscribedTask.executed_at <= today_end_utc)
-                    & (SubscribedTask.status == TaskStatus.SUCCESS),
-                    SubscribedTask.duration_seconds,
+                    (SubscriptionTask.executed_at.isnot(None))
+                    & (SubscriptionTask.executed_at >= today_start_utc)
+                    & (SubscriptionTask.executed_at <= today_end_utc)
+                    & (SubscriptionTask.status == TaskStatus.SUCCESS),
+                    SubscriptionTask.duration_seconds,
                 ),
                 else_=None,
             )
@@ -475,11 +475,11 @@ def get_subscribed_stats(
         func.avg(
             case(
                 (
-                    (SubscribedTask.executed_at.isnot(None))
-                    & (SubscribedTask.executed_at >= today_start_utc)
-                    & (SubscribedTask.executed_at <= today_end_utc)
-                    & (SubscribedTask.status == TaskStatus.FAILED),
-                    SubscribedTask.duration_seconds,
+                    (SubscriptionTask.executed_at.isnot(None))
+                    & (SubscriptionTask.executed_at >= today_start_utc)
+                    & (SubscriptionTask.executed_at <= today_end_utc)
+                    & (SubscriptionTask.status == TaskStatus.FAILED),
+                    SubscriptionTask.duration_seconds,
                 ),
                 else_=None,
             )
@@ -487,12 +487,12 @@ def get_subscribed_stats(
         func.avg(
             case(
                 (
-                    (SubscribedTask.executed_at.isnot(None))
-                    & (SubscribedTask.executed_at >= today_start_utc)
-                    & (SubscribedTask.executed_at <= today_end_utc)
-                    & (SubscribedTask.status == TaskStatus.SUCCESS),
+                    (SubscriptionTask.executed_at.isnot(None))
+                    & (SubscriptionTask.executed_at >= today_start_utc)
+                    & (SubscriptionTask.executed_at <= today_end_utc)
+                    & (SubscriptionTask.status == TaskStatus.SUCCESS),
                     func.cast(
-                        func.json_extract(SubscribedTask.llm_usage, "$.total_tokens"),
+                        func.json_extract(SubscriptionTask.llm_usage, "$.total_tokens"),
                         Integer,
                     ),
                 ),
@@ -502,12 +502,12 @@ def get_subscribed_stats(
         func.avg(
             case(
                 (
-                    (SubscribedTask.executed_at.isnot(None))
-                    & (SubscribedTask.executed_at >= today_start_utc)
-                    & (SubscribedTask.executed_at <= today_end_utc)
-                    & (SubscribedTask.status == TaskStatus.FAILED),
+                    (SubscriptionTask.executed_at.isnot(None))
+                    & (SubscriptionTask.executed_at >= today_start_utc)
+                    & (SubscriptionTask.executed_at <= today_end_utc)
+                    & (SubscriptionTask.status == TaskStatus.FAILED),
                     func.cast(
-                        func.json_extract(SubscribedTask.llm_usage, "$.total_tokens"),
+                        func.json_extract(SubscriptionTask.llm_usage, "$.total_tokens"),
                         Integer,
                     ),
                 ),
@@ -581,18 +581,18 @@ def get_subscribed_stats(
 
     daily_trend_results = (
         db.query(
-            SubscribedTask.created_date.label("date"),
-            func.count(SubscribedTask.id).label("total_count"),
+            SubscriptionTask.created_date.label("date"),
+            func.count(SubscriptionTask.id).label("total_count"),
             func.sum(
-                case((SubscribedTask.status == TaskStatus.SUCCESS, 1), else_=0)
+                case((SubscriptionTask.status == TaskStatus.SUCCESS, 1), else_=0)
             ).label("success_count"),
             func.sum(
-                case((SubscribedTask.status == TaskStatus.FAILED, 1), else_=0)
+                case((SubscriptionTask.status == TaskStatus.FAILED, 1), else_=0)
             ).label("failed_count"),
         )
-        .filter(SubscribedTask.created_date >= ten_days_ago)
-        .group_by(SubscribedTask.created_date)
-        .order_by(SubscribedTask.created_date.asc())
+        .filter(SubscriptionTask.created_date >= ten_days_ago)
+        .group_by(SubscriptionTask.created_date)
+        .order_by(SubscriptionTask.created_date.asc())
         .all()
     )
 
@@ -619,10 +619,10 @@ def get_subscribed_stats(
     # 3. 状态分布
     status_results = (
         db.query(
-            SubscribedTask.status.label("status"),
-            func.count(SubscribedTask.id).label("count"),
+            SubscriptionTask.status.label("status"),
+            func.count(SubscriptionTask.id).label("count"),
         )
-        .group_by(SubscribedTask.status)
+        .group_by(SubscriptionTask.status)
         .all()
     )
 
@@ -643,17 +643,17 @@ def get_subscribed_stats(
 
     # 状态优先级：running > success/failed > pending
     recent_status_priority = case(
-        (SubscribedTask.status == TaskStatus.RUNNING, 0),
-        (SubscribedTask.status.in_([TaskStatus.SUCCESS, TaskStatus.FAILED]), 1),
+        (SubscriptionTask.status == TaskStatus.RUNNING, 0),
+        (SubscriptionTask.status.in_([TaskStatus.SUCCESS, TaskStatus.FAILED]), 1),
         else_=2,
     )
 
     recent_task_records = (
-        db.query(SubscribedTask)
+        db.query(SubscriptionTask)
         .order_by(
             recent_status_priority,
-            SubscribedTask.executed_at.desc().nulls_last(),
-            SubscribedTask.id.asc(),
+            SubscriptionTask.executed_at.desc().nulls_last(),
+            SubscriptionTask.id.asc(),
         )
         .limit(5)
         .all()
@@ -675,11 +675,11 @@ def get_subscribed_stats(
 
     # 5. 失败类型分布统计（支持时间范围过滤）
     failure_type_query = db.query(
-        SubscribedTask.failure_type,
-        func.count(SubscribedTask.id).label("count"),
+        SubscriptionTask.failure_type,
+        func.count(SubscriptionTask.id).label("count"),
     ).filter(
-        SubscribedTask.status == TaskStatus.FAILED,
-        SubscribedTask.failure_type.isnot(None),
+        SubscriptionTask.status == TaskStatus.FAILED,
+        SubscriptionTask.failure_type.isnot(None),
     )
     
     # 应用时间范围过滤（如果指定）
@@ -687,15 +687,15 @@ def get_subscribed_stats(
         start_time, end_time = _parse_time_range(executed_within, tz_cn)
         if start_time and end_time:
             failure_type_query = failure_type_query.filter(
-                SubscribedTask.executed_at.isnot(None),
-                SubscribedTask.executed_at >= start_time,
-                SubscribedTask.executed_at <= end_time,
+                SubscriptionTask.executed_at.isnot(None),
+                SubscriptionTask.executed_at >= start_time,
+                SubscriptionTask.executed_at <= end_time,
             )
     
     failure_type_results = (
         failure_type_query
-        .group_by(SubscribedTask.failure_type)
-        .order_by(func.count(SubscribedTask.id).desc())
+        .group_by(SubscriptionTask.failure_type)
+        .order_by(func.count(SubscriptionTask.id).desc())
         .all()
     )
 

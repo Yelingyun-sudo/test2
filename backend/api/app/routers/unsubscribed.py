@@ -8,12 +8,12 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..db import get_db
-from ..models import UnsubscribedTask
+from ..models import EvidenceTask
 from ..schemas.unsubscribed import UnsubscribedItem, UnsubscribedListResponse
 
 router = APIRouter(
-    prefix="/unsubscribed",
-    tags=["unsubscribed"],
+    prefix="/evidence",
+    tags=["evidence"],
 )
 
 
@@ -28,14 +28,14 @@ def list_unsubscribed(
     q: str | None = Query(None, description="按 url 包含匹配"),
     db: Session = Depends(get_db),
 ):
-    query = db.query(UnsubscribedTask)
+    query = db.query(EvidenceTask)
     if q:
         keyword = f"%{q.lower()}%"
-        query = query.filter(func.lower(UnsubscribedTask.url).like(keyword))
+        query = query.filter(func.lower(EvidenceTask.url).like(keyword))
 
     total = query.count()
-    records: List[UnsubscribedTask] = (
-        query.order_by(UnsubscribedTask.id.asc())
+    records: List[EvidenceTask] = (
+        query.order_by(EvidenceTask.id.asc())
         .offset((page - 1) * page_size)
         .limit(page_size)
         .all()

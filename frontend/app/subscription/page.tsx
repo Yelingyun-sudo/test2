@@ -157,7 +157,7 @@ function SubscribedContent() {
   useEffect(() => {
     const fetchFailureTypes = async () => {
       try {
-        const res = await apiFetch("/subscribed/failure-types");
+        const res = await apiFetch("/subscription/failure-types");
         if (!res.ok) {
           throw new Error("获取失败类型列表失败");
         }
@@ -284,7 +284,7 @@ function SubscribedContent() {
         if (timeRange) searchParams.set("executed_within", timeRange);
 
         const res = await apiFetch(
-          `/subscribed/list?${searchParams.toString()}`
+          `/subscription/list?${searchParams.toString()}`
         );
         if (!res.ok) throw new Error("加载失败");
         const payload = (await res.json()) as SubscribedListResponse;
@@ -308,7 +308,7 @@ function SubscribedContent() {
       if (timeRange) {
         params.set('executed_within', timeRange);
       }
-      const url = `/subscribed/stats${params.toString() ? `?${params.toString()}` : ''}`;
+      const url = `/subscription/stats${params.toString() ? `?${params.toString()}` : ''}`;
       
       const res = await apiFetch(url);
       if (!res.ok) return;
@@ -505,7 +505,7 @@ function SubscribedContent() {
     async (taskId: number, path: string | null, signal?: AbortSignal): Promise<string | null> => {
       if (!path) return null;
       const res = await apiFetch(
-        `/subscribed/${taskId}/artifact?path=${encodeURIComponent(path)}`,
+        `/subscription/${taskId}/artifact?path=${encodeURIComponent(path)}`,
         signal ? { signal } : undefined
       );
       if (!res.ok) return null;
@@ -617,7 +617,7 @@ function SubscribedContent() {
     const load = async () => {
       setArtifactsLoading(true);
       try {
-        const res = await apiFetch(`/subscribed/${selectedItem.id}/artifacts`, {
+        const res = await apiFetch(`/subscription/${selectedItem.id}/artifacts`, {
           signal: controller.signal
         });
         if (!res.ok) throw new Error("加载任务产物失败");

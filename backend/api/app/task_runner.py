@@ -14,12 +14,12 @@ from website_analytics.settings import get_settings
 from website_analytics.utils import to_project_relative
 
 from .db import SessionLocal
-from .models import SubscribedTask, TaskReportStatus, TaskStatus
+from .models import SubscriptionTask, TaskReportStatus, TaskStatus
 
 logger = logging.getLogger(__name__)
 
 
-def _build_instruction(task: SubscribedTask) -> str:
+def _build_instruction(task: SubscriptionTask) -> str:
     return f"登录 {task.url}（账号和密码分别为 {task.account} 和 {task.password}）并提取订阅地址"
 
 
@@ -92,7 +92,7 @@ def _format_failure_type(
     return "unknown_error"
 
 
-def _mark_running(db: Session, task: SubscribedTask) -> None:
+def _mark_running(db: Session, task: SubscriptionTask) -> None:
     task.status = TaskStatus.RUNNING
     task.executed_at = datetime.now(timezone.utc)
     db.add(task)
@@ -102,7 +102,7 @@ def _mark_running(db: Session, task: SubscribedTask) -> None:
 
 def _update_task_success(
     db: Session,
-    task: SubscribedTask,
+    task: SubscriptionTask,
     *,
     duration: float,
     result: str,
@@ -122,7 +122,7 @@ def _update_task_success(
 
 def _update_task_failure(
     db: Session,
-    task: SubscribedTask,
+    task: SubscriptionTask,
     *,
     duration: float,
     result: str,
@@ -141,11 +141,11 @@ def _update_task_failure(
     db.commit()
 
 
-def _get_pending_batch(db: Session, limit: int = 1) -> list[SubscribedTask]:
+def _get_pending_batch(db: Session, limit: int = 1) -> list[SubscriptionTask]:
     return (
-        db.query(SubscribedTask)
-        .filter(SubscribedTask.status == TaskStatus.PENDING)
-        .order_by(SubscribedTask.id.asc())
+        db.query(SubscriptionTask)
+        .filter(SubscriptionTask.status == TaskStatus.PENDING)
+        .order_by(SubscriptionTask.id.asc())
         .limit(limit)
         .all()
     )
@@ -153,19 +153,19 @@ def _get_pending_batch(db: Session, limit: int = 1) -> list[SubscribedTask]:
 
 def _get_running_batch_before(
     db: Session, before_ts: datetime, limit: int = 1
-) -> list[SubscribedTask]:
+) -> list[SubscriptionTask]:
     return (
-        db.query(SubscribedTask)
+        db.query(SubscriptionTask)
         .filter(
-            SubscribedTask.status == TaskStatus.RUNNING,
+            SubscriptionTask.status == TaskStatus.RUNNING,
             or_(
-                SubscribedTask.executed_at.is_(None),
-                SubscribedTask.executed_at < before_ts,
+                SubscriptionTask.executed_at.is_(None),
+                SubscriptionTask.executed_at < before_ts,
             ),
         )
         .order_by(
-            SubscribedTask.executed_at.asc().nullsfirst(),
-            SubscribedTask.created_at.asc(),
+            SubscriptionTask.executed_at.asc().nullsfirst(),
+            SubscriptionTask.created_at.asc(),
         )
         .limit(limit)
         .all()
@@ -206,7 +206,7 @@ async def _run_task(task_id: int, instruction: str) -> None:
 
     db = SessionLocal()
     try:
-        task_obj = db.get(SubscribedTask, task_id)
+        task_obj = db.get(SubscriptionTask, task_id)
         if not task_obj:
             return
 
@@ -263,7 +263,7 @@ async def process_once(
         return recovering
 
     db = SessionLocal()
-    tasks: list[SubscribedTask] = []
+    tasks: list[SubscriptionTask] = []
     try:
         if recovering and recovery_before:
             tasks = _get_running_batch_before(db, recovery_before, limit=1)

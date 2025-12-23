@@ -67,7 +67,7 @@ export default function UnsubscribedPage() {
         if (q) searchParams.set("q", q);
 
         const res = await apiFetch(
-          `/unsubscribed/list?${searchParams.toString()}`
+          `/evidence/list?${searchParams.toString()}`
         );
         if (!res.ok) throw new Error("加载失败");
         const payload = (await res.json()) as UnsubscribedListResponse;

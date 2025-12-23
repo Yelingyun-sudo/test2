@@ -9,10 +9,10 @@ from ..db import Base
 TZ_CHINA = timezone(timedelta(hours=8))
 
 
-class UnsubscribedTask(Base):
-    __tablename__ = "unsubscribed_tasks"
+class EvidenceTask(Base):
+    __tablename__ = "evidence_tasks"
     __table_args__ = (
-        UniqueConstraint("url", "created_date", name="uq_unsubscribed_url_date"),
+        UniqueConstraint("url", "created_date", name="uq_evidence_url_date"),
     )
 
     id = Column(Integer, primary_key=True, index=True)
@@ -25,4 +25,4 @@ class UnsubscribedTask(Base):
     )
 
     def __repr__(self) -> str:  # pragma: no cover - 调试辅助
-        return f"<UnsubscribedTask id={self.id} url={self.url}>"
+        return f"<EvidenceTask id={self.id} url={self.url}>"

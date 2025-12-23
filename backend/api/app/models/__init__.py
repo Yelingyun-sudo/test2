@@ -1,13 +1,15 @@
 from .user import User
 from .revoked_token import RevokedToken
-from .subscribed_task import SubscribedTask, TaskReportStatus, TaskStatus
-from .unsubscribed_task import UnsubscribedTask
+from .subscription_task import SubscriptionTask, TaskReportStatus, TaskStatus
+from .evidence_task import EvidenceTask
+from .payment_task import PaymentTask
 
 __all__ = [
     "User",
     "RevokedToken",
-    "SubscribedTask",
+    "SubscriptionTask",
     "TaskReportStatus",
     "TaskStatus",
-    "UnsubscribedTask",
+    "EvidenceTask",
+    "PaymentTask",
 ]

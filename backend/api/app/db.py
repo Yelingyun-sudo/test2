@@ -69,8 +69,9 @@ def init_db() -> None:
     # 延迟导入以避免循环依赖
     from .models import user as user_model  # noqa: F401
     from .models import revoked_token as revoked_token_model  # noqa: F401
-    from .models import subscribed_task as subscribed_task_model  # noqa: F401
-    from .models import unsubscribed_task as unsubscribed_task_model  # noqa: F401
+    from .models import subscription_task as subscription_task_model  # noqa: F401
+    from .models import evidence_task as evidence_task_model  # noqa: F401
+    from .models import payment_task as payment_task_model  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
     _ensure_indices()
@@ -82,12 +83,16 @@ def _ensure_indices() -> None:
     # 补充 SQLite 下的唯一索引（如果表已存在，create_all 不会自动新增）
     with engine.begin() as conn:
         conn.exec_driver_sql(
-            "CREATE UNIQUE INDEX IF NOT EXISTS uq_tasks_url_account_date "
-            "ON subscribed_tasks (url, account, created_date)"
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_subscription_url_account_date "
+            "ON subscription_tasks (url, account, created_date)"
         )
         conn.exec_driver_sql(
-            "CREATE UNIQUE INDEX IF NOT EXISTS uq_unsubscribed_url_date "
-            "ON unsubscribed_tasks (url, created_date)"
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_evidence_url_date "
+            "ON evidence_tasks (url, created_date)"
+        )
+        conn.exec_driver_sql(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_payment_url_date "
+            "ON payment_tasks (url, created_date)"
         )
 
 
@@ -99,27 +104,27 @@ def _ensure_columns() -> None:
 
     with engine.begin() as conn:
         has_task_dir = conn.exec_driver_sql(
-            "SELECT name FROM pragma_table_info('subscribed_tasks') WHERE name='task_dir'"
+            "SELECT name FROM pragma_table_info('subscription_tasks') WHERE name='task_dir'"
         ).fetchone()
         if not has_task_dir:
             conn.exec_driver_sql(
-                "ALTER TABLE subscribed_tasks ADD COLUMN task_dir VARCHAR(1024)"
+                "ALTER TABLE subscription_tasks ADD COLUMN task_dir VARCHAR(1024)"
             )
 
         has_report_status = conn.exec_driver_sql(
-            "SELECT name FROM pragma_table_info('subscribed_tasks') WHERE name='report_status'"
+            "SELECT name FROM pragma_table_info('subscription_tasks') WHERE name='report_status'"
         ).fetchone()
         if not has_report_status:
             conn.exec_driver_sql(
-                "ALTER TABLE subscribed_tasks ADD COLUMN report_status VARCHAR(16)"
+                "ALTER TABLE subscription_tasks ADD COLUMN report_status VARCHAR(16)"
             )
 
         has_llm_usage = conn.exec_driver_sql(
-            "SELECT name FROM pragma_table_info('subscribed_tasks') WHERE name='llm_usage'"
+            "SELECT name FROM pragma_table_info('subscription_tasks') WHERE name='llm_usage'"
         ).fetchone()
         if not has_llm_usage:
             conn.exec_driver_sql(
-                "ALTER TABLE subscribed_tasks ADD COLUMN llm_usage JSON"
+                "ALTER TABLE subscription_tasks ADD COLUMN llm_usage JSON"
             )
 
 

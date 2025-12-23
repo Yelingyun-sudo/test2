@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""将 subscribed_clean.jsonl 导入 subscribed_tasks 表。"""
+"""将 subscribed_clean.jsonl 导入 subscription_tasks 表。"""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from api.app.db import SessionLocal, init_db  # noqa: E402
-from api.app.models import SubscribedTask, TaskStatus  # noqa: E402
+from api.app.models import SubscriptionTask, TaskStatus  # noqa: E402
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -37,7 +37,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--clear",
         action="store_true",
-        help="导入前清空 subscribed_tasks 表",
+        help="导入前清空 subscription_tasks 表",
     )
     args = parser.parse_args()
     if args.file is None:
@@ -77,14 +77,14 @@ def main() -> None:
     try:
         if args.clear:
             cleared = (
-                session.query(SubscribedTask)
+                session.query(SubscriptionTask)
                 .delete(synchronize_session=False)  # type: ignore[arg-type]
             )
             session.commit()
-            print(f"已清空 subscribed_tasks 表：删除 {cleared} 条记录。")
+            print(f"已清空 subscription_tasks 表：删除 {cleared} 条记录。")
 
         for record in load_records(args.file):
-            task = SubscribedTask(
+            task = SubscriptionTask(
                 url=record.get("url"),
                 account=record.get("account"),
                 password=record.get("password"),

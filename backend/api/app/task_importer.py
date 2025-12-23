@@ -13,7 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from website_analytics.settings import get_settings
 
 from .db import SessionLocal
-from .models import SubscribedTask, TaskStatus, UnsubscribedTask
+from .models import SubscriptionTask, TaskStatus, EvidenceTask
 
 logger = logging.getLogger(__name__)
 
@@ -21,8 +21,8 @@ TZ_CHINA = timezone(timedelta(hours=8))
 
 
 def _insert_subscribed_task(session, record: dict, now: datetime, today: date) -> bool:
-    """写入 subscribed_tasks 表，返回是否成功"""
-    task = SubscribedTask(
+    """写入 subscription_tasks 表，返回是否成功"""
+    task = SubscriptionTask(
         url=record["url"],
         account=record["account"],
         password=record["password"],
@@ -42,8 +42,8 @@ def _insert_subscribed_task(session, record: dict, now: datetime, today: date) -
 def _insert_unsubscribed_task(
     session, record: dict, now: datetime, today: date
 ) -> bool:
-    """写入 unsubscribed_tasks 表，返回是否成功"""
-    task = UnsubscribedTask(url=record["url"], created_at=now, created_date=today)
+    """写入 evidence_tasks 表，返回是否成功"""
+    task = EvidenceTask(url=record["url"], created_at=now, created_date=today)
     session.add(task)
     try:
         session.commit()
