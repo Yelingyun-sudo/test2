@@ -3,8 +3,15 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useEffect, useState } from "react";
+import { ChevronDown, LogOut } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { clearLocalAuth, isJwtExpired, queueAuthExpiredToast } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -93,15 +100,21 @@ export function DashboardShell({ title, description, actions, children, account,
             })}
           </nav>
 
-          <div className="ml-auto flex items-center gap-3">
-            {accountName ? (
-              <div className="flex items-center rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-900 shadow-sm">
-                {accountName}
-              </div>
-            ) : null}
-            <Button size="sm" variant="outline" onClick={handleLogout} className="hidden md:inline-flex">
-              退出登录
-            </Button>
+          <div className="ml-auto">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="hidden md:flex items-center gap-2 rounded-lg bg-transparent px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100/50 hover:scale-105 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-1">
+                  <span>{accountName || "用户"}</span>
+                  <ChevronDown className="h-4 w-4 text-slate-400" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  退出登录
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
@@ -112,11 +125,21 @@ export function DashboardShell({ title, description, actions, children, account,
                 Website Analytics
               </p>
               <p className="text-sm text-slate-500">控制台</p>
-              {accountName ? <p className="mt-1 text-xs text-slate-600">{accountName}</p> : null}
             </div>
-            <Button size="sm" variant="outline" onClick={handleLogout}>
-              退出登录
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-2 rounded-lg bg-transparent px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100/50 hover:scale-105 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-1">
+                  <span>{accountName || "用户"}</span>
+                  <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  退出登录
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
           <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
             {dashboardNavItems.map((item) => {
