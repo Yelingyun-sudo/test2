@@ -26,3 +26,4 @@
 - 前端变更至少通过 `pnpm lint`；涉及构建逻辑的改动补充 `pnpm build` 自检。
 - 生成或修改的中文文案保持简洁明确，避免与现有占位符或注入变量冲突。
 - **Git 提交格式**：必须使用 `type: message` 格式，其中 type 必须是以下之一：feat/fix/chore/docs/test/refactor/build/ci/revert。message 可用中文，总长度控制在 180 个字符内。示例：`feat: 添加用户登录功能`、`fix: 修复数据导出异常`。
+- 注意：你只需要生产git message，不需要帮我做git管理，我会根据你的提示进行git操作。
