@@ -104,7 +104,7 @@ def list_subscription(
     page: int = Query(1, ge=1, description="页码，从 1 开始"),
     page_size: int = Query(20, ge=1, le=100, description="每页条数"),
     q: str | None = Query(None, description="按 url / account / password 包含匹配"),
-    status: TaskStatus | None = Query(None, description="按任务状态过滤"),
+    status: str | None = Query(None, description="按任务状态过滤（小写，如 failed/success）"),
     failure_type: str | None = Query(
         None, description="按失败类型过滤（通常与 status=failed 配合使用）"
     ),
@@ -124,7 +124,13 @@ def list_subscription(
         )
 
     if status:
-        query = query.filter(SubscriptionTask.status == status)
+        # 将小写参数转为大写枚举值
+        try:
+            status_enum = TaskStatus(status.upper())
+            query = query.filter(SubscriptionTask.status == status_enum)
+        except ValueError:
+            # 无效的状态值，忽略该过滤条件
+            pass
 
     if failure_type:
         query = query.filter(SubscriptionTask.failure_type == failure_type)

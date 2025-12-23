@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   CartesianGrid,
   Cell,
@@ -17,7 +17,7 @@ import {
   YAxis,
   Legend
 } from "recharts";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
@@ -53,31 +53,46 @@ function formatDurationSeconds(value?: number | null): string {
 
 // 状态映射
 const statusLabel: Record<string, string> = {
-  pending: "待执行",
-  running: "执行中",
-  success: "成功",
-  failed: "失败"
+  PENDING: "待执行",
+  RUNNING: "执行中",
+  SUCCESS: "成功",
+  FAILED: "失败"
 };
 
 const statusStyles: Record<string, string> = {
-  pending: "bg-slate-100 text-slate-700",
-  running: "bg-yellow-100 text-yellow-700",
-  success: "bg-green-100 text-green-700",
-  failed: "bg-red-100 text-red-700"
+  PENDING: "bg-slate-100 text-slate-700",
+  RUNNING: "bg-yellow-100 text-yellow-700",
+  SUCCESS: "bg-green-100 text-green-700",
+  FAILED: "bg-red-100 text-red-700"
 };
 
 const statusColor: Record<string, string> = {
-  pending: "#94a3b8",
-  running: "#facc15",
-  success: "#22c55e",
-  failed: "#ef4444"
+  PENDING: "#94a3b8",
+  RUNNING: "#facc15",
+  SUCCESS: "#22c55e",
+  FAILED: "#ef4444"
 };
 
 export function RealDashboard({ onLogout, account }: DashboardProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [stats, setStats] = useState<StatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [isTasksDrawerOpen, setIsTasksDrawerOpen] = useState(false);
+
+  // 检查 URL 参数，如果有任务查询相关参数，自动打开抽屉
+  useEffect(() => {
+    const hasQueryParams = 
+      searchParams.get("page") ||
+      searchParams.get("status") ||
+      searchParams.get("executed_within") ||
+      searchParams.get("failure_type") ||
+      searchParams.get("q");
+    
+    if (hasQueryParams) {
+      setIsTasksDrawerOpen(true);
+    }
+  }, [searchParams]);
 
   // 数据获取逻辑（仅在页面加载时执行一次）
   useEffect(() => {
@@ -375,7 +390,7 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
                     // 点击饼图扇区跳转到订阅列表，自动筛选该状态
                     const status = data.payload?.status;
                     if (status) {
-                      router.push(`/subscription?status=${encodeURIComponent(status)}`);
+                      router.push(`/subscription?status=${encodeURIComponent(status.toLowerCase())}`);
                     }
                   }}
                   cursor="pointer"
@@ -421,7 +436,10 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setIsTasksDrawerOpen(true)}
+            onClick={() => {
+              router.push('/subscription');
+              setIsTasksDrawerOpen(true);
+            }}
             className="border-sky-200 text-sky-600 hover:bg-sky-50"
           >
             全部任务
@@ -433,10 +451,10 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
             <colgroup>
               <col className="w-[5%]" />
               <col className="w-[18%]" />
-              <col className="w-[12%]" />
-              <col className="w-[30%]" />
+              <col className="w-[14%]" />
+              <col className="w-[31%]" />
               <col className="w-[16%]" />
-              <col className="w-[19%]" />
+              <col className="w-[16%]" />
             </colgroup>
             <thead>
               <tr className="border-b border-slate-200">
@@ -485,10 +503,13 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
                     <td className="p-2">
                       <span
                         className={cn(
-                          "inline-block rounded-full px-2 py-1 text-xs font-medium",
+                          "inline-flex items-center rounded-full px-2 py-1 text-xs font-medium",
                           statusStyles[task.status] || "bg-slate-100 text-slate-700"
                         )}
                       >
+                        {task.status === "RUNNING" && (
+                          <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                        )}
                         {statusLabel[task.status] || task.status}
                       </span>
                     </td>

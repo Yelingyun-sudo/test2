@@ -227,61 +227,18 @@ function SubscriptionContent() {
 
   const pageItems = useMemo(() => getPageItems(page, totalPages), [page, totalPages]);
 
-  const updateURL = useCallback(
-    (params: { page?: number; q?: string; status?: string; failureType?: string; timeRange?: string }) => {
-      const newSearchParams = new URLSearchParams();
-
-      // 设置 page（默认当前页）
-      const targetPage = params.page ?? page;
-      newSearchParams.set("page", String(targetPage));
-
-      // 设置 q（搜索关键词）
-      const targetQ = params.q !== undefined ? params.q : query;
-      if (targetQ.trim()) {
-        newSearchParams.set("q", targetQ.trim());
-      }
-
-      // 设置 status
-      const targetStatus = params.status !== undefined ? params.status : statusFilter;
-      if (targetStatus) {
-        newSearchParams.set("status", targetStatus);
-      }
-
-      // 设置 failure_type（仅在 status === "failed" 时）
-      const targetFailureType = params.failureType !== undefined ? params.failureType : failureTypeFilter;
-      if (targetStatus === "failed" && targetFailureType) {
-        newSearchParams.set("failure_type", targetFailureType);
-      }
-
-      // 设置 executed_within（时间范围）
-      const targetTimeRange = params.timeRange !== undefined ? params.timeRange : timeRangeFilter;
-      if (targetTimeRange) {
-        newSearchParams.set("executed_within", targetTimeRange);
-      }
-
-      // 使用 replace 避免创建历史记录，scroll: false 防止页面滚动
-      router.replace(`?${newSearchParams.toString()}`, { scroll: false });
-    },
-    [page, query, statusFilter, failureTypeFilter, timeRangeFilter, router]
-  );
-
   const fetchData = useCallback(
-    async (params?: { page?: number; q?: string; status?: string; failureType?: string; timeRange?: string }) => {
-      const currentPage = params?.page ?? page;
-      const q = params?.q ?? query;
-      const status = params?.status ?? statusFilter;
-      const failureType = params?.failureType ?? failureTypeFilter;
-      const timeRange = params?.timeRange ?? timeRangeFilter;
+    async (params: { page: number; q: string; status: string; failureType: string; timeRange: string }) => {
       setLoading(true);
       try {
         const searchParams = new URLSearchParams({
-          page: String(currentPage),
+          page: String(params.page),
           page_size: String(PAGE_SIZE)
         });
-        if (q) searchParams.set("q", q);
-        if (status) searchParams.set("status", status);
-        if (failureType) searchParams.set("failure_type", failureType);
-        if (timeRange) searchParams.set("executed_within", timeRange);
+        if (params.q) searchParams.set("q", params.q);
+        if (params.status) searchParams.set("status", params.status);
+        if (params.failureType) searchParams.set("failure_type", params.failureType);
+        if (params.timeRange) searchParams.set("executed_within", params.timeRange);
 
         const res = await apiFetch(
           `/subscription/list?${searchParams.toString()}`
@@ -298,7 +255,7 @@ function SubscriptionContent() {
         setLoading(false);
       }
     },
-    [page, query, statusFilter, failureTypeFilter, timeRangeFilter]
+    []
   );
 
   const fetchFailureTypeStats = useCallback(async (timeRange?: string) => {
@@ -327,8 +284,9 @@ function SubscriptionContent() {
     let urlFailureType = searchParams.get("failure_type") || "";
     const urlTimeRange = searchParams.get("executed_within") || "";
 
-    // 修正：只有 status=failed 时才保留 failure_type（与现有逻辑一致）
-    if (urlStatus !== "failed") {
+    // 修正：只有 status=FAILED 时才保留 failure_type（与现有逻辑一致）
+    // 支持大小写不敏感比较，以兼容不同来源的 URL
+    if (urlStatus.toUpperCase() !== "FAILED") {
       urlFailureType = "";
     }
 
@@ -365,31 +323,49 @@ function SubscriptionContent() {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      fetchData();
+      fetchData({
+        page,
+        q: query,
+        status: statusFilter,
+        failureType: failureTypeFilter,
+        timeRange: timeRangeFilter
+      });
       // 定时刷新时也传递当前时间范围
       fetchFailureTypeStats(timeRangeFilter);
     }, 30_000);
 
     return () => clearInterval(interval);
-  }, [fetchData, fetchFailureTypeStats, timeRangeFilter]);
+  }, [fetchData, fetchFailureTypeStats, page, query, statusFilter, failureTypeFilter, timeRangeFilter]);
 
   const handleSearch = () => {
     const trimmedQuery = query.trim();
+    setQuery(trimmedQuery);
 
-    // 同步更新 URL（useEffect 会自动触发 fetchData）
-    updateURL({ page: 1, q: trimmedQuery });
+    // 直接更新状态并获取数据
+    setPage(1);
+    setPageInput("1");
+    fetchData({ 
+      page: 1, 
+      q: trimmedQuery, 
+      status: statusFilter, 
+      failureType: failureTypeFilter, 
+      timeRange: timeRangeFilter 
+    });
   };
 
   const statusLabel: Record<string, string> = {
-    pending: "待执行",
-    running: "执行中",
-    success: "成功",
-    failed: "失败"
+    PENDING: "待执行",
+    RUNNING: "执行中",
+    SUCCESS: "成功",
+    FAILED: "失败"
   };
 
   const statusOptions: Array<{ value: string; label: string }> = [
     { value: "", label: "全部" },
-    ...Object.entries(statusLabel).map(([value, label]) => ({ value, label }))
+    { value: "SUCCESS", label: "成功" },
+    { value: "FAILED", label: "失败" },
+    { value: "RUNNING", label: "执行中" },
+    { value: "PENDING", label: "待执行" }
   ];
 
   // 从 API 获取的失败类型构建标签映射
@@ -423,7 +399,7 @@ function SubscriptionContent() {
   }, [failureTypeStats, failureTypes]);
 
   const timeRangeOptions: Array<{ value: string; label: string }> = [
-    { value: "", label: "全部时间" },
+    { value: "", label: "全部" },
     { value: "today", label: "今天" },
     { value: "yesterday", label: "昨天" },
     { value: "3d", label: "最近3天" },
@@ -433,28 +409,27 @@ function SubscriptionContent() {
 
   const renderStatus = (value?: string) => {
     if (!value) return <span className="text-slate-400">-</span>;
-    const key = value.toLowerCase();
-    const label = statusLabel[key] ?? value;
+    const label = statusLabel[value] ?? value;
 
     const styles: Record<string, string> = {
-      pending: "bg-slate-100 text-slate-600 border border-slate-200",
-      running: "bg-emerald-50 text-emerald-600 border border-emerald-100",
-      success: "bg-emerald-50 text-emerald-600 border border-emerald-100",
-      failed: "bg-rose-50 text-rose-600 border border-rose-100"
+      PENDING: "bg-slate-100 text-slate-600 border border-slate-200",
+      RUNNING: "bg-yellow-100 text-yellow-700 border border-yellow-200",
+      SUCCESS: "bg-emerald-50 text-emerald-600 border border-emerald-100",
+      FAILED: "bg-rose-50 text-rose-600 border border-rose-100"
     };
 
     const icon: Record<string, JSX.Element | null> = {
-      pending: null,
-      running: <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />,
-      success: null,
-      failed: null
+      PENDING: null,
+      RUNNING: <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />,
+      SUCCESS: null,
+      FAILED: null
     };
 
-    const pillClass = styles[key] || "bg-slate-100 text-slate-600 border border-slate-200";
+    const pillClass = styles[value] || "bg-slate-100 text-slate-600 border border-slate-200";
 
     return (
       <span className={cn("inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium", pillClass)}>
-        {icon[key]}
+        {icon[value]}
         {label}
       </span>
     );
@@ -476,8 +451,7 @@ function SubscriptionContent() {
   };
 
   const formatTaskDuration = (durationSeconds: number, status?: string) => {
-    const statusLower = (status || "").toLowerCase();
-    if (statusLower === "pending" || statusLower === "running") {
+    if (status === "PENDING" || status === "RUNNING") {
       return "-";
     }
     return formatDurationSeconds(durationSeconds);
@@ -491,8 +465,16 @@ function SubscriptionContent() {
   };
 
   const handlePageChange = (nextPage: number) => {
-    // 同步更新 URL（useEffect 会自动触发 fetchData）
-    updateURL({ page: nextPage });
+    // 直接更新状态并获取数据
+    setPage(nextPage);
+    setPageInput(String(nextPage));
+    fetchData({ 
+      page: nextPage, 
+      q: query, 
+      status: statusFilter, 
+      failureType: failureTypeFilter, 
+      timeRange: timeRangeFilter 
+    });
   };
 
   const revokeArtifactUrls = useCallback((urls: ArtifactUrls) => {
@@ -595,10 +577,9 @@ function SubscriptionContent() {
     setVideoBlobStatus("idle");
     videoBlobPromiseRef.current = null;
 
-    const status = (selectedItem.status || "").toLowerCase();
-    if (status === "pending" || status === "running") {
+    if (selectedItem.status === "PENDING" || selectedItem.status === "RUNNING") {
       setArtifacts({
-        status,
+        status: selectedItem.status,
         login_image_path: null,
         extract_image_path: null,
         video_path: null,
@@ -839,35 +820,75 @@ function SubscriptionContent() {
     if (Number.isNaN(value)) return;
     const target = Math.min(Math.max(1, value), totalPages);
 
-    // 同步更新 URL（useEffect 会自动触发 fetchData）
-    updateURL({ page: target });
+    // 直接更新状态并获取数据
+    setPage(target);
+    setPageInput(String(target));
+    fetchData({ 
+      page: target, 
+      q: query, 
+      status: statusFilter, 
+      failureType: failureTypeFilter, 
+      timeRange: timeRangeFilter 
+    });
   };
 
   const handleStatusChange = (value: string) => {
-    setStatusFilter(value);
-    const newFailureType = value !== "failed" ? "" : failureTypeFilter;
+    const newFailureType = value !== "FAILED" ? "" : failureTypeFilter;
+    
+    // 如果切换到 PENDING 或 RUNNING，清空时间范围
+    const newTimeRange = (value === "PENDING" || value === "RUNNING") ? "" : timeRangeFilter;
 
-    // 如果切换到非失败状态，清空失败类型筛选
-    if (value !== "failed") {
+    // 更新状态
+    setStatusFilter(value);
+    if (value !== "FAILED") {
       setFailureTypeFilter("");
     }
+    if (value === "PENDING" || value === "RUNNING") {
+      setTimeRangeFilter("");
+    }
+    setPage(1);
+    setPageInput("1");
 
-    // 同步更新 URL（useEffect 会自动触发 fetchData）
-    updateURL({ page: 1, status: value, failureType: newFailureType });
+    // 直接获取数据，使用新值
+    fetchData({ 
+      page: 1, 
+      q: query, 
+      status: value, 
+      failureType: newFailureType, 
+      timeRange: newTimeRange 
+    });
   };
 
   const handleFailureTypeChange = (value: string) => {
     setFailureTypeFilter(value);
+    setPage(1);
+    setPageInput("1");
 
-    // 同步更新 URL（useEffect 会自动触发 fetchData）
-    updateURL({ page: 1, failureType: value });
+    // 直接获取数据，使用新值
+    fetchData({ 
+      page: 1, 
+      q: query, 
+      status: statusFilter, 
+      failureType: value, 
+      timeRange: timeRangeFilter 
+    });
   };
 
   const handleTimeRangeChange = (value: string) => {
     setTimeRangeFilter(value);
+    setPage(1);
+    setPageInput("1");
 
-    // 同步更新 URL（useEffect 会自动触发 fetchData）
-    updateURL({ page: 1, timeRange: value });
+    // 直接获取数据，使用新值
+    fetchData({ 
+      page: 1, 
+      q: query, 
+      status: statusFilter, 
+      failureType: failureTypeFilter, 
+      timeRange: value 
+    });
+    // 更新失败类型统计（带时间范围参数）
+    fetchFailureTypeStats(value);
   };
 
   const handleRowClick = (item: SubscriptionItem) => {
@@ -901,7 +922,7 @@ function SubscriptionContent() {
               ))}
             </select>
           </div>
-          {statusFilter === "failed" && (
+          {statusFilter === "FAILED" && (
             <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-[0_6px_18px_rgba(15,23,42,0.06)]">
               <span className="text-sm font-semibold text-slate-700">失败类型</span>
               <select
@@ -919,44 +940,47 @@ function SubscriptionContent() {
               </select>
             </div>
           )}
-          <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-[0_6px_18px_rgba(15,23,42,0.06)]">
-            <span className="text-sm font-semibold text-slate-700">时间范围</span>
-            <select
-              value={timeRangeFilter}
-              onChange={(e) => handleTimeRangeChange(e.target.value)}
-              className="h-9 min-w-[120px] rounded-md bg-transparent text-sm text-slate-800 focus:outline-none"
-              disabled={loading}
-              aria-label="时间范围筛选"
-            >
-              {timeRangeOptions.map((option) => (
-                <option key={option.value || "all"} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="relative flex items-center rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-[0_6px_18px_rgba(15,23,42,0.06)]">
-            <Search className="pointer-events-none absolute left-4 h-4 w-4 text-slate-400" />
-            <Input
-              placeholder="按 URL 搜索"
-              className="h-10 w-56 border-0 bg-transparent pl-9 pr-24 text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  handleSearch();
-                }
-              }}
-            />
-            <Button
-              size="sm"
-              className="ml-2 h-9 rounded-lg px-4 bg-sky-500 text-white shadow-sm hover:bg-sky-500/90 disabled:opacity-70"
-              onClick={handleSearch}
-              disabled={loading}
-            >
-              搜索
-            </Button>
-          </div>
+          {/* 只在 SUCCESS 或 FAILED 状态时显示时间范围选择框 */}
+          {(statusFilter === "" || statusFilter === "SUCCESS" || statusFilter === "FAILED") && (
+            <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-[0_6px_18px_rgba(15,23,42,0.06)]">
+              <span className="text-sm font-semibold text-slate-700">时间范围</span>
+              <select
+                value={timeRangeFilter}
+                onChange={(e) => handleTimeRangeChange(e.target.value)}
+                className="h-9 min-w-[120px] rounded-md bg-transparent text-sm text-slate-800 focus:outline-none"
+                disabled={loading}
+                aria-label="时间范围筛选"
+              >
+                {timeRangeOptions.map((option) => (
+                  <option key={option.value || "all"} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+        <div className="relative flex items-center rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-[0_6px_18px_rgba(15,23,42,0.06)]">
+          <Search className="pointer-events-none absolute left-4 h-4 w-4 text-slate-400" />
+          <Input
+            placeholder="按 URL 搜索"
+            className="h-10 w-56 border-0 bg-transparent pl-9 pr-24 text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                handleSearch();
+              }
+            }}
+          />
+          <Button
+            size="sm"
+            className="ml-2 h-9 rounded-lg px-4 bg-sky-500 text-white shadow-sm hover:bg-sky-500/90 disabled:opacity-70"
+            onClick={handleSearch}
+            disabled={loading}
+          >
+            搜索
+          </Button>
         </div>
       </div>
 
@@ -1008,7 +1032,7 @@ function SubscriptionContent() {
                 </div>
                 <div className="truncate pr-4">{formatTaskDuration(item.duration_seconds, item.status)}</div>
                 <div className="flex items-center gap-2 min-w-0" title={item.result || undefined}>
-                  {item.status === "failed" && item.failure_type && (
+                  {item.status === "FAILED" && item.failure_type && (
                     <span className="inline-flex items-center rounded-md bg-rose-50 px-2 py-1 text-xs font-medium text-rose-700 ring-1 ring-inset ring-rose-600/10 flex-shrink-0">
                       {failureTypeLabel[item.failure_type] || item.failure_type}
                     </span>
@@ -1225,7 +1249,7 @@ function SubscriptionContent() {
             <div className="px-6 pb-6">
               <div className="mb-2 flex items-center gap-2">
                 <div className="text-sm font-semibold text-slate-700">任务结果</div>
-                {selectedItem.status === "failed" && selectedItem.failure_type && (
+                {selectedItem.status === "FAILED" && selectedItem.failure_type && (
                   <span className="inline-flex items-center rounded-md bg-rose-50 px-2 py-1 text-xs font-medium text-rose-700 ring-1 ring-inset ring-rose-600/10">
                     {failureTypeLabel[selectedItem.failure_type] || selectedItem.failure_type}
                   </span>
