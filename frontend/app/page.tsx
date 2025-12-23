@@ -2,9 +2,9 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowRight } from "lucide-react";
-import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
+import { useRouter } from "next/navigation";
 import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import {
   FormMessage
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { DashboardShell } from "@/components/dashboard/shell";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { clearLocalAuth, isJwtExpired } from "@/lib/api";
@@ -31,13 +32,8 @@ const API_BASE_URL =
 
 type FormValues = z.infer<typeof schema>;
 
-const RealDashboard = dynamic(
-  () =>
-    import("@/components/dashboard/real-dashboard").then((mod) => mod.RealDashboard),
-  { ssr: false }
-);
-
 export default function Page() {
+  const router = useRouter();
   const [isAuthed, setIsAuthed] = useState(false);
   const [account, setAccount] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
@@ -90,6 +86,10 @@ export default function Page() {
         localStorage.setItem("account_name", values.username);
         setAccount(values.username);
         setIsAuthed(true);
+        toast.success("登录成功", { duration: 1000 });
+        // 登录成功后跳转到订阅链接任务 Dashboard
+        router.push("/subscription");
+        return;
       }
 
       toast.success("登录成功", { duration: 1000 });
@@ -122,7 +122,24 @@ export default function Page() {
 
   if (isAuthed) {
     return (
-      <RealDashboard onLogout={handleLogout} account={account ?? undefined} />
+      <DashboardShell
+        title="系统概览"
+        description="系统概览与数据汇总（建设中）"
+        account={account ?? undefined}
+        onLogout={handleLogout}
+      >
+        <div className="flex min-h-[400px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50">
+          <div className="text-center">
+            <div className="mb-2 text-4xl">🏗️</div>
+            <div className="text-lg font-medium text-slate-700">
+              页面建设中
+            </div>
+            <div className="mt-1 text-sm text-slate-500">
+              系统概览功能即将上线
+            </div>
+          </div>
+        </div>
+      </DashboardShell>
     );
   }
 

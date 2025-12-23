@@ -17,8 +17,11 @@ import {
   YAxis,
   Legend
 } from "recharts";
+import { ArrowRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { TasksDrawer } from "@/components/subscription/tasks-drawer";
 import { DashboardShell } from "./shell";
 import { apiFetch } from "@/lib/api";
 import { formatDateTime } from "@/lib/datetime";
@@ -74,6 +77,7 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
   const router = useRouter();
   const [stats, setStats] = useState<StatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isTasksDrawerOpen, setIsTasksDrawerOpen] = useState(false);
 
   // 数据获取逻辑（仅在页面加载时执行一次）
   useEffect(() => {
@@ -414,6 +418,15 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
               最近任务列表
             </h3>
           </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsTasksDrawerOpen(true)}
+            className="border-sky-200 text-sky-600 hover:bg-sky-50"
+          >
+            全部任务
+            <ArrowRight className="ml-1 h-4 w-4" />
+          </Button>
         </div>
         <div className="mt-4 overflow-x-auto">
           <table className="w-full border-collapse">
@@ -591,6 +604,22 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
           </div>
         </div>
       </section>
+
+      {/* 任务列表抽屉 */}
+      <Sheet open={isTasksDrawerOpen} onOpenChange={setIsTasksDrawerOpen}>
+        <SheetContent 
+          side="right" 
+          className="w-[95vw] sm:w-[93vw] lg:w-[90vw] overflow-y-auto p-6"
+        >
+          <SheetHeader className="mb-4">
+            <SheetTitle>全部任务</SheetTitle>
+            <SheetDescription>
+              订阅链接任务列表，支持筛选与检索
+            </SheetDescription>
+          </SheetHeader>
+          <TasksDrawer />
+        </SheetContent>
+      </Sheet>
     </DashboardShell>
   );
 }

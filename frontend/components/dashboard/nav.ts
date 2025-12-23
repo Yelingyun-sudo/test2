@@ -18,8 +18,8 @@ export const dashboardNavItems: DashboardNavItem[] = [
   {
     title: "系统概览",
     href: "/",
-    desc: "真实数据概览，统计与趋势。",
-    status: "可用",
+    desc: "首页概览（建设中）",
+    status: "规划中",
     icon: LayoutDashboard
   },
   {
@@ -32,7 +32,7 @@ export const dashboardNavItems: DashboardNavItem[] = [
   {
     title: "订阅链接任务",
     href: "/subscription",
-    desc: "订阅链接提取任务，支持筛选与检索。",
+    desc: "订阅链接任务统计与汇总。",
     status: "可用",
     icon: ListChecks
   },
