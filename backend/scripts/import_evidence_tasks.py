@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""将 evidence_clean.jsonl 导入 evidence_tasks 表。"""
+"""将 JSONL 文件导入 evidence_tasks 表。"""
 
 from __future__ import annotations
 
@@ -18,24 +18,49 @@ sys.path.insert(0, str(ROOT))
 from api.app.db import SessionLocal, init_db  # noqa: E402
 from api.app.models import EvidenceTask  # noqa: E402
 
-DATA_PATH = ROOT / "resources" / "evidence_clean.jsonl"
-
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""\
+示例:
+  uv run python %(prog)s resources/evidence.jsonl
+  uv run python %(prog)s resources/evidence.jsonl --clear
+""",
+    )
+    parser.add_argument(
+        "file_path",
+        type=Path,
+        help="要导入的 JSONL 文件路径",
+    )
     parser.add_argument(
         "--clear",
         action="store_true",
         help="导入前清空 evidence_tasks 表",
     )
+
+    # 如果没有提供任何参数，显示帮助信息
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit(0)
+
     return parser.parse_args()
 
 
-def load_records():
-    if not DATA_PATH.exists():
-        raise SystemExit(f"数据文件不存在: {DATA_PATH}")
+def load_records(file_path: Path):
+    """从 JSONL 文件中加载记录。
 
-    with DATA_PATH.open("r", encoding="utf-8") as f:
+    Args:
+        file_path: JSONL 文件路径
+
+    Yields:
+        dict: 解析后的 JSON 对象
+    """
+    if not file_path.exists():
+        raise SystemExit(f"数据文件不存在: {file_path}")
+
+    with file_path.open("r", encoding="utf-8") as f:
         for line_no, line in enumerate(f, 1):
             stripped = line.strip()
             if not stripped:
@@ -66,7 +91,7 @@ def main() -> None:
             session.commit()
             print(f"已清空 evidence_tasks 表：删除 {cleared} 条记录。")
 
-        for record in load_records():
+        for record in load_records(args.file_path):
             url = record.get("url")
             if not url:
                 continue
