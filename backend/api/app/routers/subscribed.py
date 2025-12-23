@@ -47,14 +47,18 @@ def _parse_time_range(
     range_key: str | None, tz_cn: timezone
 ) -> tuple[datetime | None, datetime | None]:
     """
-    解析预设时间范围，返回 (开始时间, 结束时间)
+    解析预设时间范围，返回 UTC 时区的 (开始时间, 结束时间)
 
     Args:
-        range_key: 时间范围键值（today/3d/7d/30d）
+        range_key: 时间范围键值（today/yesterday/3d/7d/30d）
         tz_cn: 中国时区
 
     Returns:
-        (start_time, end_time) 或 (None, None)
+        (start_time_utc, end_time_utc) 或 (None, None)
+        
+    Note:
+        内部先计算东八区的时间范围，然后转换为 UTC 返回。
+        这样可以确保与数据库中存储的 UTC 时间正确比较。
     """
     if not range_key:
         return None, None
@@ -64,22 +68,29 @@ def _parse_time_range(
     today_end = now_cn.replace(hour=23, minute=59, second=59, microsecond=999999)
 
     if range_key == "today":
-        return today_start, today_end
+        # 转换为 UTC 时间返回
+        return today_start.astimezone(timezone.utc), today_end.astimezone(timezone.utc)
     elif range_key == "yesterday":
         yesterday_start = today_start - timedelta(days=1)
         yesterday_end = yesterday_start.replace(
             hour=23, minute=59, second=59, microsecond=999999
         )
-        return yesterday_start, yesterday_end
+        # 转换为 UTC 时间返回
+        return yesterday_start.astimezone(timezone.utc), yesterday_end.astimezone(
+            timezone.utc
+        )
     elif range_key == "3d":
         start = today_start - timedelta(days=2)
-        return start, today_end
+        # 转换为 UTC 时间返回
+        return start.astimezone(timezone.utc), today_end.astimezone(timezone.utc)
     elif range_key == "7d":
         start = today_start - timedelta(days=6)
-        return start, today_end
+        # 转换为 UTC 时间返回
+        return start.astimezone(timezone.utc), today_end.astimezone(timezone.utc)
     elif range_key == "30d":
         start = today_start - timedelta(days=29)
-        return start, today_end
+        # 转换为 UTC 时间返回
+        return start.astimezone(timezone.utc), today_end.astimezone(timezone.utc)
     else:
         return None, None
 
@@ -308,6 +319,9 @@ def get_task_artifact(
     summary="获取订阅任务统计数据",
 )
 def get_subscribed_stats(
+    executed_within: str | None = Query(
+        None, description="按执行时间范围过滤失败类型统计（today/yesterday/3d/7d/30d）"
+    ),
     db: Session = Depends(get_db),
 ):
     """
@@ -316,9 +330,22 @@ def get_subscribed_stats(
     - 每日趋势（最近10天）
     - 状态分布
     - 最近任务列表（最近5条）
+    - 失败类型分布（支持时间范围过滤）
     """
     tz_cn = timezone(timedelta(hours=8))
     cn_today = datetime.now(tz_cn).date()
+    
+    # 计算今日时间范围（东八区 00:00 - 23:59 转换为 UTC）
+    now_cn = datetime.now(tz_cn)
+    today_start_cn = now_cn.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end_cn = now_cn.replace(hour=23, minute=59, second=59, microsecond=999999)
+    today_start_utc = today_start_cn.astimezone(timezone.utc)
+    today_end_utc = today_end_cn.astimezone(timezone.utc)
+
+    # 调试日志：排查统计数据异常
+    logger.info(f"[统计查询] cn_today={cn_today}")
+    logger.info(f"[统计查询] 今日时间范围(UTC): {today_start_utc} ~ {today_end_utc}")
+    logger.info(f"[统计查询] 系统时区={datetime.now().astimezone().tzinfo}")
 
     # 1. 汇总统计
     summary_result = db.query(
@@ -368,7 +395,9 @@ def get_subscribed_stats(
         func.sum(
             case(
                 (
-                    SubscribedTask.created_date == cn_today,
+                    (SubscribedTask.executed_at.isnot(None))
+                    & (SubscribedTask.executed_at >= today_start_utc)
+                    & (SubscribedTask.executed_at <= today_end_utc),
                     func.coalesce(
                         func.cast(
                             func.json_extract(
@@ -406,11 +435,13 @@ def get_subscribed_stats(
                 else_=None,
             )
         ).label("avg_failed_tokens"),
-        # 今日任务详细统计（双重条件聚合）
+        # 今日任务详细统计（基于执行时间）
         func.sum(
             case(
                 (
-                    (SubscribedTask.created_date == cn_today)
+                    (SubscribedTask.executed_at.isnot(None))
+                    & (SubscribedTask.executed_at >= today_start_utc)
+                    & (SubscribedTask.executed_at <= today_end_utc)
                     & (SubscribedTask.status == TaskStatus.SUCCESS),
                     1,
                 ),
@@ -420,7 +451,9 @@ def get_subscribed_stats(
         func.sum(
             case(
                 (
-                    (SubscribedTask.created_date == cn_today)
+                    (SubscribedTask.executed_at.isnot(None))
+                    & (SubscribedTask.executed_at >= today_start_utc)
+                    & (SubscribedTask.executed_at <= today_end_utc)
                     & (SubscribedTask.status == TaskStatus.FAILED),
                     1,
                 ),
@@ -430,7 +463,9 @@ def get_subscribed_stats(
         func.avg(
             case(
                 (
-                    (SubscribedTask.created_date == cn_today)
+                    (SubscribedTask.executed_at.isnot(None))
+                    & (SubscribedTask.executed_at >= today_start_utc)
+                    & (SubscribedTask.executed_at <= today_end_utc)
                     & (SubscribedTask.status == TaskStatus.SUCCESS),
                     SubscribedTask.duration_seconds,
                 ),
@@ -440,7 +475,9 @@ def get_subscribed_stats(
         func.avg(
             case(
                 (
-                    (SubscribedTask.created_date == cn_today)
+                    (SubscribedTask.executed_at.isnot(None))
+                    & (SubscribedTask.executed_at >= today_start_utc)
+                    & (SubscribedTask.executed_at <= today_end_utc)
                     & (SubscribedTask.status == TaskStatus.FAILED),
                     SubscribedTask.duration_seconds,
                 ),
@@ -450,7 +487,9 @@ def get_subscribed_stats(
         func.avg(
             case(
                 (
-                    (SubscribedTask.created_date == cn_today)
+                    (SubscribedTask.executed_at.isnot(None))
+                    & (SubscribedTask.executed_at >= today_start_utc)
+                    & (SubscribedTask.executed_at <= today_end_utc)
                     & (SubscribedTask.status == TaskStatus.SUCCESS),
                     func.cast(
                         func.json_extract(SubscribedTask.llm_usage, "$.total_tokens"),
@@ -463,7 +502,9 @@ def get_subscribed_stats(
         func.avg(
             case(
                 (
-                    (SubscribedTask.created_date == cn_today)
+                    (SubscribedTask.executed_at.isnot(None))
+                    & (SubscribedTask.executed_at >= today_start_utc)
+                    & (SubscribedTask.executed_at <= today_end_utc)
                     & (SubscribedTask.status == TaskStatus.FAILED),
                     func.cast(
                         func.json_extract(SubscribedTask.llm_usage, "$.total_tokens"),
@@ -493,6 +534,13 @@ def get_subscribed_stats(
     today_avg_failed_duration = summary_result.today_avg_failed_duration or 0.0
     today_avg_success_tokens = summary_result.today_avg_success_tokens or 0.0
     today_avg_failed_tokens = summary_result.today_avg_failed_tokens or 0.0
+
+    # 调试日志：输出今日统计结果
+    logger.info(
+        f"[统计结果] today_success_count={today_success_count}, "
+        f"today_failed_count={today_failed_count}, "
+        f"today_tasks={today_tasks}"
+    )
 
     # 计算成功率
     total_completed = success_count + failed_count
@@ -625,16 +673,27 @@ def get_subscribed_stats(
             )
         )
 
-    # 5. 失败类型分布统计
+    # 5. 失败类型分布统计（支持时间范围过滤）
+    failure_type_query = db.query(
+        SubscribedTask.failure_type,
+        func.count(SubscribedTask.id).label("count"),
+    ).filter(
+        SubscribedTask.status == TaskStatus.FAILED,
+        SubscribedTask.failure_type.isnot(None),
+    )
+    
+    # 应用时间范围过滤（如果指定）
+    if executed_within:
+        start_time, end_time = _parse_time_range(executed_within, tz_cn)
+        if start_time and end_time:
+            failure_type_query = failure_type_query.filter(
+                SubscribedTask.executed_at.isnot(None),
+                SubscribedTask.executed_at >= start_time,
+                SubscribedTask.executed_at <= end_time,
+            )
+    
     failure_type_results = (
-        db.query(
-            SubscribedTask.failure_type,
-            func.count(SubscribedTask.id).label("count"),
-        )
-        .filter(
-            SubscribedTask.status == TaskStatus.FAILED,
-            SubscribedTask.failure_type.isnot(None),
-        )
+        failure_type_query
         .group_by(SubscribedTask.failure_type)
         .order_by(func.count(SubscribedTask.id).desc())
         .all()

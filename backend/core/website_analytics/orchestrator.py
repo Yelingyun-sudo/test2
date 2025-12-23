@@ -5,7 +5,7 @@ import os
 import re
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -120,7 +120,7 @@ class TaskContext:
     index: int = 1  # 任务序号
 
     # 时间追踪
-    start_time: datetime = field(default_factory=datetime.now)
+    start_time: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     # LLM 统计
     llm_usage: LLMUsageStats = field(default_factory=LLMUsageStats)
@@ -172,7 +172,7 @@ async def execute(
     task_index: int = 1,
     headless: bool = False,
 ) -> ExecutionResult:
-    start_time = datetime.now()
+    start_time = datetime.now(timezone.utc)
     working_dir = task_dir or generate_task_directory()
     working_dir.mkdir(parents=True, exist_ok=True)
 
@@ -384,7 +384,7 @@ async def execute(
             coordinator_output=coordinator_output,
             llm_usage=llm_usage,
         )
-        end_time = datetime.now()
+        end_time = datetime.now(timezone.utc)
 
         # 保存任务总结
         _save_single_task_summary(
@@ -396,7 +396,7 @@ async def execute(
         return result
     except Exception as exc:
         # fast fail: 构造标准的失败输出
-        end_time = datetime.now()
+        end_time = datetime.now(timezone.utc)
         coordinator_output = {
             "status": "failed",
             "message": f"执行失败：{exc}",
@@ -565,7 +565,7 @@ async def _execute_single_task(
     headless: bool = False,
 ) -> TaskResult:
     """执行单个任务并返回结果。"""
-    start_time = datetime.now()
+    start_time = datetime.now(timezone.utc)
     print_task_start(index, instruction)
     result = await execute(
         instruction,
@@ -573,7 +573,7 @@ async def _execute_single_task(
         headless=headless,
     )
 
-    end_time = datetime.now()
+    end_time = datetime.now(timezone.utc)
     duration = (end_time - start_time).total_seconds()
 
     status_raw = (result.coordinator_output or {}).get("status")
@@ -628,16 +628,16 @@ async def execute_batch(
         print("错误：没有要执行的任务")
         return
 
-    # 生成批次任务目录
-    batch_id = f"batch_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    # 生成批次任务目录（使用 UTC 时间生成目录名）
+    batch_id = f"batch_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
     batch_dir = LOGS_DIR / batch_id
     batch_dir.mkdir(parents=True, exist_ok=True)
 
     # 启用日志
     enable_verbose_stdout_logging()
 
-    # 打印批次任务启动信息
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    # 打印批次任务启动信息（使用 UTC 时间）
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     print("=" * 60)
     print(f"[{timestamp}] 启动批次任务，共 {len(instructions)} 个任务")
     print(f"批次 ID: {batch_id}")
@@ -649,7 +649,7 @@ async def execute_batch(
     print("=" * 60)
     print()
 
-    start_time = datetime.now()
+    start_time = datetime.now(timezone.utc)
 
     # 创建 Semaphore 用于并发控制
     semaphore = asyncio.Semaphore(max_concurrent) if max_concurrent else None
@@ -676,7 +676,7 @@ async def execute_batch(
     ]
     results = await asyncio.gather(*tasks, return_exceptions=False)
 
-    end_time = datetime.now()
+    end_time = datetime.now(timezone.utc)
     total_duration = (end_time - start_time).total_seconds()
 
     # 生成汇总报告

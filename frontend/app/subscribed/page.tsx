@@ -301,9 +301,16 @@ function SubscribedContent() {
     [page, query, statusFilter, failureTypeFilter, timeRangeFilter]
   );
 
-  const fetchFailureTypeStats = useCallback(async () => {
+  const fetchFailureTypeStats = useCallback(async (timeRange?: string) => {
     try {
-      const res = await apiFetch('/subscribed/stats');
+      // 构建查询参数，传递时间范围
+      const params = new URLSearchParams();
+      if (timeRange) {
+        params.set('executed_within', timeRange);
+      }
+      const url = `/subscribed/stats${params.toString() ? `?${params.toString()}` : ''}`;
+      
+      const res = await apiFetch(url);
       if (!res.ok) return;
       const payload = await res.json();
       setFailureTypeStats(payload.failure_type_distribution || []);
@@ -350,19 +357,21 @@ function SubscribedContent() {
       q: urlQuery,
       timeRange: urlTimeRange
     });
-
-    fetchFailureTypeStats();
+    
+    // 获取失败类型统计，传递时间范围参数
+    fetchFailureTypeStats(urlTimeRange);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   useEffect(() => {
     const interval = setInterval(() => {
       fetchData();
-      fetchFailureTypeStats();
+      // 定时刷新时也传递当前时间范围
+      fetchFailureTypeStats(timeRangeFilter);
     }, 30_000);
 
     return () => clearInterval(interval);
-  }, [fetchData, fetchFailureTypeStats]);
+  }, [fetchData, fetchFailureTypeStats, timeRangeFilter]);
 
   const handleSearch = () => {
     const trimmedQuery = query.trim();
@@ -396,7 +405,7 @@ function SubscribedContent() {
       { value: "", label: "全部" }
     ];
 
-    // 创建统计数据的映射表
+    // 创建统计数据的映射表（来自后端API，匹配当前时间范围）
     const statsMap = new Map(
       failureTypeStats.map(stat => [stat.type, stat.count])
     );
