@@ -295,7 +295,7 @@ async def process_once(
     return recovering
 
 
-async def run_task_loop() -> None:
+async def run_subscription_runner_loop() -> None:
     settings = get_settings()
     interval = max(1, settings.task_runner_interval_seconds)
     max_concurrent = max(1, settings.task_runner_max_concurrent)
@@ -303,7 +303,7 @@ async def run_task_loop() -> None:
     startup_ts = datetime.now(timezone.utc)
     recovering = True
     logger.info(
-        "任务执行器已启动, interval=%ss, max_concurrent=%s",
+        "订阅任务执行器已启动, interval=%ss, max_concurrent=%s",
         settings.task_runner_interval_seconds,
         settings.task_runner_max_concurrent,
     )
@@ -314,5 +314,6 @@ async def run_task_loop() -> None:
                 semaphore, recovery_before=startup_ts, recovering=recovering
             )
         except Exception as exc:  # pragma: no cover - 防御性日志
-            logger.exception("任务调度异常: %s", exc)
+            logger.exception("订阅任务调度异常: %s", exc)
         await asyncio.sleep(interval)
+

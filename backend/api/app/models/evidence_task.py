@@ -2,9 +2,21 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import Column, Date, DateTime, Integer, String, UniqueConstraint, func
+from sqlalchemy import (
+    JSON,
+    Column,
+    Date,
+    DateTime,
+    Enum as SAEnum,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 
 from ..db import Base
+from .subscription_task import TaskReportStatus, TaskStatus
 
 TZ_CHINA = timezone(timedelta(hours=8))
 
@@ -17,6 +29,19 @@ class EvidenceTask(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     url = Column(String(2048), nullable=False, index=True)
+
+    status = Column(SAEnum(TaskStatus), nullable=False, default=TaskStatus.PENDING)
+    duration_seconds = Column(Integer, nullable=False, default=0)
+    executed_at = Column(DateTime(timezone=True), nullable=True)
+    task_dir = Column(String(1024), nullable=True)
+
+    result = Column(Text, nullable=True)
+    failure_type = Column(String(255), nullable=True)
+    report_status = Column(SAEnum(TaskReportStatus), nullable=True, default=None)
+
+    # LLM token 使用统计（存储为 JSON）
+    llm_usage = Column(JSON, nullable=True, comment="LLM token 使用统计")
+
     created_at = Column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
