@@ -154,7 +154,6 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
               {summary.total_tasks.toLocaleString()}
             </div>
             <div className="flex items-baseline gap-1">
-              <span className="text-xs text-slate-600">消耗</span>
               <span className="text-base text-slate-600">
                 {formatTokenCount(summary.total_tokens)}
               </span>
@@ -177,7 +176,6 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
               {summary.today_success_count + summary.today_failed_count}
             </div>
             <div className="flex items-baseline gap-1">
-              <span className="text-xs text-slate-600">消耗</span>
               <span className="text-base text-slate-600">
                 {formatTokenCount(summary.today_tokens)}
               </span>
