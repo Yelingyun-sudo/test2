@@ -39,8 +39,8 @@ from website_analytics.playwright_server import AutoSwitchingPlaywrightServer
 from website_analytics.output_types import ErrorType
 from website_analytics.settings import get_settings
 from website_analytics.tools import (
-    build_capture_page_data_tool,
     build_compile_inspect_report_tool,
+    build_programmatic_inspect_entry_tool,
     build_save_page_text_tool,
 )
 from website_analytics.utils import (
@@ -235,8 +235,8 @@ async def execute(
                 llm_hooks.set_playwright_server(playwright_server)
             if hasattr(llm_hooks, "set_video_start_t"):
                 llm_hooks.set_video_start_t(time.perf_counter())
-            # 创建页面数据采集工具（简化版）
-            capture_page_data_tool = build_capture_page_data_tool(
+            # 创建程序化巡检工具（替代手动流程）
+            programmatic_inspect_entry_tool = build_programmatic_inspect_entry_tool(
                 working_dir,
                 playwright_server,
             )
@@ -259,7 +259,7 @@ async def execute(
                 ),
                 extra_tools=[
                     save_page_text_tool,
-                    capture_page_data_tool,
+                    programmatic_inspect_entry_tool,
                     compile_inspect_report_tool,
                 ],
             )

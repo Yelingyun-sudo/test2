@@ -526,17 +526,51 @@ def build_programmatic_inspect_entry_tool(
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
 
+        # 定义异步等待页面加载的辅助函数
+        async def _wait_for_page_ready(target_label):
+            """智能等待页面加载完成，基于目标菜单标签验证
+            
+            Returns:
+                bool: 页面加载成功返回 True，超时返回 False
+            """
+            max_retries = 6
+            stable_count = 0
+            last_ref_count = 0
+            
+            for i in range(max_retries):
+                await playwright_server.call_tool("browser_wait_for", {"time": 1})
+                
+                check_snapshot = await playwright_server.call_tool("browser_snapshot", {})
+                snapshot_text = check_snapshot.content[0].text
+                
+                # 1. 核心检查：能否找到目标菜单标签的 ref
+                # 如果找到，说明导航菜单已完全渲染
+                target_ref = _find_ref_by_label(snapshot_text, target_label)
+                if not target_ref:
+                    continue
+                
+                # 2. 验证 DOM 元素数量，确保页面内容丰富
+                ref_count = snapshot_text.count("[ref=")
+                if ref_count < 15:  # DOM 元素太少，可能还在加载
+                    continue
+                
+                # 3. 稳定性检查：DOM 元素数量稳定（连续2次相同）
+                if ref_count == last_ref_count:
+                    stable_count += 1
+                    if stable_count >= 2:
+                        return True
+                else:
+                    stable_count = 0
+                
+                last_ref_count = ref_count
+            
+            return False  # 超时未加载完成
+
         # 定义异步逻辑
         async def _do_inspect():
             try:
-                # 0. 导航回首页，确保从一致的起点开始
-                await playwright_server.call_tool("browser_navigate", {"url": "/"})
-                await playwright_server.call_tool("browser_wait_for", {"time": 1})
-
-                # 1. 获取快照
-                snapshot_result = await playwright_server.call_tool(
-                    "browser_snapshot", {"filename": "tmp_snapshot"}
-                )
+                # 1. 直接获取当前页面快照（不再导航回首页）
+                snapshot_result = await playwright_server.call_tool("browser_snapshot", {})
 
                 # 2. 解析快照，匹配 entry_label
                 snapshot_text = snapshot_result.content[0].text
@@ -551,10 +585,20 @@ def build_programmatic_inspect_entry_tool(
                     }
 
                 # 3. 点击菜单
-                await playwright_server.call_tool("browser_click", {"ref": ref})
+                await playwright_server.call_tool(
+                    "browser_click", {"element": entry_label, "ref": ref}
+                )
 
-                # 4. 等待加载（增加到3秒，确保页面完全加载）
-                await playwright_server.call_tool("browser_wait_for", {"time": 3})
+                # 4. 智能等待页面加载完成
+                page_ready = await _wait_for_page_ready(entry_label)
+                if not page_ready:
+                    return {
+                        "entry_id": entry_id,
+                        "status": "failed",
+                        "screenshot": None,
+                        "text_snapshot": None,
+                        "error": f"点击菜单 '{entry_label}' 后页面加载超时（找不到导航菜单）。",
+                    }
 
                 # 5. 截图
                 safe_label = (
@@ -570,7 +614,7 @@ def build_programmatic_inspect_entry_tool(
                     {"filename": screenshot_path, "fullPage": True},
                 )
 
-                # 6. 获取文本
+                # 7. 获取文本
                 text_result = await playwright_server.call_tool(
                     "browser_evaluate", {"function": "() => document.body.innerText"}
                 )
@@ -583,11 +627,11 @@ def build_programmatic_inspect_entry_tool(
                 elif clean_text.startswith("### Result\n"):
                     clean_text = clean_text[12:]
 
-                # 7. 保存文本
+                # 8. 保存文本
                 text_path = inspect_dir / f"{prefix}.txt"
                 text_path.write_text(clean_text, encoding="utf-8")
 
-                # 8. 保存 JSON
+                # 9. 保存 JSON
                 result_data = {
                     "entry_id": entry_id,
                     "status": "success",
