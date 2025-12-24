@@ -8,6 +8,7 @@ class EvidenceItem(BaseModel):
     created_at: str = Field(..., description="任务创建时间 ISO 字符串")
     executed_at: str = Field(..., description="任务执行时间 ISO 字符串")
     duration_seconds: int = Field(..., description="任务时长（秒）")
+    result: str | None = Field(None, description="任务结果")
 
 
 class EvidenceListResponse(BaseModel):

@@ -10,7 +10,7 @@ import { apiFetch } from "@/lib/api";
 import { formatDateTime } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
 
-type EvidenceItem = { id: number; url: string; status: string; created_at: string; executed_at: string; duration_seconds: number };
+type EvidenceItem = { id: number; url: string; status: string; created_at: string; executed_at: string; duration_seconds: number; result: string | null };
 type EvidenceListResponse = {
   items: EvidenceItem[];
   total: number;
@@ -199,13 +199,14 @@ export default function EvidencePage() {
       }
     >
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="grid grid-cols-[70px_1.1fr_0.65fr_0.95fr_0.95fr_0.8fr] bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
+        <div className="grid grid-cols-[70px_1fr_0.6fr_0.85fr_0.85fr_0.7fr_1.2fr] bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
           <div>ID</div>
           <div>网址</div>
           <div>任务状态</div>
           <div>任务创建时间</div>
           <div>任务执行时间</div>
           <div>任务时长</div>
+          <div>任务结果</div>
         </div>
         <div className="divide-y divide-slate-100">
           {loading ? (
@@ -220,7 +221,7 @@ export default function EvidencePage() {
               <div
                 key={`${item.id}-${idx}`}
                 className={cn(
-                  "grid grid-cols-[70px_1.1fr_0.65fr_0.95fr_0.95fr_0.8fr] items-center px-4 py-3 text-sm text-slate-700",
+                  "grid grid-cols-[70px_1fr_0.6fr_0.85fr_0.85fr_0.7fr_1.2fr] items-center px-4 py-3 text-sm text-slate-700",
                   idx % 2 === 0 ? "bg-white" : "bg-slate-50/70",
                   "transition-colors hover:bg-slate-100/80"
                 )}
@@ -242,6 +243,9 @@ export default function EvidencePage() {
                 </div>
                 <div className="truncate pr-4">
                   {formatTaskDuration(item.duration_seconds, item.status)}
+                </div>
+                <div className="truncate" title={item.result || undefined}>
+                  {item.result || "-"}
                 </div>
               </div>
             ))
