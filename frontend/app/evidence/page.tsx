@@ -10,7 +10,7 @@ import { apiFetch } from "@/lib/api";
 import { formatDateTime } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
 
-type EvidenceItem = { id: number; url: string; status: string; created_at: string };
+type EvidenceItem = { id: number; url: string; status: string; created_at: string; executed_at: string };
 type EvidenceListResponse = {
   items: EvidenceItem[];
   total: number;
@@ -177,11 +177,12 @@ export default function EvidencePage() {
       }
     >
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="grid grid-cols-[70px_1.4fr_0.8fr_1.1fr] bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
+        <div className="grid grid-cols-[70px_1.2fr_0.7fr_1fr_1fr] bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
           <div>ID</div>
           <div>网址</div>
           <div>任务状态</div>
           <div>任务创建时间</div>
+          <div>任务执行时间</div>
         </div>
         <div className="divide-y divide-slate-100">
           {loading ? (
@@ -196,7 +197,7 @@ export default function EvidencePage() {
               <div
                 key={`${item.id}-${idx}`}
                 className={cn(
-                  "grid grid-cols-[70px_1.4fr_0.8fr_1.1fr] items-center px-4 py-3 text-sm text-slate-700",
+                  "grid grid-cols-[70px_1.2fr_0.7fr_1fr_1fr] items-center px-4 py-3 text-sm text-slate-700",
                   idx % 2 === 0 ? "bg-white" : "bg-slate-50/70",
                   "transition-colors hover:bg-slate-100/80"
                 )}
@@ -210,8 +211,11 @@ export default function EvidencePage() {
                 <div className="pr-4">
                   {renderStatus(item.status)}
                 </div>
-                <div className="truncate" title={item.created_at || undefined}>
+                <div className="truncate pr-4" title={item.created_at || undefined}>
                   {formatDateTime(item.created_at)}
+                </div>
+                <div className="truncate" title={item.executed_at || undefined}>
+                  {formatDateTime(item.executed_at)}
                 </div>
               </div>
             ))

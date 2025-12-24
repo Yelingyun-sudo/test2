@@ -6,6 +6,7 @@ class EvidenceItem(BaseModel):
     url: str = Field(..., description="未订阅站点 URL")
     status: str = Field(..., description="任务状态")
     created_at: str = Field(..., description="任务创建时间 ISO 字符串")
+    executed_at: str = Field(..., description="任务执行时间 ISO 字符串")
 
 
 class EvidenceListResponse(BaseModel):
