@@ -25,7 +25,7 @@
    - 默认开启 `fullPage: true`，除非页面本身没有滚动条。
 6. **抓取文本**：调用 `browser_evaluate` 执行 `() => document.body.innerText`，获取页面文本。
 7. **保存文本**：调用 `save_page_text`，文件名与截图一致的前缀，例如 `inspect/{index:02d}_{sanitized_label}.txt`。写入内容必须是纯粹的 `innerText` 字符串，不要包含 Playwright 工具输出的调试段落（如 `### Result`、`### Ran Playwright code`、`### Page state` 等）。
-8. **持久化结果**：无论成功或失败，都要调用 `save_entry_result`，传入与截图相同前缀的文件名（例如 `inspect/{index:02d}_{sanitized_label}.json`）和最终 JSON 结果字符串，将结构化数据写入磁盘。失败或跳过时 `screenshot`、`text_snapshot` 可为 `null`，但需保留 `error` 信息，同时在 `summary` 字段中清晰描述原因。
+8. **持久化结果**：无论成功或失败，都要调用 `save_entry_result`，传入与截图相同前缀的文件名（例如 `inspect/{index:02d}_{sanitized_label}.json`）和最终 JSON 结果字符串，将结构化数据写入磁盘。失败或跳过时 `screenshot`、`text_snapshot` 可为 `null`，但需保留 `error` 信息。
 
 ## 日志与产物
 
@@ -49,8 +49,7 @@
   "status": "success",
   "screenshot": "inspect/01_告警中心.png",
   "text_snapshot": "inspect/01_告警中心.txt",
-  "error": null,
-  "summary": "页面展示账户与订阅状态、捷径入口以及公告模块，各模块信息加载完整，适合重点关注订阅剩余流量与常用操作入口。"
+  "error": null
 }
 ```
 
@@ -61,10 +60,6 @@
 - **screenshot**: 截图文件路径（成功时），失败时为 `null`
 - **text_snapshot**: 文本快照文件路径（成功时），失败时为 `null`
 - **error**: 错误信息（失败时），成功时为 `null`
-- **summary**: 1-3 句中文总结
-  - 成功场景：提炼页面中的关键业务信息（例如账号标识、订阅等级、核心指标数值、重点功能入口、更新时间等），并指出亮点或潜在风险
-  - 失败场景：详述原因、影响范围与可疑线索
-  - 禁止只写 success/failed 字面值或简单复制原文
 
 **重要提示**：
 - 仅允许以上字段出现在最终 JSON 中，禁止附加调试信息（如 `meta`、`matched_ref`、`page_state` 等）
@@ -74,13 +69,13 @@
 
 - 成功：
   ```json
-  {"entry_id":"entry_02","status":"success","screenshot":"inspect/02_节点状态.png","text_snapshot":"inspect/02_节点状态.txt","error":null,"summary":"页面集中列出安卓、iOS 及第三方客户端的下载与操作教程，并标注最近一次更新时间，同时提供邮箱、在线客服与电报渠道，便于用户自助排障。"}
+  {"entry_id":"entry_02","status":"success","screenshot":"inspect/02_节点状态.png","text_snapshot":"inspect/02_节点状态.txt","error":null}
   ```
 - 快照未命中：
   ```json
-  {"entry_id":"entry_05","status":"failed","screenshot":null,"text_snapshot":null,"error":"菜单 '活动中心' 在快照中不存在。","summary":"巡检失败：未能在当前快照中匹配菜单 '活动中心'，疑似菜单被重命名或隐藏；请人工检查最新布局并更新入口列表。"}
+  {"entry_id":"entry_05","status":"failed","screenshot":null,"text_snapshot":null,"error":"菜单 '活动中心' 在快照中不存在。"}
   ```
 - 登录失效：
   ```json
-  {"entry_id":"entry_06","status":"failed","screenshot":null,"text_snapshot":null,"error":"疑似跳转到登录页，暂停巡检。","summary":"巡检失败：点击入口后跳转到登录页，疑似登录态失效。"}
+  {"entry_id":"entry_06","status":"failed","screenshot":null,"text_snapshot":null,"error":"疑似跳转到登录页，暂停巡检。"}
   ```

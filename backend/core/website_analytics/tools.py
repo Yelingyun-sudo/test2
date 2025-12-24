@@ -160,7 +160,6 @@ def build_compile_inspect_report_tool(task_dir: Path) -> Tool:
 
             entry_id = data.get("entry_id") or json_path.stem
             status = data.get("status", "unknown")
-            summary = data.get("summary")
             error = data.get("error")
             screenshot_field = data.get("screenshot")
             text_field = data.get("text_snapshot")
@@ -200,29 +199,17 @@ def build_compile_inspect_report_tool(task_dir: Path) -> Tool:
             )
 
             status_normalized = str(status).lower()
-            detail_for_table = (
-                summary
-                if status_normalized == "success"
-                else error or summary or "无可用信息"
-            )
-            detail_for_table = (
-                _safe_escape_markdown(detail_for_table)
-                if isinstance(detail_for_table, str)
-                else "-"
-            )
 
             record = {
                 "entry_id": entry_id,
                 "label": label,
                 "status": status,
-                "summary": summary,
                 "error": error,
                 "screenshot_rel": screenshot_rel,
                 "screenshot_exists": screenshot_exists,
                 "text_rel": text_rel,
                 "text_exists": text_exists,
                 "json_rel": json_rel,
-                "detail_for_table": detail_for_table,
             }
 
             missing_reasons: list[str] = []
@@ -276,15 +263,26 @@ def build_compile_inspect_report_tool(task_dir: Path) -> Tool:
         header_lines.append("")
 
         table_lines = [
-            "| entry_id | 名称 | 状态 | 摘要/错误 |",
-            "| --- | --- | --- | --- |",
+            "| entry_id | 名称 | 状态 | 截图 | 文本快照 |",
+            "| --- | --- | --- | --- | --- |",
         ]
         for record in compiled_records:
+            screenshot_link = (
+                f"[查看]({record['screenshot_rel']})"
+                if record['screenshot_rel'] != "-"
+                else "-"
+            )
+            text_link = (
+                f"[查看]({record['text_rel']})"
+                if record['text_rel'] != "-"
+                else "-"
+            )
             row = (
                 f"| {record['entry_id']} | "
                 f"{_safe_escape_markdown(record['label'])} | "
                 f"{record['status']} | "
-                f"{record['detail_for_table']} |"
+                f"{screenshot_link} | "
+                f"{text_link} |"
             )
             table_lines.append(row)
         table_lines.append("")
@@ -301,8 +299,6 @@ def build_compile_inspect_report_tool(task_dir: Path) -> Tool:
             detail_lines.append(f"- 状态：{record['status']}")
             if record["error"]:
                 detail_lines.append(f"- 错误信息：{record['error']}")
-            if record["summary"]:
-                detail_lines.append(f"- 摘要：{record['summary']}")
             detail_lines.append(f"- JSON：[{record['json_rel']}]({record['json_rel']})")
             if record["screenshot_rel"] != "-":
                 detail_lines.append(

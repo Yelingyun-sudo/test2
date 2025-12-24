@@ -148,9 +148,6 @@ class InspectEntryOutput(BaseModel):
         default=None, description="文本快照文件路径（成功时）"
     )
     error: str | None = Field(default=None, description="错误信息（失败时）")
-    summary: str = Field(
-        description="1-3 句中文总结，成功时提炼业务信息，失败时详述原因"
-    )
 
 
 class CoordinatorOutput(BaseModel):
