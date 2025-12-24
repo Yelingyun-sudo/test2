@@ -527,44 +527,54 @@ def build_programmatic_inspect_entry_tool(
             asyncio.set_event_loop(loop)
 
         # 定义异步等待页面加载的辅助函数
-        async def _wait_for_page_ready(target_label):
-            """智能等待页面加载完成，基于目标菜单标签验证
-            
-            Returns:
-                bool: 页面加载成功返回 True，超时返回 False
+        async def _wait_for_page_ready(target_label: str):
+            """等待页面加载完成（最多等待 4 秒）
+
+            Args:
+                target_label: 目标菜单标签，用于验证页面内容是否符合预期
+
+            等待策略：
+            1. 每秒检查一次 DOM
+            2. 检查三个条件：
+               a) 目标菜单项仍然存在（说明导航栏已加载）
+               b) DOM 元素数量充足（页面不是空白）
+               c) DOM 稳定（连续2次 ref 数量相同）
+            3. 所有条件都满足时才认为加载完成
+            4. 超时后也直接返回（不报错）
             """
-            max_retries = 6
+            max_wait_seconds = 4
             stable_count = 0
             last_ref_count = 0
-            
-            for i in range(max_retries):
+
+            for _ in range(max_wait_seconds):
                 await playwright_server.call_tool("browser_wait_for", {"time": 1})
-                
+
                 check_snapshot = await playwright_server.call_tool("browser_snapshot", {})
                 snapshot_text = check_snapshot.content[0].text
-                
-                # 1. 核心检查：能否找到目标菜单标签的 ref
-                # 如果找到，说明导航菜单已完全渲染
+
+                # 条件1: 目标菜单项是否存在（导航栏已加载）
                 target_ref = _find_ref_by_label(snapshot_text, target_label)
                 if not target_ref:
-                    continue
-                
-                # 2. 验证 DOM 元素数量，确保页面内容丰富
+                    stable_count = 0
+                    continue  # 目标菜单项不存在，继续等待
+
+                # 条件2: DOM 元素数量是否充足
                 ref_count = snapshot_text.count("[ref=")
-                if ref_count < 15:  # DOM 元素太少，可能还在加载
-                    continue
-                
-                # 3. 稳定性检查：DOM 元素数量稳定（连续2次相同）
+                if ref_count < 15:
+                    stable_count = 0
+                    continue  # DOM 元素太少，继续等待
+
+                # 条件3: DOM 是否稳定
                 if ref_count == last_ref_count:
                     stable_count += 1
                     if stable_count >= 2:
-                        return True
+                        return  # 目标存在 + DOM 稳定，返回
                 else:
                     stable_count = 0
-                
+
                 last_ref_count = ref_count
-            
-            return False  # 超时未加载完成
+
+            # 超时，也直接返回（尝试继续截图）
 
         # 定义异步逻辑
         async def _do_inspect():
@@ -589,16 +599,8 @@ def build_programmatic_inspect_entry_tool(
                     "browser_click", {"element": entry_label, "ref": ref}
                 )
 
-                # 4. 智能等待页面加载完成
-                page_ready = await _wait_for_page_ready(entry_label)
-                if not page_ready:
-                    return {
-                        "entry_id": entry_id,
-                        "status": "failed",
-                        "screenshot": None,
-                        "text_snapshot": None,
-                        "error": f"点击菜单 '{entry_label}' 后页面加载超时（找不到导航菜单）。",
-                    }
+                # 4. 等待页面加载完成（验证目标菜单项仍然可见）
+                await _wait_for_page_ready(entry_label)
 
                 # 5. 截图
                 safe_label = (
