@@ -450,11 +450,11 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
           <table className="w-full border-collapse">
             <colgroup>
               <col className="w-[5%]" />
-              <col className="w-[18%]" />
+              <col className="w-[16%]" />
+              <col className="w-[15%]" />
+              <col className="w-[34%]" />
+              <col className="w-[16%]" />
               <col className="w-[14%]" />
-              <col className="w-[31%]" />
-              <col className="w-[16%]" />
-              <col className="w-[16%]" />
             </colgroup>
             <thead>
               <tr className="border-b border-slate-200">
