@@ -54,6 +54,7 @@ def list_evidence(
         EvidenceItem(
             id=int(rec.id),
             url=rec.url,
+            status=rec.status.value if rec.status else "PENDING",
             created_at=_format_dt(rec.created_at),
         )
         for rec in records

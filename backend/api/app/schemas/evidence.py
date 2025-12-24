@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 class EvidenceItem(BaseModel):
     id: int = Field(..., description="记录 ID")
     url: str = Field(..., description="未订阅站点 URL")
+    status: str = Field(..., description="任务状态")
     created_at: str = Field(..., description="任务创建时间 ISO 字符串")
 
 

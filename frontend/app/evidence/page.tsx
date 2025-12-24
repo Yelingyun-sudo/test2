@@ -10,7 +10,7 @@ import { apiFetch } from "@/lib/api";
 import { formatDateTime } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
 
-type EvidenceItem = { id: number; url: string; created_at: string };
+type EvidenceItem = { id: number; url: string; status: string; created_at: string };
 type EvidenceListResponse = {
   items: EvidenceItem[];
   total: number;
@@ -53,6 +53,41 @@ export default function EvidencePage() {
   };
 
   const pageItems = useMemo(() => getPageItems(page, totalPages), [page, totalPages]);
+
+  const statusLabel: Record<string, string> = {
+    PENDING: "待执行",
+    RUNNING: "执行中",
+    SUCCESS: "成功",
+    FAILED: "失败"
+  };
+
+  const renderStatus = (value?: string) => {
+    if (!value) return <span className="text-slate-400">-</span>;
+    const label = statusLabel[value] ?? value;
+
+    const styles: Record<string, string> = {
+      PENDING: "bg-slate-100 text-slate-600 border border-slate-200",
+      RUNNING: "bg-yellow-100 text-yellow-700 border border-yellow-200",
+      SUCCESS: "bg-emerald-50 text-emerald-600 border border-emerald-100",
+      FAILED: "bg-rose-50 text-rose-600 border border-rose-100"
+    };
+
+    const icon: Record<string, JSX.Element | null> = {
+      PENDING: null,
+      RUNNING: <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />,
+      SUCCESS: null,
+      FAILED: null
+    };
+
+    const pillClass = styles[value] || "bg-slate-100 text-slate-600 border border-slate-200";
+
+    return (
+      <span className={cn("inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium", pillClass)}>
+        {icon[value]}
+        {label}
+      </span>
+    );
+  };
 
   const fetchData = useCallback(
     async (params?: { page?: number; q?: string }) => {
@@ -142,9 +177,10 @@ export default function EvidencePage() {
       }
     >
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="grid grid-cols-[70px_1.4fr_1.1fr] bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
+        <div className="grid grid-cols-[70px_1.4fr_0.8fr_1.1fr] bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
           <div>ID</div>
           <div>网址</div>
+          <div>任务状态</div>
           <div>任务创建时间</div>
         </div>
         <div className="divide-y divide-slate-100">
@@ -160,7 +196,7 @@ export default function EvidencePage() {
               <div
                 key={`${item.id}-${idx}`}
                 className={cn(
-                  "grid grid-cols-[70px_1.4fr_1.1fr] items-center px-4 py-3 text-sm text-slate-700",
+                  "grid grid-cols-[70px_1.4fr_0.8fr_1.1fr] items-center px-4 py-3 text-sm text-slate-700",
                   idx % 2 === 0 ? "bg-white" : "bg-slate-50/70",
                   "transition-colors hover:bg-slate-100/80"
                 )}
@@ -170,6 +206,9 @@ export default function EvidencePage() {
                 </div>
                 <div className="truncate pr-4" title={item.url}>
                   {item.url}
+                </div>
+                <div className="pr-4">
+                  {renderStatus(item.status)}
                 </div>
                 <div className="truncate" title={item.created_at || undefined}>
                   {formatDateTime(item.created_at)}
