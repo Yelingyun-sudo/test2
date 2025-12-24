@@ -183,6 +183,7 @@ async def _run_task(task_id: int, instruction: str) -> None:
         execution_timeout = settings.task_runner_timeout_seconds
         cleanup_buffer = settings.playwright_cleanup_buffer_seconds
 
+        logger.info("开始执行任务: task_id=%s, instruction=%s", task_id, instruction)
         exec_result = await asyncio.wait_for(
             run_single_instruction_async(
                 instruction,
