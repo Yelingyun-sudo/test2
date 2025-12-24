@@ -22,9 +22,7 @@ from website_analytics.agent_factory import (
     build_coordinator_agent,
     build_extract_agent,
     build_inspect_agent,
-    build_inspect_entry_agent,
     build_login_agent,
-    extract_structured_output,
 )
 from website_analytics.batch_reporter import (
     TaskResult,
@@ -41,8 +39,8 @@ from website_analytics.playwright_server import AutoSwitchingPlaywrightServer
 from website_analytics.output_types import ErrorType
 from website_analytics.settings import get_settings
 from website_analytics.tools import (
+    build_capture_page_data_tool,
     build_compile_inspect_report_tool,
-    build_save_entry_result_tool,
     build_save_page_text_tool,
 )
 from website_analytics.utils import (
@@ -216,9 +214,10 @@ async def execute(
             for key, value in os.environ.items()
             if key in {"DISPLAY", "XAUTHORITY"} and value
         }
-        save_page_text_tool = build_save_page_text_tool(working_dir)
-        save_entry_result_tool = build_save_entry_result_tool(working_dir)
+        # 创建巡检报告工具
         compile_inspect_report_tool = build_compile_inspect_report_tool(working_dir)
+        # 创建保存页面文本工具（用于保存 inspectEntryList.txt）
+        save_page_text_tool = build_save_page_text_tool(working_dir)
 
         playwright_params: dict[str, Any] = {
             "command": "npx",
@@ -236,18 +235,10 @@ async def execute(
                 llm_hooks.set_playwright_server(playwright_server)
             if hasattr(llm_hooks, "set_video_start_t"):
                 llm_hooks.set_video_start_t(time.perf_counter())
-            inspect_entry_agent = build_inspect_entry_agent(
+            # 创建页面数据采集工具（简化版）
+            capture_page_data_tool = build_capture_page_data_tool(
+                working_dir,
                 playwright_server,
-                load_instruction("inspect_entry_agent.md"),
-                extra_tools=[save_page_text_tool, save_entry_result_tool],
-            )
-            inspect_entry_tool = inspect_entry_agent.as_tool(
-                tool_name="inspect_entry",
-                tool_description="巡检单个一级菜单并生成对应产物。",
-                max_turns=40,
-                hooks=llm_hooks,
-                run_config=run_config,
-                custom_output_extractor=extract_structured_output,
             )
 
             login_agent = build_login_agent(
@@ -268,7 +259,7 @@ async def execute(
                 ),
                 extra_tools=[
                     save_page_text_tool,
-                    inspect_entry_tool,
+                    capture_page_data_tool,
                     compile_inspect_report_tool,
                 ],
             )

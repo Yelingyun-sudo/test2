@@ -351,8 +351,398 @@ def build_compile_inspect_report_tool(task_dir: Path) -> Tool:
     return compile_inspect_report
 
 
+def build_capture_and_save_tool(task_dir: Path) -> Tool:
+    """创建数据采集与保存复合工具。
+
+    合并原 Turn 6-7 的操作：
+    - save_page_text（保存文本）
+    - save_entry_result（保存 JSON）
+    """
+    inspect_dir = task_dir / "inspect"
+    inspect_dir.mkdir(parents=True, exist_ok=True)
+
+    @function_tool(
+        name_override="capture_and_save",
+        description_override=(
+            "一次性完成数据保存：将页面文本和巡检结果保存到文件。"
+            "接受 entry_index, entry_label, text_content, screenshot_path 参数，"
+            "生成 .txt 和 .json 文件。"
+        ),
+    )
+    def capture_and_save(
+        entry_id: str,
+        entry_index: int,
+        entry_label: str,
+        text_content: str,
+        screenshot_path: str,
+    ) -> str:
+        """保存文本快照和巡检结果。
+
+        Args:
+            entry_id: 入口唯一标识
+            entry_index: 入口序号（1-based）
+            entry_label: 菜单标签
+            text_content: 页面文本内容（来自 browser_evaluate）
+            screenshot_path: 截图文件路径（来自 browser_take_screenshot）
+
+        Returns:
+            JSON 字符串，包含保存路径和结果
+        """
+        # 文件名安全处理
+        safe_label = (
+            entry_label.strip()
+            .replace(" ", "_")
+            .translate(str.maketrans("", "", r'/\:*?"<>|'))
+        )
+        prefix = f"{entry_index:02d}_{safe_label}"
+
+        # 清理 Playwright 调试输出（### Result\n"..."）
+        clean_text = text_content
+        if clean_text.startswith("### Result\n\"") and clean_text.endswith('"'):
+            # 去除 ### Result\n" 前缀和尾部的 "
+            clean_text = clean_text[14:-1]
+        elif clean_text.startswith("### Result\n"):
+            # 去除 ### Result\n 前缀
+            clean_text = clean_text[12:]
+
+        # 保存文本
+        text_path = inspect_dir / f"{prefix}.txt"
+        text_path.write_text(clean_text, encoding="utf-8")
+
+        # 保存 JSON 结果
+        result_data = {
+            "entry_id": entry_id,
+            "status": "success",
+            "screenshot": screenshot_path,
+            "text_snapshot": f"inspect/{prefix}.txt",
+            "error": None,
+        }
+        json_path = inspect_dir / f"{prefix}.json"
+        json_path.write_text(
+            json.dumps(result_data, ensure_ascii=False, indent=2),
+            encoding="utf-8"
+        )
+
+        try:
+            rel_text = text_path.relative_to(task_dir)
+            rel_json = json_path.relative_to(task_dir)
+        except ValueError:
+            rel_text = text_path
+            rel_json = json_path
+
+        return json.dumps(
+            {
+                "text_saved": str(rel_text),
+                "json_saved": str(rel_json),
+                "result": result_data,
+            },
+            ensure_ascii=False,
+        )
+
+    return capture_and_save
+
+
+def _find_ref_by_label(snapshot_text: str, label: str) -> str | None:
+    """从快照文本中查找匹配标签的 ref。
+
+    Playwright MCP 的快照格式：
+    - link "套餐商店" [ref=e37] [cursor=pointer]:
+    - generic [ref=e39]: 套餐商店
+
+    Args:
+        snapshot_text: browser_snapshot 返回的文本内容
+        label: 要查找的菜单标签
+
+    Returns:
+        匹配的 ref ID，如果未找到则返回 None
+    """
+    # 精确匹配：link "label" [ref=eXXX] 或 generic [ref=eXXX]: label
+    # Pattern 1: link "套餐商店" [ref=e37]
+    pattern = rf'"{re.escape(label)}"\s+\[ref=(e\d+)\]'
+    match = re.search(pattern, snapshot_text)
+    if match:
+        return match.group(1)
+
+    # Pattern 2: [ref=e39]: 套餐商店
+    pattern = rf'\[ref=(e\d+)\]:\s*{re.escape(label)}'
+    match = re.search(pattern, snapshot_text)
+    if match:
+        return match.group(1)
+
+    # 模糊匹配：label 包含在文本中
+    pattern = rf'\[ref=(e\d+)\][^\n]*{re.escape(label)}'
+    match = re.search(pattern, snapshot_text, re.IGNORECASE)
+    if match:
+        return match.group(1)
+
+    return None
+
+
+def build_programmatic_inspect_entry_tool(
+    task_dir: Path,
+    playwright_server: Any,
+) -> Tool:
+    """创建完全程序化的单入口巡检工具。
+
+    将 8 轮 LLM 调用减少到 1 轮，直接在工具内部调用浏览器操作。
+
+    Args:
+        task_dir: 任务目录
+        playwright_server: AutoSwitchingPlaywrightServer 实例
+
+    Returns:
+        程序化巡检工具
+    """
+    import asyncio
+
+    import nest_asyncio
+
+    inspect_dir = task_dir / "inspect"
+    inspect_dir.mkdir(parents=True, exist_ok=True)
+
+    @function_tool(
+        name_override="programmatic_inspect_entry",
+        description_override="程序化巡检单个菜单入口，自动完成点击、截图、文本采集。",
+    )
+    def programmatic_inspect_entry(
+        entry_id: str,
+        entry_index: int,
+        entry_label: str,
+    ) -> str:
+        """程序化巡检单个入口。
+
+        Args:
+            entry_id: 入口唯一标识
+            entry_index: 入口序号
+            entry_label: 菜单标签
+
+        Returns:
+            JSON 字符串，包含巡检结果
+        """
+        # 获取或创建事件循环
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        # 定义异步逻辑
+        async def _do_inspect():
+            try:
+                # 0. 导航回首页，确保从一致的起点开始
+                await playwright_server.call_tool("browser_navigate", {"url": "/"})
+                await playwright_server.call_tool("browser_wait_for", {"time": 1})
+
+                # 1. 获取快照
+                snapshot_result = await playwright_server.call_tool(
+                    "browser_snapshot", {"filename": "tmp_snapshot"}
+                )
+
+                # 2. 解析快照，匹配 entry_label
+                snapshot_text = snapshot_result.content[0].text
+                ref = _find_ref_by_label(snapshot_text, entry_label)
+                if not ref:
+                    return {
+                        "entry_id": entry_id,
+                        "status": "failed",
+                        "screenshot": None,
+                        "text_snapshot": None,
+                        "error": f"菜单 '{entry_label}' 在快照中不存在。",
+                    }
+
+                # 3. 点击菜单
+                await playwright_server.call_tool("browser_click", {"ref": ref})
+
+                # 4. 等待加载（增加到3秒，确保页面完全加载）
+                await playwright_server.call_tool("browser_wait_for", {"time": 3})
+
+                # 5. 截图
+                safe_label = (
+                    entry_label.strip()
+                    .replace(" ", "_")
+                    .translate(str.maketrans("", "", r'/\:*?"<>|'))
+                )
+                prefix = f"{entry_index:02d}_{safe_label}"
+                screenshot_path = f"inspect/{prefix}.png"
+
+                await playwright_server.call_tool(
+                    "browser_take_screenshot",
+                    {"filename": screenshot_path, "fullPage": True},
+                )
+
+                # 6. 获取文本
+                text_result = await playwright_server.call_tool(
+                    "browser_evaluate", {"function": "() => document.body.innerText"}
+                )
+                text_content = text_result.content[0].text
+
+                # 清理 Playwright 调试输出
+                clean_text = text_content
+                if clean_text.startswith('### Result\n"') and clean_text.endswith('"'):
+                    clean_text = clean_text[14:-1]
+                elif clean_text.startswith("### Result\n"):
+                    clean_text = clean_text[12:]
+
+                # 7. 保存文本
+                text_path = inspect_dir / f"{prefix}.txt"
+                text_path.write_text(clean_text, encoding="utf-8")
+
+                # 8. 保存 JSON
+                result_data = {
+                    "entry_id": entry_id,
+                    "status": "success",
+                    "screenshot": screenshot_path,
+                    "text_snapshot": f"inspect/{prefix}.txt",
+                    "error": None,
+                }
+                json_path = inspect_dir / f"{prefix}.json"
+                json_path.write_text(
+                    json.dumps(result_data, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+
+                return result_data
+
+            except Exception as exc:
+                return {
+                    "entry_id": entry_id,
+                    "status": "failed",
+                    "screenshot": None,
+                    "text_snapshot": None,
+                    "error": f"巡检失败：{exc}",
+                }
+
+        # 在当前事件循环中运行异步逻辑
+        nest_asyncio.apply()  # 允许嵌套事件循环
+        result = loop.run_until_complete(_do_inspect())
+
+        return json.dumps(result, ensure_ascii=False)
+
+    return programmatic_inspect_entry
+
+
+def build_capture_page_data_tool(
+    task_dir: Path,
+    playwright_server: Any,
+) -> Tool:
+    """创建页面数据采集工具（截图+文本）。
+
+    前提：LLM 已经导航到目标页面。
+    职责：只负责采集当前页面的数据。
+
+    Args:
+        task_dir: 任务目录
+        playwright_server: AutoSwitchingPlaywrightServer 实例
+
+    Returns:
+        页面数据采集工具
+    """
+    import asyncio
+
+    import nest_asyncio
+
+    inspect_dir = task_dir / "inspect"
+    inspect_dir.mkdir(parents=True, exist_ok=True)
+
+    @function_tool(
+        name_override="capture_page_data",
+        description_override="采集当前页面的截图和文本，保存为指定格式。前提：LLM已导航到目标页面。",
+    )
+    def capture_page_data(
+        entry_id: str,
+        entry_index: int,
+        entry_label: str,
+    ) -> str:
+        """采集当前页面的截图和文本。
+
+        Args:
+            entry_id: 入口唯一标识
+            entry_index: 入口序号（用于文件命名）
+            entry_label: 菜单标签（用于文件命名）
+
+        Returns:
+            JSON 字符串，包含采集结果
+        """
+        # 获取或创建事件循环
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        # 定义异步逻辑
+        async def _do_capture():
+            try:
+                # 1. 截图
+                safe_label = (
+                    entry_label.strip()
+                    .replace(" ", "_")
+                    .translate(str.maketrans("", "", r'/\:*?"<>|'))
+                )
+                prefix = f"{entry_index:02d}_{safe_label}"
+                screenshot_path = f"inspect/{prefix}.png"
+
+                await playwright_server.call_tool(
+                    "browser_take_screenshot",
+                    {"filename": screenshot_path, "fullPage": True},
+                )
+
+                # 2. 文本采集
+                text_result = await playwright_server.call_tool(
+                    "browser_evaluate", {"function": "() => document.body.innerText"}
+                )
+                text_content = text_result.content[0].text
+
+                # 清理 Playwright 调试输出
+                clean_text = text_content
+                if clean_text.startswith('### Result\n"') and clean_text.endswith('"'):
+                    clean_text = clean_text[14:-1]
+                elif clean_text.startswith("### Result\n"):
+                    clean_text = clean_text[12:]
+
+                # 3. 保存文本
+                text_path = inspect_dir / f"{prefix}.txt"
+                text_path.write_text(clean_text, encoding="utf-8")
+
+                # 4. 保存 JSON
+                result_data = {
+                    "entry_id": entry_id,
+                    "status": "success",
+                    "screenshot": screenshot_path,
+                    "text_snapshot": f"inspect/{prefix}.txt",
+                    "error": None,
+                }
+                json_path = inspect_dir / f"{prefix}.json"
+                json_path.write_text(
+                    json.dumps(result_data, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+
+                return result_data
+
+            except Exception as exc:
+                return {
+                    "entry_id": entry_id,
+                    "status": "failed",
+                    "screenshot": None,
+                    "text_snapshot": None,
+                    "error": f"数据采集失败：{exc}",
+                }
+
+        # 在当前事件循环中运行异步逻辑
+        nest_asyncio.apply()  # 允许嵌套事件循环
+        result = loop.run_until_complete(_do_capture())
+
+        return json.dumps(result, ensure_ascii=False)
+
+    return capture_page_data
+
+
 __all__ = [
     "build_save_page_text_tool",
     "build_save_entry_result_tool",
     "build_compile_inspect_report_tool",
+    "build_capture_and_save_tool",
+    "build_capture_page_data_tool",
+    "build_programmatic_inspect_entry_tool",
 ]
