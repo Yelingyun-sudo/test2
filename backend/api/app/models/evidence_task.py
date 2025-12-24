@@ -29,6 +29,8 @@ class EvidenceTask(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     url = Column(String(2048), nullable=False, index=True)
+    account = Column(String(255), nullable=True)
+    password = Column(String(255), nullable=True)
 
     status = Column(SAEnum(TaskStatus), nullable=False, default=TaskStatus.PENDING)
     duration_seconds = Column(Integer, nullable=False, default=0)

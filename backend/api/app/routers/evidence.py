@@ -54,6 +54,8 @@ def list_evidence(
         EvidenceItem(
             id=int(rec.id),
             url=rec.url,
+            account=rec.account,
+            password=rec.password,
             status=rec.status.value if rec.status else "PENDING",
             created_at=_format_dt(rec.created_at),
             executed_at=_format_dt(rec.executed_at),
