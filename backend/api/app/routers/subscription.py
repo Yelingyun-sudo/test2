@@ -335,7 +335,7 @@ def get_subscription_stats(
     - 汇总统计（总数、今日新增、成功率、平均时长等）
     - 每日趋势（最近10天）
     - 状态分布
-    - 最近任务列表（最近5条）
+    - 最近任务列表（最近6条）
     - 失败类型分布（支持时间范围过滤）
     """
     tz_cn = timezone(timedelta(hours=8))
@@ -639,7 +639,7 @@ def get_subscription_stats(
             StatusDistributionItem(status=status_value or "", count=row.count or 0)
         )
 
-    # 4. 最近任务列表（最近5条）
+    # 4. 最近任务列表（最近6条）
     def _format_dt(dt):
         if not dt:
             return None
@@ -661,7 +661,7 @@ def get_subscription_stats(
             SubscriptionTask.executed_at.desc().nulls_last(),
             SubscriptionTask.id.asc(),
         )
-        .limit(5)
+        .limit(6)
         .all()
     )
 

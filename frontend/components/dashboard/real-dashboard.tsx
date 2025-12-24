@@ -428,7 +428,7 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
         <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm lg:col-span-2">
         <div className="flex items-start justify-between">
           <div>
-            <p className="text-sm text-slate-500">最新 5 个</p>
+            <p className="text-sm text-slate-500">最新 6 个</p>
             <h3 className="text-lg font-semibold text-slate-900">
               最近任务列表
             </h3>
@@ -517,7 +517,7 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
                       {task.executed_at ? formatDateTime(task.executed_at) : "-"}
                     </td>
                     <td className="p-2 text-sm text-slate-700">
-                      {task.status === "running" || task.status === "pending"
+                      {task.status === "RUNNING" || task.status === "PENDING"
                         ? "-"
                         : formatDurationSeconds(task.duration_seconds)}
                     </td>
