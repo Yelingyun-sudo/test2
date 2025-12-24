@@ -57,6 +57,7 @@ def list_evidence(
             status=rec.status.value if rec.status else "PENDING",
             created_at=_format_dt(rec.created_at),
             executed_at=_format_dt(rec.executed_at),
+            duration_seconds=rec.duration_seconds or 0,
         )
         for rec in records
     ]

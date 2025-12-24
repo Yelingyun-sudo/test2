@@ -10,7 +10,7 @@ import { apiFetch } from "@/lib/api";
 import { formatDateTime } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
 
-type EvidenceItem = { id: number; url: string; status: string; created_at: string; executed_at: string };
+type EvidenceItem = { id: number; url: string; status: string; created_at: string; executed_at: string; duration_seconds: number };
 type EvidenceListResponse = {
   items: EvidenceItem[];
   total: number;
@@ -87,6 +87,28 @@ export default function EvidencePage() {
         {label}
       </span>
     );
+  };
+
+  const formatDurationSeconds = (value?: number | null) => {
+    if (value === null || value === undefined || Number.isNaN(value)) return "-";
+    const totalSeconds = Math.max(0, Math.floor(value));
+    if (totalSeconds < 60) return `${totalSeconds}秒`;
+
+    const days = Math.floor(totalSeconds / 86_400);
+    const hours = Math.floor((totalSeconds % 86_400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    if (totalSeconds < 3600) return `${minutes}分${seconds}秒`;
+    if (totalSeconds < 86_400) return `${hours}小时${minutes}分${seconds}秒`;
+    return `${days}天${hours}小时${minutes}分${seconds}秒`;
+  };
+
+  const formatTaskDuration = (durationSeconds: number, status?: string) => {
+    if (status === "PENDING" || status === "RUNNING") {
+      return "-";
+    }
+    return formatDurationSeconds(durationSeconds);
   };
 
   const fetchData = useCallback(
@@ -177,12 +199,13 @@ export default function EvidencePage() {
       }
     >
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="grid grid-cols-[70px_1.2fr_0.7fr_1fr_1fr] bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
+        <div className="grid grid-cols-[70px_1.1fr_0.65fr_0.95fr_0.95fr_0.8fr] bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
           <div>ID</div>
           <div>网址</div>
           <div>任务状态</div>
           <div>任务创建时间</div>
           <div>任务执行时间</div>
+          <div>任务时长</div>
         </div>
         <div className="divide-y divide-slate-100">
           {loading ? (
@@ -197,7 +220,7 @@ export default function EvidencePage() {
               <div
                 key={`${item.id}-${idx}`}
                 className={cn(
-                  "grid grid-cols-[70px_1.2fr_0.7fr_1fr_1fr] items-center px-4 py-3 text-sm text-slate-700",
+                  "grid grid-cols-[70px_1.1fr_0.65fr_0.95fr_0.95fr_0.8fr] items-center px-4 py-3 text-sm text-slate-700",
                   idx % 2 === 0 ? "bg-white" : "bg-slate-50/70",
                   "transition-colors hover:bg-slate-100/80"
                 )}
@@ -214,8 +237,11 @@ export default function EvidencePage() {
                 <div className="truncate pr-4" title={item.created_at || undefined}>
                   {formatDateTime(item.created_at)}
                 </div>
-                <div className="truncate" title={item.executed_at || undefined}>
+                <div className="truncate pr-4" title={item.executed_at || undefined}>
                   {formatDateTime(item.executed_at)}
+                </div>
+                <div className="truncate pr-4">
+                  {formatTaskDuration(item.duration_seconds, item.status)}
                 </div>
               </div>
             ))
