@@ -17,6 +17,7 @@ from agents import (
     enable_verbose_stdout_logging,
 )
 from agents.logger import logger
+from agents.mcp import ToolFilterContext
 
 from website_analytics.agent_factory import (
     build_coordinator_agent,
@@ -163,6 +164,33 @@ def _infer_error_type_from_operations(output: dict[str, Any]) -> str | None:
     return None
 
 
+async def _playwright_tool_filter(context: ToolFilterContext, tool) -> bool:
+    """屏蔽特定的 Playwright 工具。
+
+    Args:
+        context: 工具过滤上下文，包含 agent 信息
+        tool: 工具对象
+
+    Returns:
+        True 表示允许该工具，False 表示屏蔽该工具
+    """
+    # 对所有 Agent 屏蔽 browser_handle_dialog
+    # 该工具仅用于浏览器原生对话框（alert/confirm），无法处理页面内的 DOM 弹窗
+    if tool.name == "browser_handle_dialog":
+        return False
+
+    # 对所有 Agent 屏蔽 browser_run_code
+    # 该工具允许执行任意代码，存在安全风险，应使用更安全的替代工具
+    if tool.name == "browser_run_code":
+        return False
+
+    # 未来可以添加更复杂的逻辑，例如：
+    # if context.agent.name == "evidenceAgent" and tool.name == "some_other_tool":
+    #     return False
+
+    return True
+
+
 async def execute(
     instruction: str,
     *,
@@ -230,6 +258,7 @@ async def execute(
             name="playwright-mcp",
             params=playwright_params,
             client_session_timeout_seconds=120,
+            tool_filter=_playwright_tool_filter,
         ) as playwright_server:
             if hasattr(llm_hooks, "set_playwright_server"):
                 llm_hooks.set_playwright_server(playwright_server)
