@@ -337,12 +337,14 @@ def build_compile_evidence_report_tool(task_dir: Path) -> Tool:
         result_payload: dict[str, Any] = {
             "status": "success",
             "report_file": report_relative,
-            "entry_count": entry_count,
-            "success_count": success_count,
-            "failed_entries": failed_entries,
+            "entries_total": entry_count,
+            "entries_success": success_count,
+            "entries_failed": failure_count,
         }
         if notes:
             result_payload["notes"] = notes
+        if failed_entries:
+            result_payload["failed_entries"] = failed_entries
 
         return json.dumps(result_payload, ensure_ascii=False, indent=2)
 
@@ -587,13 +589,25 @@ def build_programmatic_evidence_entry_tool(
                 snapshot_text = snapshot_result.content[0].text
                 ref = _find_ref_by_label(snapshot_text, entry_label)
                 if not ref:
-                    return {
+                    result_data = {
                         "entry_id": entry_id,
                         "status": "failed",
                         "screenshot": None,
                         "text_snapshot": None,
                         "error": f"菜单 '{entry_label}' 在快照中不存在。",
                     }
+                    # 保存失败记录到 JSON
+                    safe_label = (
+                        entry_label.strip()
+                        .replace(" ", "_")
+                        .translate(str.maketrans("", "", r'/\:*?"<>|'))
+                    )
+                    json_path = evidence_dir / f"{entry_index:02d}_{safe_label}.json"
+                    json_path.write_text(
+                        json.dumps(result_data, ensure_ascii=False, indent=2),
+                        encoding="utf-8",
+                    )
+                    return result_data
 
                 # 3. 点击菜单
                 await playwright_server.call_tool(
@@ -651,13 +665,25 @@ def build_programmatic_evidence_entry_tool(
                 return result_data
 
             except Exception as exc:
-                return {
+                result_data = {
                     "entry_id": entry_id,
                     "status": "failed",
                     "screenshot": None,
                     "text_snapshot": None,
                     "error": f"取证失败：{exc}",
                 }
+                # 保存异常记录到 JSON
+                safe_label = (
+                    entry_label.strip()
+                    .replace(" ", "_")
+                    .translate(str.maketrans("", "", r'/\:*?"<>|'))
+                )
+                json_path = evidence_dir / f"{entry_index:02d}_{safe_label}.json"
+                json_path.write_text(
+                    json.dumps(result_data, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+                return result_data
 
         # 在当前事件循环中运行异步逻辑
         nest_asyncio.apply()  # 允许嵌套事件循环

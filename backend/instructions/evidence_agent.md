@@ -34,38 +34,28 @@
 - 工具调用失败导致没有返回值时，记下入口 ID 与错误描述，视为失败并继续。
 
 ### 4. 输出最终总结报告
-
-**重要**：只有当以上步骤执行完成，或提前终止时，才能输出最终总结报告
+**重要**：仅当步骤 3 完成后（所有入口已取证），才执行本步骤
 
 #### 统计数据来源
 
-1. 调用 `compile_evidence_report` 工具（默认参数即可）
+1. 调用 `compile_evidence_report`（仅一次，**不传递任何参数**，使用默认值）
 2. 工具返回示例：
    ```json
    {
      "status": "success",
      "report_file": "evidence/report.md",
-     "entry_count": 2,
-     "success_count": 2,
-     "failed_entries": []
+     "entries_total": 3,
+     "entries_success": 3,
+     "entries_failed": 0
    }
    ```
-3. **数据来源规则**：
-   - `entries_total`: 使用阶段 2 保存的菜单项数量（你自己保存的，应该记得）
-   - `entries_success`: **必须**使用工具返回的 `success_count`
-   - `entries_failed`: 计算 `entries_total - entries_success`
-   - `report_file`: 使用工具返回的 `report_file`
-
-**为什么以工具返回为准**：
-- 工具扫描实际文件系统，是 Ground Truth
-- 某些入口的 `programmatic_evidence_entry` 调用可能失败，没有生成文件
-- 即使工具调用的输出被省略，文件系统的扫描结果依然准确
+3. **直接使用工具返回值构造输出**，字段完全匹配
 
 ## 响应格式
 
 以 JSON 对象返回：
 
-**成功示例（假设阶段 2 保存了 3 个入口，工具返回 success_count=2）：**
+**成功：**
 ```json
 {
   "success": true,
