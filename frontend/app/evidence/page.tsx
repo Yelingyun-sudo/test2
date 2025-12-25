@@ -7,6 +7,13 @@ import { toast } from "sonner";
 import { DashboardShell } from "@/components/dashboard/shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { EvidenceTasksDrawer } from "@/components/evidence/tasks-drawer";
 import { apiFetch } from "@/lib/api";
 import { formatDateTime } from "@/lib/datetime";
@@ -31,6 +38,9 @@ export default function EvidencePage() {
   const [loading, setLoading] = useState(false);
   const [selectedItem, setSelectedItem] = useState<EvidenceItem | null>(null);
   const [failureTypes, setFailureTypes] = useState<FailureTypeItem[]>([]);
+  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [failureTypeFilter, setFailureTypeFilter] = useState<string>("ALL");
+  const [timeRangeFilter, setTimeRangeFilter] = useState<string>("ALL");
 
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(total / PAGE_SIZE)),
@@ -110,9 +120,19 @@ export default function EvidencePage() {
   };
 
   const fetchData = useCallback(
-    async (params?: { page?: number; q?: string }) => {
+    async (params?: {
+      page?: number;
+      q?: string;
+      status?: string;
+      failureType?: string;
+      timeRange?: string;
+    }) => {
       const currentPage = params?.page ?? page;
       const q = params?.q ?? query;
+      const status = params?.status ?? statusFilter;
+      const failureType = params?.failureType ?? failureTypeFilter;
+      const timeRange = params?.timeRange ?? timeRangeFilter;
+
       setLoading(true);
       try {
         const searchParams = new URLSearchParams({
@@ -120,6 +140,9 @@ export default function EvidencePage() {
           page_size: String(PAGE_SIZE)
         });
         if (q) searchParams.set("q", q);
+        if (status && status !== "ALL") searchParams.set("status", status);
+        if (failureType && failureType !== "ALL") searchParams.set("failure_type", failureType);
+        if (timeRange && timeRange !== "ALL") searchParams.set("executed_within", timeRange);
 
         const res = await apiFetch(
           `/evidence/list?${searchParams.toString()}`
@@ -136,7 +159,7 @@ export default function EvidencePage() {
         setLoading(false);
       }
     },
-    [page, query]
+    [page, query, statusFilter, failureTypeFilter, timeRangeFilter]
   );
 
   // 获取失败类型列表
@@ -193,12 +216,43 @@ export default function EvidencePage() {
     setSelectedItem(null);
   };
 
+  const handleStatusChange = (value: string) => {
+    setStatusFilter(value);
+
+    // 如果不是 FAILED，清空失败类型筛选
+    const newFailureType = value !== "FAILED" ? "ALL" : failureTypeFilter;
+    setFailureTypeFilter(newFailureType);
+
+    // 如果是 PENDING 或 RUNNING，清空时间范围筛选
+    const newTimeRange = (value === "PENDING" || value === "RUNNING") ? "ALL" : timeRangeFilter;
+    setTimeRangeFilter(newTimeRange);
+
+    // 重置到第一页并触发数据加载
+    fetchData({
+      page: 1,
+      status: value,
+      failureType: newFailureType,
+      timeRange: newTimeRange,
+    });
+  };
+
+  const handleFailureTypeChange = (value: string) => {
+    setFailureTypeFilter(value);
+    fetchData({ page: 1, failureType: value });
+  };
+
+  const handleTimeRangeChange = (value: string) => {
+    setTimeRangeFilter(value);
+    fetchData({ page: 1, timeRange: value });
+  };
+
   return (
     <DashboardShell
       title="注册取证任务"
-      description="管理注册取证任务，支持按 URL 检索。"
+      description="管理注册取证任务，支持按 URL 检索和状态筛选。"
       actions={
         <div className="flex items-center gap-2">
+          {/* 搜索框 */}
           <div className="relative flex items-center rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-[0_6px_18px_rgba(15,23,42,0.06)]">
             <Search className="pointer-events-none absolute left-4 h-4 w-4 text-slate-400" />
             <Input
@@ -219,6 +273,75 @@ export default function EvidencePage() {
               搜索
             </Button>
           </div>
+
+          {/* 状态筛选 */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-slate-700">状态</span>
+            <Select
+              value={statusFilter}
+              onValueChange={handleStatusChange}
+              disabled={loading}
+            >
+              <SelectTrigger className="w-[120px] h-10 border-slate-200 bg-white shadow-[0_6px_18px_rgba(15,23,42,0.06)]">
+                <SelectValue placeholder="全部" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">全部</SelectItem>
+                <SelectItem value="PENDING">待执行</SelectItem>
+                <SelectItem value="RUNNING">执行中</SelectItem>
+                <SelectItem value="SUCCESS">成功</SelectItem>
+                <SelectItem value="FAILED">失败</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* 失败类型筛选 - 仅在状态为 FAILED 时显示 */}
+          {statusFilter === "FAILED" && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-slate-700">失败类型</span>
+              <Select
+                value={failureTypeFilter}
+                onValueChange={handleFailureTypeChange}
+                disabled={loading}
+              >
+                <SelectTrigger className="w-[180px] h-10 border-slate-200 bg-white shadow-[0_6px_18px_rgba(15,23,42,0.06)]">
+                  <SelectValue placeholder="全部" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">全部</SelectItem>
+                  {failureTypes.map((ft) => (
+                    <SelectItem key={ft.value} value={ft.value}>
+                      {ft.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* 时间范围筛选 - 不在 PENDING 和 RUNNING 状态时显示 */}
+          {statusFilter !== "PENDING" && statusFilter !== "RUNNING" && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-slate-700">时间范围</span>
+              <Select
+                value={timeRangeFilter}
+                onValueChange={handleTimeRangeChange}
+                disabled={loading}
+              >
+                <SelectTrigger className="w-[140px] h-10 border-slate-200 bg-white shadow-[0_6px_18px_rgba(15,23,42,0.06)]">
+                  <SelectValue placeholder="全部" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">全部</SelectItem>
+                  <SelectItem value="today">今天</SelectItem>
+                  <SelectItem value="yesterday">昨天</SelectItem>
+                  <SelectItem value="3d">最近3天</SelectItem>
+                  <SelectItem value="7d">最近7天</SelectItem>
+                  <SelectItem value="30d">最近30天</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
       }
     >

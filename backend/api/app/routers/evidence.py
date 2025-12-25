@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import List
 
@@ -30,6 +30,58 @@ router = APIRouter(
 )
 
 
+def _parse_time_range(
+    range_key: str | None, tz_cn: timezone
+) -> tuple[datetime | None, datetime | None]:
+    """
+    解析预设时间范围，返回 UTC 时区的 (开始时间, 结束时间)
+
+    Args:
+        range_key: 时间范围键值（today/yesterday/3d/7d/30d）
+        tz_cn: 中国时区
+
+    Returns:
+        (start_time_utc, end_time_utc) 或 (None, None)
+
+    Note:
+        内部先计算东八区的时间范围，然后转换为 UTC 返回。
+        这样可以确保与数据库中存储的 UTC 时间正确比较。
+    """
+    if not range_key:
+        return None, None
+
+    now_cn = datetime.now(tz_cn)
+    today_start = now_cn.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end = now_cn.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+    if range_key == "today":
+        # 转换为 UTC 时间返回
+        return today_start.astimezone(timezone.utc), today_end.astimezone(timezone.utc)
+    elif range_key == "yesterday":
+        yesterday_start = today_start - timedelta(days=1)
+        yesterday_end = yesterday_start.replace(
+            hour=23, minute=59, second=59, microsecond=999999
+        )
+        # 转换为 UTC 时间返回
+        return yesterday_start.astimezone(timezone.utc), yesterday_end.astimezone(
+            timezone.utc
+        )
+    elif range_key == "3d":
+        start = today_start - timedelta(days=2)
+        # 转换为 UTC 时间返回
+        return start.astimezone(timezone.utc), today_end.astimezone(timezone.utc)
+    elif range_key == "7d":
+        start = today_start - timedelta(days=6)
+        # 转换为 UTC 时间返回
+        return start.astimezone(timezone.utc), today_end.astimezone(timezone.utc)
+    elif range_key == "30d":
+        start = today_start - timedelta(days=29)
+        # 转换为 UTC 时间返回
+        return start.astimezone(timezone.utc), today_end.astimezone(timezone.utc)
+    else:
+        return None, None
+
+
 @router.get(
     "/list",
     response_model=EvidenceListResponse,
@@ -39,12 +91,44 @@ def list_evidence(
     page: int = Query(1, ge=1, description="页码，从 1 开始"),
     page_size: int = Query(15, ge=1, le=100, description="每页条数"),
     q: str | None = Query(None, description="按 url 包含匹配"),
+    status: str | None = Query(
+        None, description="按任务状态过滤（小写，如 failed/success）"
+    ),
+    failure_type: str | None = Query(
+        None, description="按失败类型过滤（通常与 status=failed 配合使用）"
+    ),
+    executed_within: str | None = Query(
+        None, description="按执行时间范围过滤（today/yesterday/3d/7d/30d）"
+    ),
     db: Session = Depends(get_db),
 ):
     query = db.query(EvidenceTask)
+
     if q:
         keyword = f"%{q.lower()}%"
         query = query.filter(func.lower(EvidenceTask.url).like(keyword))
+
+    if status:
+        # 将小写参数转为大写枚举值
+        try:
+            status_enum = TaskStatus(status.upper())
+            query = query.filter(EvidenceTask.status == status_enum)
+        except ValueError:
+            # 无效的状态值，忽略该过滤条件
+            pass
+
+    if failure_type:
+        query = query.filter(EvidenceTask.failure_type == failure_type)
+
+    tz_cn = timezone(timedelta(hours=8))
+    if executed_within:
+        start_time, end_time = _parse_time_range(executed_within, tz_cn)
+        if start_time and end_time:
+            query = query.filter(
+                EvidenceTask.executed_at.isnot(None),
+                EvidenceTask.executed_at >= start_time,
+                EvidenceTask.executed_at <= end_time,
+            )
 
     total = query.count()
 
