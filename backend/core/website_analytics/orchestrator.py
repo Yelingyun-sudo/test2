@@ -369,7 +369,7 @@ async def execute(
         if isinstance(operations_results, dict):
             login_result = operations_results.get("login")
             if isinstance(login_result, dict):
-                login_result["last_capture_path"] = (
+                login_result["cover_image_path"] = (
                     _find_last_capture_relative_path_for_agent(
                         working_dir,
                         "loginAgent",
@@ -379,15 +379,24 @@ async def execute(
 
             extract_result = operations_results.get("extract")
             if isinstance(extract_result, dict):
-                extract_result["last_capture_path"] = (
+                extract_result["cover_image_path"] = (
                     _find_last_capture_relative_path_for_agent(
                         working_dir, "extractAgent"
                     )
                 )
 
-        coordinator_output["last_capture_path"] = _find_last_capture_relative_path(
-            working_dir
-        )
+            evidence_result = operations_results.get("evidence")
+            if isinstance(evidence_result, dict):
+                # 扫描 evidence 目录，收集所有入口的文件路径
+                entries_detail = _scan_evidence_entries(working_dir)
+                if entries_detail:
+                    evidence_result["entries_detail"] = entries_detail
+                    # 设置封面图：使用第一个入口的截图
+                    if "cover_image_path" not in evidence_result:
+                        first_screenshot = entries_detail[0].get("screenshot")
+                        if first_screenshot:
+                            evidence_result["cover_image_path"] = first_screenshot
+
         coordinator_output["video_path"] = _find_last_video_relative_path(working_dir)
         seek_seconds = getattr(llm_hooks, "get_video_seek_seconds", lambda: None)()
         coordinator_output["video_seek_seconds"] = (
@@ -428,7 +437,7 @@ async def execute(
         if isinstance(operations_results, dict):
             login_result = operations_results.get("login")
             if isinstance(login_result, dict):
-                login_result["last_capture_path"] = (
+                login_result["cover_image_path"] = (
                     _find_last_capture_relative_path_for_agent(
                         working_dir,
                         "loginAgent",
@@ -438,14 +447,23 @@ async def execute(
 
             extract_result = operations_results.get("extract")
             if isinstance(extract_result, dict):
-                extract_result["last_capture_path"] = (
+                extract_result["cover_image_path"] = (
                     _find_last_capture_relative_path_for_agent(
                         working_dir, "extractAgent"
                     )
                 )
-        coordinator_output["last_capture_path"] = _find_last_capture_relative_path(
-            working_dir
-        )
+
+            evidence_result = operations_results.get("evidence")
+            if isinstance(evidence_result, dict):
+                # 扫描 evidence 目录，收集所有入口的文件路径
+                entries_detail = _scan_evidence_entries(working_dir)
+                if entries_detail:
+                    evidence_result["entries_detail"] = entries_detail
+                    # 设置封面图：使用第一个入口的截图
+                    if "cover_image_path" not in evidence_result:
+                        first_screenshot = entries_detail[0].get("screenshot")
+                        if first_screenshot:
+                            evidence_result["cover_image_path"] = first_screenshot
         coordinator_output["video_path"] = _find_last_video_relative_path(working_dir)
         seek_seconds = getattr(llm_hooks, "get_video_seek_seconds", lambda: None)()
         coordinator_output["video_seek_seconds"] = (
@@ -551,6 +569,72 @@ def _find_last_video_relative_path(task_dir: Path) -> str | None:
         return best.relative_to(task_dir).as_posix()
     except ValueError:
         return str(best)
+
+
+_EVIDENCE_ENTRY_PREFIX_RE = re.compile(r"^(?P<index>\d{2})_(?P<label>.+)$")
+
+
+def _scan_evidence_entries(task_dir: Path) -> list[dict[str, str]]:
+    """扫描 evidence 目录，收集所有入口的文件路径。
+
+    Args:
+        task_dir: 任务目录路径
+
+    Returns:
+        入口详情列表，每个元素包含 json、screenshot、text 三个文件路径。
+        格式：`[{"json": "evidence/01_仪表盘.json", "screenshot": "evidence/01_仪表盘.png", "text": "evidence/01_仪表盘.txt"}, ...]`
+        按入口序号排序。
+    """
+    evidence_dir = task_dir / "evidence"
+    if not evidence_dir.is_dir():
+        return []
+
+    # 按前缀分组收集文件
+    entries_map: dict[int, dict[str, str]] = {}
+
+    # 扫描所有相关文件
+    for ext in ["json", "png", "txt"]:
+        pattern = f"*.{ext}"
+        for file_path in evidence_dir.glob(pattern):
+            # 跳过 evidenceEntryList.txt 等非入口文件
+            if file_path.name == "evidenceEntryList.txt":
+                continue
+
+            stem = file_path.stem
+            match = _EVIDENCE_ENTRY_PREFIX_RE.match(stem)
+            if not match:
+                continue
+
+            index = int(match.group("index"))
+            if index not in entries_map:
+                entries_map[index] = {}
+
+            # 确定字段名
+            if ext == "json":
+                field_name = "json"
+            elif ext == "png":
+                field_name = "screenshot"
+            elif ext == "txt":
+                field_name = "text"
+            else:
+                continue
+
+            # 转换为相对路径
+            try:
+                relative_path = file_path.relative_to(task_dir).as_posix()
+            except ValueError:
+                relative_path = str(file_path)
+            entries_map[index][field_name] = relative_path
+
+    # 按序号排序并转换为列表
+    result = []
+    for index in sorted(entries_map.keys()):
+        entry = entries_map[index]
+        # 只包含完整的条目（至少有一个文件）
+        if entry:
+            result.append(entry)
+
+    return result
 
 
 def _save_single_task_summary(

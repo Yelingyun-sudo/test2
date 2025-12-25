@@ -152,9 +152,19 @@ def get_task_artifacts(
         coordinator = summary.get("coordinator_output", {})
         operations = coordinator.get("operations_results", {})
 
+        # 获取证据截图路径：优先使用 cover_image_path，否则从 entries_detail 中获取第一个入口的截图
+        evidence_result = operations.get("evidence", {})
+        evidence_image_path = evidence_result.get("cover_image_path")
+        if not evidence_image_path:
+            entries_detail = evidence_result.get("entries_detail", [])
+            if entries_detail and isinstance(entries_detail, list):
+                first_entry = entries_detail[0]
+                if isinstance(first_entry, dict):
+                    evidence_image_path = first_entry.get("screenshot")
+
         return TaskArtifacts(
-            login_image_path=operations.get("login", {}).get("last_capture_path"),
-            evidence_image_path=operations.get("evidence", {}).get("last_capture_path"),
+            login_image_path=operations.get("login", {}).get("cover_image_path"),
+            evidence_image_path=evidence_image_path,
             video_path=coordinator.get("video_path"),
             video_seek_seconds=coordinator.get("video_seek_seconds"),
         )

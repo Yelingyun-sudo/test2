@@ -244,12 +244,12 @@ def get_task_artifacts(
     login_image_path = None
     login_result = operations_results.get("login")
     if isinstance(login_result, dict):
-        login_image_path = login_result.get("last_capture_path")
+        login_image_path = login_result.get("cover_image_path")
 
     extract_image_path = None
     extract_result = operations_results.get("extract")
     if isinstance(extract_result, dict):
-        extract_image_path = extract_result.get("last_capture_path")
+        extract_image_path = extract_result.get("cover_image_path")
 
     video_path = coordinator.get("video_path")
     video_seek_seconds = coordinator.get("video_seek_seconds")
