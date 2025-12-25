@@ -58,7 +58,9 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     # 启动逻辑
     if settings.task_runner_enabled:
-        app.state.subscription_runner = asyncio.create_task(run_subscription_runner_loop())
+        app.state.subscription_runner = asyncio.create_task(
+            run_subscription_runner_loop()
+        )
     if settings.task_cleaner_enabled:
         app.state.task_cleaner = asyncio.create_task(run_task_cleaner_loop())
     if settings.task_importer_enabled:

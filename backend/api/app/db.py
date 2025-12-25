@@ -96,8 +96,7 @@ def _ensure_indices() -> None:
             "ON payment_tasks (url, created_date)"
         )
         conn.exec_driver_sql(
-            "CREATE UNIQUE INDEX IF NOT EXISTS uq_websites_url "
-            "ON websites (url)"
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_websites_url ON websites (url)"
         )
 
 

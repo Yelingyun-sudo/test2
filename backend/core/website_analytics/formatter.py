@@ -64,7 +64,7 @@ def _format_operation_result(name: str, payload: Any) -> list[str]:
         if subscription_url:
             lines.append(f"  订阅地址: {subscription_url}")
             handled_keys.add(subscription_key)
-    elif name == "inspect":
+    elif name == "evidence":
         entries_keys = (
             "entries_total",
             "entries_success",

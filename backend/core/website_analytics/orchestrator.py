@@ -20,8 +20,8 @@ from agents.logger import logger
 
 from website_analytics.agent_factory import (
     build_coordinator_agent,
+    build_evidence_agent,
     build_extract_agent,
-    build_inspect_agent,
     build_login_agent,
 )
 from website_analytics.batch_reporter import (
@@ -39,8 +39,8 @@ from website_analytics.playwright_server import AutoSwitchingPlaywrightServer
 from website_analytics.output_types import ErrorType
 from website_analytics.settings import get_settings
 from website_analytics.tools import (
-    build_compile_inspect_report_tool,
-    build_programmatic_inspect_entry_tool,
+    build_compile_evidence_report_tool,
+    build_programmatic_evidence_entry_tool,
     build_save_page_text_tool,
 )
 from website_analytics.utils import (
@@ -151,7 +151,7 @@ def _infer_error_type_from_operations(output: dict[str, Any]) -> str | None:
     if isinstance(operations_executed, list) and operations_executed:
         ordered_ops = [str(item) for item in operations_executed]
     else:
-        ordered_ops = ["login", "extract", "inspect"]
+        ordered_ops = ["login", "extract", "evidence"]
 
     for op_name in ordered_ops:
         payload = operations_results.get(op_name)
@@ -215,8 +215,8 @@ async def execute(
             if key in {"DISPLAY", "XAUTHORITY"} and value
         }
         # 创建取证报告工具
-        compile_inspect_report_tool = build_compile_inspect_report_tool(working_dir)
-        # 创建保存页面文本工具（用于保存 inspectEntryList.txt）
+        compile_evidence_report_tool = build_compile_evidence_report_tool(working_dir)
+        # 创建保存页面文本工具（用于保存 evidenceEntryList.txt）
         save_page_text_tool = build_save_page_text_tool(working_dir)
 
         playwright_params: dict[str, Any] = {
@@ -236,7 +236,7 @@ async def execute(
             if hasattr(llm_hooks, "set_video_start_t"):
                 llm_hooks.set_video_start_t(time.perf_counter())
             # 创建程序化取证工具（替代手动流程）
-            programmatic_inspect_entry_tool = build_programmatic_inspect_entry_tool(
+            programmatic_evidence_entry_tool = build_programmatic_evidence_entry_tool(
                 working_dir,
                 playwright_server,
             )
@@ -249,24 +249,24 @@ async def execute(
                 playwright_server,
                 load_instruction("extract_agent.md"),
             )
-            inspect_agent = build_inspect_agent(
+            evidence_agent = build_evidence_agent(
                 playwright_server,
                 load_instruction(
-                    "inspect_agent.md",
+                    "evidence_agent.md",
                     replacements={
-                        "{MAX_MENU_ENTRIES}": str(settings.inspect_max_menu_entries)
+                        "{MAX_MENU_ENTRIES}": str(settings.evidence_max_menu_entries)
                     },
                 ),
                 extra_tools=[
                     save_page_text_tool,
-                    programmatic_inspect_entry_tool,
-                    compile_inspect_report_tool,
+                    programmatic_evidence_entry_tool,
+                    compile_evidence_report_tool,
                 ],
             )
             coordinator_agent = build_coordinator_agent(
                 login_agent,
                 extract_agent,
-                inspect_agent,
+                evidence_agent,
                 load_instruction("coordinator_agent.md"),
                 child_hooks=llm_hooks,
                 run_config=run_config,

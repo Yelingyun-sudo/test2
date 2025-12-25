@@ -66,14 +66,15 @@ def sync_credential_from_subscription_task(
 
     if not account_found:
         # 追加新账号
-        credentials.append({
-            "account": account,
-            "password": password,
-            "source": "SubscriptionTask",
-            "created_at": now,
-        })
+        credentials.append(
+            {
+                "account": account,
+                "password": password,
+                "source": "SubscriptionTask",
+                "created_at": now,
+            }
+        )
 
     website.credentials = credentials
     flag_modified(website, "credentials")
     db.commit()
-

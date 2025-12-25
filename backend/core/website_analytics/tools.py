@@ -11,8 +11,8 @@ from agents import Tool, function_tool
 
 
 def build_save_page_text_tool(task_dir: Path) -> Tool:
-    inspect_dir = task_dir / "inspect"
-    inspect_dir.mkdir(parents=True, exist_ok=True)
+    evidence_dir = task_dir / "evidence"
+    evidence_dir.mkdir(parents=True, exist_ok=True)
 
     @function_tool(
         name_override="save_page_text",
@@ -26,7 +26,7 @@ def build_save_page_text_tool(task_dir: Path) -> Tool:
             raise ValueError("filename 不能为空。")
 
         stem = base_name.rsplit(".", 1)[0] if "." in base_name else base_name
-        target_path = inspect_dir / f"{stem}.txt"
+        target_path = evidence_dir / f"{stem}.txt"
         try:
             target_path.write_text(content, encoding="utf-8")
         except OSError as exc:  # pragma: no cover - IO errors are surfaced to the agent
@@ -42,8 +42,8 @@ def build_save_page_text_tool(task_dir: Path) -> Tool:
 
 
 def build_save_entry_result_tool(task_dir: Path) -> Tool:
-    inspect_dir = task_dir / "inspect"
-    inspect_dir.mkdir(parents=True, exist_ok=True)
+    evidence_dir = task_dir / "evidence"
+    evidence_dir.mkdir(parents=True, exist_ok=True)
 
     @function_tool(
         name_override="save_entry_result",
@@ -55,7 +55,7 @@ def build_save_entry_result_tool(task_dir: Path) -> Tool:
             raise ValueError("filename 不能为空。")
 
         stem = base_name.rsplit(".", 1)[0] if "." in base_name else base_name
-        target_path = inspect_dir / f"{stem}.json"
+        target_path = evidence_dir / f"{stem}.json"
 
         try:
             parsed = json.loads(result_json)
@@ -77,28 +77,28 @@ def build_save_entry_result_tool(task_dir: Path) -> Tool:
     return save_entry_result
 
 
-def build_compile_inspect_report_tool(task_dir: Path) -> Tool:
-    inspect_dir = task_dir / "inspect"
+def build_compile_evidence_report_tool(task_dir: Path) -> Tool:
+    evidence_dir = task_dir / "evidence"
 
     @function_tool(
-        name_override="compile_inspect_report",
+        name_override="compile_evidence_report",
         description_override="读取取证入口 JSON 结果并生成 Markdown 报告与统计信息。",
     )
-    def compile_inspect_report(
+    def compile_evidence_report(
         output_filename: str | None = None,
     ) -> str:
-        if not inspect_dir.exists():
-            raise ValueError("inspect 目录不存在，无法生成取证报告。")
+        if not evidence_dir.exists():
+            raise ValueError("evidence 目录不存在，无法生成取证报告。")
 
         json_files = sorted(
             path
-            for path in inspect_dir.glob("*.json")
+            for path in evidence_dir.glob("*.json")
             if path.is_file() and path.name != "report.json"
         )
         if not json_files:
-            raise ValueError("inspect 目录中未找到任何入口 JSON 结果，无法生成报告。")
+            raise ValueError("evidence 目录中未找到任何入口 JSON 结果，无法生成报告。")
 
-        entry_list_path = inspect_dir / "inspectEntryList.txt"
+        entry_list_path = evidence_dir / "evidenceEntryList.txt"
         menu_names: list[str] = []
         notes: list[str] = []
         if entry_list_path.exists():
@@ -108,13 +108,13 @@ def build_compile_inspect_report_tool(task_dir: Path) -> Tool:
                 if cleaned:
                     menu_names.append(cleaned)
         else:
-            notes.append("缺少 inspectEntryList.txt，已按文件名前缀推断入口名称。")
+            notes.append("缺少 evidenceEntryList.txt，已按文件名前缀推断入口名称。")
 
         if output_filename:
             candidate = Path(output_filename.strip())
             target_path = candidate if candidate.is_absolute() else task_dir / candidate
         else:
-            target_path = inspect_dir / "report.md"
+            target_path = evidence_dir / "report.md"
 
         if not target_path.suffix:
             target_path = target_path.with_suffix(".md")
@@ -269,13 +269,11 @@ def build_compile_inspect_report_tool(task_dir: Path) -> Tool:
         for record in compiled_records:
             screenshot_link = (
                 f"[查看]({record['screenshot_rel']})"
-                if record['screenshot_rel'] != "-"
+                if record["screenshot_rel"] != "-"
                 else "-"
             )
             text_link = (
-                f"[查看]({record['text_rel']})"
-                if record['text_rel'] != "-"
-                else "-"
+                f"[查看]({record['text_rel']})" if record["text_rel"] != "-" else "-"
             )
             row = (
                 f"| {record['entry_id']} | "
@@ -348,7 +346,7 @@ def build_compile_inspect_report_tool(task_dir: Path) -> Tool:
 
         return json.dumps(result_payload, ensure_ascii=False, indent=2)
 
-    return compile_inspect_report
+    return compile_evidence_report
 
 
 def build_capture_and_save_tool(task_dir: Path) -> Tool:
@@ -358,8 +356,8 @@ def build_capture_and_save_tool(task_dir: Path) -> Tool:
     - save_page_text（保存文本）
     - save_entry_result（保存 JSON）
     """
-    inspect_dir = task_dir / "inspect"
-    inspect_dir.mkdir(parents=True, exist_ok=True)
+    evidence_dir = task_dir / "evidence"
+    evidence_dir.mkdir(parents=True, exist_ok=True)
 
     @function_tool(
         name_override="capture_and_save",
@@ -398,7 +396,7 @@ def build_capture_and_save_tool(task_dir: Path) -> Tool:
 
         # 清理 Playwright 调试输出（### Result\n"..."）
         clean_text = text_content
-        if clean_text.startswith("### Result\n\"") and clean_text.endswith('"'):
+        if clean_text.startswith('### Result\n"') and clean_text.endswith('"'):
             # 去除 ### Result\n" 前缀和尾部的 "
             clean_text = clean_text[14:-1]
         elif clean_text.startswith("### Result\n"):
@@ -406,7 +404,7 @@ def build_capture_and_save_tool(task_dir: Path) -> Tool:
             clean_text = clean_text[12:]
 
         # 保存文本
-        text_path = inspect_dir / f"{prefix}.txt"
+        text_path = evidence_dir / f"{prefix}.txt"
         text_path.write_text(clean_text, encoding="utf-8")
 
         # 保存 JSON 结果
@@ -414,13 +412,12 @@ def build_capture_and_save_tool(task_dir: Path) -> Tool:
             "entry_id": entry_id,
             "status": "success",
             "screenshot": screenshot_path,
-            "text_snapshot": f"inspect/{prefix}.txt",
+            "text_snapshot": f"evidence/{prefix}.txt",
             "error": None,
         }
-        json_path = inspect_dir / f"{prefix}.json"
+        json_path = evidence_dir / f"{prefix}.json"
         json_path.write_text(
-            json.dumps(result_data, ensure_ascii=False, indent=2),
-            encoding="utf-8"
+            json.dumps(result_data, ensure_ascii=False, indent=2), encoding="utf-8"
         )
 
         try:
@@ -464,13 +461,13 @@ def _find_ref_by_label(snapshot_text: str, label: str) -> str | None:
         return match.group(1)
 
     # Pattern 2: [ref=e39]: 套餐商店
-    pattern = rf'\[ref=(e\d+)\]:\s*{re.escape(label)}'
+    pattern = rf"\[ref=(e\d+)\]:\s*{re.escape(label)}"
     match = re.search(pattern, snapshot_text)
     if match:
         return match.group(1)
 
     # 模糊匹配：label 包含在文本中
-    pattern = rf'\[ref=(e\d+)\][^\n]*{re.escape(label)}'
+    pattern = rf"\[ref=(e\d+)\][^\n]*{re.escape(label)}"
     match = re.search(pattern, snapshot_text, re.IGNORECASE)
     if match:
         return match.group(1)
@@ -478,7 +475,7 @@ def _find_ref_by_label(snapshot_text: str, label: str) -> str | None:
     return None
 
 
-def build_programmatic_inspect_entry_tool(
+def build_programmatic_evidence_entry_tool(
     task_dir: Path,
     playwright_server: Any,
 ) -> Tool:
@@ -497,14 +494,14 @@ def build_programmatic_inspect_entry_tool(
 
     import nest_asyncio
 
-    inspect_dir = task_dir / "inspect"
-    inspect_dir.mkdir(parents=True, exist_ok=True)
+    evidence_dir = task_dir / "evidence"
+    evidence_dir.mkdir(parents=True, exist_ok=True)
 
     @function_tool(
-        name_override="programmatic_inspect_entry",
+        name_override="programmatic_evidence_entry",
         description_override="程序化取证单个菜单入口，自动完成点击、截图、文本采集。",
     )
-    def programmatic_inspect_entry(
+    def programmatic_evidence_entry(
         entry_id: str,
         entry_index: int,
         entry_label: str,
@@ -549,7 +546,9 @@ def build_programmatic_inspect_entry_tool(
             for _ in range(max_wait_seconds):
                 await playwright_server.call_tool("browser_wait_for", {"time": 1})
 
-                check_snapshot = await playwright_server.call_tool("browser_snapshot", {})
+                check_snapshot = await playwright_server.call_tool(
+                    "browser_snapshot", {}
+                )
                 snapshot_text = check_snapshot.content[0].text
 
                 # 条件1: 目标菜单项是否存在（导航栏已加载）
@@ -580,7 +579,9 @@ def build_programmatic_inspect_entry_tool(
         async def _do_inspect():
             try:
                 # 1. 直接获取当前页面快照（不再导航回首页）
-                snapshot_result = await playwright_server.call_tool("browser_snapshot", {})
+                snapshot_result = await playwright_server.call_tool(
+                    "browser_snapshot", {}
+                )
 
                 # 2. 解析快照，匹配 entry_label
                 snapshot_text = snapshot_result.content[0].text
@@ -609,7 +610,7 @@ def build_programmatic_inspect_entry_tool(
                     .translate(str.maketrans("", "", r'/\:*?"<>|'))
                 )
                 prefix = f"{entry_index:02d}_{safe_label}"
-                screenshot_path = f"inspect/{prefix}.png"
+                screenshot_path = f"evidence/{prefix}.png"
 
                 await playwright_server.call_tool(
                     "browser_take_screenshot",
@@ -630,7 +631,7 @@ def build_programmatic_inspect_entry_tool(
                     clean_text = clean_text[12:]
 
                 # 8. 保存文本
-                text_path = inspect_dir / f"{prefix}.txt"
+                text_path = evidence_dir / f"{prefix}.txt"
                 text_path.write_text(clean_text, encoding="utf-8")
 
                 # 9. 保存 JSON
@@ -638,10 +639,10 @@ def build_programmatic_inspect_entry_tool(
                     "entry_id": entry_id,
                     "status": "success",
                     "screenshot": screenshot_path,
-                    "text_snapshot": f"inspect/{prefix}.txt",
+                    "text_snapshot": f"evidence/{prefix}.txt",
                     "error": None,
                 }
-                json_path = inspect_dir / f"{prefix}.json"
+                json_path = evidence_dir / f"{prefix}.json"
                 json_path.write_text(
                     json.dumps(result_data, ensure_ascii=False, indent=2),
                     encoding="utf-8",
@@ -664,7 +665,7 @@ def build_programmatic_inspect_entry_tool(
 
         return json.dumps(result, ensure_ascii=False)
 
-    return programmatic_inspect_entry
+    return programmatic_evidence_entry
 
 
 def build_capture_page_data_tool(
@@ -687,8 +688,8 @@ def build_capture_page_data_tool(
 
     import nest_asyncio
 
-    inspect_dir = task_dir / "inspect"
-    inspect_dir.mkdir(parents=True, exist_ok=True)
+    evidence_dir = task_dir / "evidence"
+    evidence_dir.mkdir(parents=True, exist_ok=True)
 
     @function_tool(
         name_override="capture_page_data",
@@ -726,7 +727,7 @@ def build_capture_page_data_tool(
                     .translate(str.maketrans("", "", r'/\:*?"<>|'))
                 )
                 prefix = f"{entry_index:02d}_{safe_label}"
-                screenshot_path = f"inspect/{prefix}.png"
+                screenshot_path = f"evidence/{prefix}.png"
 
                 await playwright_server.call_tool(
                     "browser_take_screenshot",
@@ -747,7 +748,7 @@ def build_capture_page_data_tool(
                     clean_text = clean_text[12:]
 
                 # 3. 保存文本
-                text_path = inspect_dir / f"{prefix}.txt"
+                text_path = evidence_dir / f"{prefix}.txt"
                 text_path.write_text(clean_text, encoding="utf-8")
 
                 # 4. 保存 JSON
@@ -755,10 +756,10 @@ def build_capture_page_data_tool(
                     "entry_id": entry_id,
                     "status": "success",
                     "screenshot": screenshot_path,
-                    "text_snapshot": f"inspect/{prefix}.txt",
+                    "text_snapshot": f"evidence/{prefix}.txt",
                     "error": None,
                 }
-                json_path = inspect_dir / f"{prefix}.json"
+                json_path = evidence_dir / f"{prefix}.json"
                 json_path.write_text(
                     json.dumps(result_data, ensure_ascii=False, indent=2),
                     encoding="utf-8",
@@ -787,8 +788,8 @@ def build_capture_page_data_tool(
 __all__ = [
     "build_save_page_text_tool",
     "build_save_entry_result_tool",
-    "build_compile_inspect_report_tool",
+    "build_compile_evidence_report_tool",
     "build_capture_and_save_tool",
     "build_capture_page_data_tool",
-    "build_programmatic_inspect_entry_tool",
+    "build_programmatic_evidence_entry_tool",
 ]

@@ -20,7 +20,9 @@ logger = logging.getLogger(__name__)
 TZ_CHINA = timezone(timedelta(hours=8))
 
 
-def _insert_subscription_task(session, record: dict, now: datetime, today: date) -> bool:
+def _insert_subscription_task(
+    session, record: dict, now: datetime, today: date
+) -> bool:
     """写入 subscription_tasks 表，返回是否成功"""
     task = SubscriptionTask(
         url=record["url"],
@@ -50,9 +52,7 @@ def _insert_subscription_task(session, record: dict, now: datetime, today: date)
         return False  # 重复数据，跳过
 
 
-def _insert_evidence_task(
-    session, record: dict, now: datetime, today: date
-) -> bool:
+def _insert_evidence_task(session, record: dict, now: datetime, today: date) -> bool:
     """写入 evidence_tasks 表，返回是否成功"""
     task = EvidenceTask(url=record["url"], created_at=now, created_date=today)
     session.add(task)

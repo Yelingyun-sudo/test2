@@ -31,8 +31,12 @@ class Website(Base):
     url = Column(String(2048), nullable=False, index=True)
     description = Column(Text, nullable=True)
     credentials = Column(JSON, nullable=True, comment="账号密码列表")
-    status = Column(SAEnum(WebsiteStatus), nullable=False, default=WebsiteStatus.INITIALIZED)
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    status = Column(
+        SAEnum(WebsiteStatus), nullable=False, default=WebsiteStatus.INITIALIZED
+    )
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
     updated_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -42,4 +46,3 @@ class Website(Base):
 
     def __repr__(self) -> str:  # pragma: no cover - 调试辅助
         return f"<Website id={self.id} url={self.url} status={self.status}>"
-

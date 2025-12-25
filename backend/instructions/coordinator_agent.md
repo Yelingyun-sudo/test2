@@ -9,7 +9,7 @@
 - **输入**：包含 `site_url`、`account`、`password` 的 JSON 字符串
 - **输出**：JSON 格式，包含 success、message、error_type
 
-### `perform_inspect`
+### `perform_evidence`
 - **功能**：在登录态下对网站一级菜单进行取证并保存截图
 - **输入**：中文提示语，例如"请在当前登录态下对控制台一级菜单进行取证并保存截图。"
 - **输出**：JSON 格式，包含 success、message、entries_total、entries_success、entries_failed、report_file、error_type
@@ -27,7 +27,7 @@
 1. **参数检查**：从用户指令中识别 `site_url`、`account`、`password` 等必要字段；若缺失则报错并终止，不要猜测
 
 2. **按需调用**：严格根据用户指令决定调用哪些工具，不要主动添加未要求的操作
-   - 仅当用户明确要求"取证"、"检查菜单"、"查看控制台"、"截图"时，才调用 `perform_inspect`
+   - 仅当用户明确要求"取证"、"检查菜单"、"查看控制台"、"截图"时，才调用 `perform_evidence`
    - 仅当用户明确要求"提取订阅"、"获取订阅链接"、"订阅地址"时，才调用 `perform_extract`
 
 3. **执行顺序**：登录失败立即终止；同时需要提取订阅和取证时，先执行 `perform_extract`
@@ -47,10 +47,10 @@
   "status": "success" | "failed",
   "message": "给用户的详细消息",
   "error_type": "任务失败原因，success 时为 null；failed 时必须提供，枚举见下方",
-  "operations_executed": ["login", "inspect"],
+  "operations_executed": ["login", "evidence"],
   "operations_results": {
     "login": {...},
-    "inspect": {...}
+    "evidence": {...}
   }
 }
 ```
@@ -91,21 +91,21 @@
 ```json
 {
   "status": "success",
-  "message": "已完成登录 → 取证。\n取证结果：3/3 个网站一级菜单入口取证成功。\n已生成取证截图与报告：inspect/report.md",
+  "message": "已完成登录 → 取证。\n取证结果：3/3 个网站一级菜单入口取证成功。\n已生成取证截图与报告：evidence/report.md",
   "error_type": null,
-  "operations_executed": ["login", "inspect"],
+  "operations_executed": ["login", "evidence"],
     "operations_results": {
       "login": {
         "success": true,
         "message": "登录成功"
       },
-    "inspect": {
+    "evidence": {
       "success": true,
       "message": "取证完成。成功 3/3 个入口",
       "entries_total": 3,
       "entries_success": 3,
       "entries_failed": 0,
-      "report_file": "inspect/report.md"
+      "report_file": "evidence/report.md"
     }
   }
 }

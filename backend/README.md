@@ -16,7 +16,7 @@ uv pip install -e .         # 或 pip install -e .
 ```
 
 ## 配置
-- `backend/.env`（示例见 `.env.example`）：`OPENAI_API_KEY`、`AGENT_MODEL`、`PLAYWRIGHT_PROXY_SERVER`、`INSPECT_MAX_MENU_ENTRIES`、`PROJECT_NAME`、`API_PREFIX` 等。
+- `backend/.env`（示例见 `.env.example`）：`OPENAI_API_KEY`、`AGENT_MODEL`、`PLAYWRIGHT_PROXY_SERVER`、`EVIDENCE_MAX_MENU_ENTRIES`、`PROJECT_NAME`、`API_PREFIX` 等。
 
 ## 运行
 - CLI：`python -m website_analytics.main --help` 或 `python -m website_analytics.main --instruction "..."`

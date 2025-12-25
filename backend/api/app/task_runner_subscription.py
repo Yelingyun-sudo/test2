@@ -317,4 +317,3 @@ async def run_subscription_runner_loop() -> None:
         except Exception as exc:  # pragma: no cover - 防御性日志
             logger.exception("订阅任务调度异常: %s", exc)
         await asyncio.sleep(interval)
-

@@ -55,7 +55,7 @@ def _parse_time_range(
 
     Returns:
         (start_time_utc, end_time_utc) 或 (None, None)
-        
+
     Note:
         内部先计算东八区的时间范围，然后转换为 UTC 返回。
         这样可以确保与数据库中存储的 UTC 时间正确比较。
@@ -104,7 +104,9 @@ def list_subscription(
     page: int = Query(1, ge=1, description="页码，从 1 开始"),
     page_size: int = Query(20, ge=1, le=100, description="每页条数"),
     q: str | None = Query(None, description="按 url / account / password 包含匹配"),
-    status: str | None = Query(None, description="按任务状态过滤（小写，如 failed/success）"),
+    status: str | None = Query(
+        None, description="按任务状态过滤（小写，如 failed/success）"
+    ),
     failure_type: str | None = Query(
         None, description="按失败类型过滤（通常与 status=failed 配合使用）"
     ),
@@ -340,7 +342,7 @@ def get_subscription_stats(
     """
     tz_cn = timezone(timedelta(hours=8))
     cn_today = datetime.now(tz_cn).date()
-    
+
     # 计算今日时间范围（东八区 00:00 - 23:59 转换为 UTC）
     now_cn = datetime.now(tz_cn)
     today_start_cn = now_cn.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -359,18 +361,18 @@ def get_subscription_stats(
         func.sum(case((SubscriptionTask.created_date == cn_today, 1), else_=0)).label(
             "today_tasks"
         ),
-        func.sum(case((SubscriptionTask.status == TaskStatus.SUCCESS, 1), else_=0)).label(
-            "success_count"
-        ),
-        func.sum(case((SubscriptionTask.status == TaskStatus.FAILED, 1), else_=0)).label(
-            "failed_count"
-        ),
-        func.sum(case((SubscriptionTask.status == TaskStatus.PENDING, 1), else_=0)).label(
-            "pending_count"
-        ),
-        func.sum(case((SubscriptionTask.status == TaskStatus.RUNNING, 1), else_=0)).label(
-            "running_count"
-        ),
+        func.sum(
+            case((SubscriptionTask.status == TaskStatus.SUCCESS, 1), else_=0)
+        ).label("success_count"),
+        func.sum(
+            case((SubscriptionTask.status == TaskStatus.FAILED, 1), else_=0)
+        ).label("failed_count"),
+        func.sum(
+            case((SubscriptionTask.status == TaskStatus.PENDING, 1), else_=0)
+        ).label("pending_count"),
+        func.sum(
+            case((SubscriptionTask.status == TaskStatus.RUNNING, 1), else_=0)
+        ).label("running_count"),
         func.avg(
             case(
                 (
@@ -687,7 +689,7 @@ def get_subscription_stats(
         SubscriptionTask.status == TaskStatus.FAILED,
         SubscriptionTask.failure_type.isnot(None),
     )
-    
+
     # 应用时间范围过滤（如果指定）
     if executed_within:
         start_time, end_time = _parse_time_range(executed_within, tz_cn)
@@ -697,10 +699,9 @@ def get_subscription_stats(
                 SubscriptionTask.executed_at >= start_time,
                 SubscriptionTask.executed_at <= end_time,
             )
-    
+
     failure_type_results = (
-        failure_type_query
-        .group_by(SubscriptionTask.failure_type)
+        failure_type_query.group_by(SubscriptionTask.failure_type)
         .order_by(func.count(SubscriptionTask.id).desc())
         .all()
     )

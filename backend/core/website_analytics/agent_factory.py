@@ -10,8 +10,8 @@ from agents.result import RunResult
 
 from website_analytics.output_types import (
     CoordinatorOutput,
+    EvidenceOutput,
     ExtractOutput,
-    InspectOutput,
     LoginOutput,
 )
 from website_analytics.settings import get_settings
@@ -52,25 +52,25 @@ def build_extract_agent(playwright_server: MCPServerStdio, instructions: str) ->
     )
 
 
-def build_inspect_agent(
+def build_evidence_agent(
     playwright_server: MCPServerStdio,
     instructions: str,
     extra_tools: Sequence[Tool] | None = None,
 ) -> Agent:
     return Agent(
-        name="inspectAgent",
+        name="evidenceAgent",
         instructions=instructions,
         tools=[*extra_tools] if extra_tools else [],
         mcp_servers=[playwright_server],
         model=settings.agent_model,
-        output_type=InspectOutput,
+        output_type=EvidenceOutput,
     )
 
 
 def build_coordinator_agent(
     login_agent: Agent,
     extract_agent: Agent,
-    inspect_agent: Agent,
+    evidence_agent: Agent,
     coordinator_instructions: str,
     child_hooks: RunHooks | None = None,
     run_config: RunConfig | None = None,
@@ -85,8 +85,8 @@ def build_coordinator_agent(
             run_config=run_config,
             custom_output_extractor=extract_structured_output,
         ),
-        inspect_agent.as_tool(
-            tool_name="perform_inspect",
+        evidence_agent.as_tool(
+            tool_name="perform_evidence",
             tool_description="取证网站的一级菜单并保存截图。",
             max_turns=100,
             hooks=child_hooks,

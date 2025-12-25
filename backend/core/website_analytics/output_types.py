@@ -111,7 +111,7 @@ class LoginOutput(BaseModel):
     )
 
 
-class InspectOutput(BaseModel):
+class EvidenceOutput(BaseModel):
     """取证代理的结构化输出。"""
 
     success: bool = Field(description="是否取证成功（至少成功一个入口）")
@@ -155,16 +155,16 @@ class CoordinatorOutput(BaseModel):
 
     operations_executed: list[str] = Field(
         default_factory=list,
-        description="实际执行的操作列表，例如 ['login', 'inspect']",
+        description="实际执行的操作列表，例如 ['login', 'evidence']",
     )
 
     operations_results: dict[str, Any] = Field(
         default_factory=dict,
         description="""各操作的完整结果（原始 JSON）。
-        key: 操作名称（login/inspect/extract）
+        key: 操作名称（login/evidence/extract）
         value: 该操作的完整输出对象（直接保存子工具返回的 JSON，不要修改）
 
-        示例：login 和 inspect 的完整 JSON 对象会原样保存。
+        示例：login 和 evidence 的完整 JSON 对象会原样保存。
 
         优势：保留所有结构化信息，便于后续统计分析和报告生成。
         """,

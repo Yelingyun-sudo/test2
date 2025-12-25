@@ -60,7 +60,7 @@ class Settings(BaseSettings):
     playwright_cleanup_buffer_seconds: int = 120
 
     # 取证与截图
-    inspect_max_menu_entries: int = 3
+    evidence_max_menu_entries: int = 3
     llm_snapshot: bool = True
     llm_snapshot_fullpage: bool = True
 
