@@ -1,19 +1,10 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, TypeAlias
 
 from pydantic import BaseModel, Field
 
-
-class LLMUsage(BaseModel):
-    """LLM token 使用统计。"""
-
-    total_input_tokens: int = Field(..., description="总输入 token 数")
-    total_output_tokens: int = Field(..., description="总输出 token 数")
-    total_tokens: int = Field(..., description="总 token 数")
-    llm_turns: int = Field(..., description="LLM 调用轮次")
-    total_cached_tokens: Optional[int] = Field(None, description="缓存 token 数")
-    total_reasoning_tokens: Optional[int] = Field(None, description="推理 token 数")
+from .common import LLMUsage, PaginatedListResponse
 
 
 class SubscriptionItem(BaseModel):
@@ -31,11 +22,7 @@ class SubscriptionItem(BaseModel):
     llm_usage: Optional[LLMUsage] = Field(None, description="LLM token 使用统计")
 
 
-class SubscriptionListResponse(BaseModel):
-    items: list[SubscriptionItem]
-    total: int
-    page: int
-    page_size: int
+SubscriptionListResponse: TypeAlias = PaginatedListResponse[SubscriptionItem]
 
 
 class SubscriptionArtifactsResponse(BaseModel):
@@ -109,21 +96,6 @@ class FailureTypeDistributionItem(BaseModel):
 class FailureSummary(BaseModel):
     total_failed: int = Field(..., description="失败任务总数")
     unique_types: int = Field(..., description="失败类型数量")
-
-
-class FailureTypeItem(BaseModel):
-    """失败类型项。"""
-
-    value: str = Field(..., description="失败类型值")
-    label: str = Field(..., description="失败类型中文标签")
-
-
-class FailureTypesResponse(BaseModel):
-    """失败类型列表响应。"""
-
-    items: list[FailureTypeItem] = Field(
-        ..., description="失败类型列表（按业务优先级排序）"
-    )
 
 
 class SubscriptionStatsResponse(BaseModel):

@@ -1,20 +1,28 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import timedelta, timezone
 from pathlib import Path
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from ..db import get_db
 from ..utils import resolve_task_dir
 from ..models import EvidenceTask, TaskStatus
-from ..schemas.evidence import EvidenceItem, EvidenceListResponse
+from ..schemas.common import FailureTypeItem, FailureTypesResponse, LLMUsage
+from ..schemas.evidence import (
+    EvidenceItem,
+    EvidenceListResponse,
+)
+from website_analytics.output_types import get_failure_types_ordered
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/evidence",
@@ -67,23 +75,36 @@ def list_evidence(
             dt = dt.replace(tzinfo=timezone.utc)
         return dt.astimezone(tz_cn).isoformat()
 
-    sliced = [
-        EvidenceItem(
-            id=int(rec.id),
-            url=rec.url,
-            account=rec.account,
-            password=rec.password,
-            status=rec.status.value if rec.status else "PENDING",
-            created_at=_format_dt(rec.created_at),
-            executed_at=_format_dt(rec.executed_at),
-            duration_seconds=rec.duration_seconds or 0,
-            result=rec.result,
-            failure_type=rec.failure_type,
-            task_dir=rec.task_dir,
-            llm_usage=rec.llm_usage,
+    sliced = []
+    for rec in records:
+        # 安全地转换 llm_usage
+        llm_usage_value = None
+        if rec.llm_usage is not None:
+            try:
+                llm_usage_value = LLMUsage(**rec.llm_usage)
+            except (ValidationError, TypeError) as exc:
+                logger.error(
+                    "任务 ID=%s 的 llm_usage 数据格式错误，已跳过: %s",
+                    rec.id,
+                    exc,
+                )
+
+        sliced.append(
+            EvidenceItem(
+                id=int(rec.id),
+                url=rec.url,
+                account=rec.account,
+                password=rec.password,
+                status=rec.status.value if rec.status else "PENDING",
+                created_at=_format_dt(rec.created_at),
+                executed_at=_format_dt(rec.executed_at),
+                duration_seconds=rec.duration_seconds or 0,
+                result=rec.result,
+                failure_type=rec.failure_type,
+                task_dir=rec.task_dir,
+                llm_usage=llm_usage_value,
+            )
         )
-        for rec in records
-    ]
 
     return EvidenceListResponse(
         items=sliced,
@@ -188,3 +209,19 @@ def get_task_artifact(
         media_type = "application/octet-stream"
 
     return FileResponse(artifact_path, media_type=media_type)
+
+
+@router.get(
+    "/failure-types",
+    response_model=FailureTypesResponse,
+    summary="获取失败类型列表",
+)
+def get_failure_types():
+    """
+    获取所有失败类型及其中文标签，按业务优先级排序。
+
+    Returns:
+        失败类型列表，包含 value 和 label 字段。
+    """
+    types_list = get_failure_types_ordered()
+    return FailureTypesResponse(items=[FailureTypeItem(**item) for item in types_list])

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, Pause, Play, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 
@@ -21,7 +21,13 @@ import type {
   ArtifactUrls,
   MediaFlags,
 } from "@/types/evidence";
-import { STATUS_LABELS, STATUS_STYLES, type TaskStatus } from "@/types/common";
+import {
+  STATUS_LABELS,
+  STATUS_STYLES,
+  type TaskStatus,
+  type FailureTypeItem,
+  type FailureTypesResponse,
+} from "@/types/common";
 
 function shellQuoteSingle(value: string): string {
   return `'${value.replace(/'/g, `'\\''`)}'`;
@@ -93,6 +99,7 @@ function EvidenceTasksDrawerContent({ selectedItem, onClose }: EvidenceTasksDraw
   });
   const [viewerVideoFetch, setViewerVideoFetch] = useState({ loading: false, error: false, ready: false });
   const [videoBlobStatus, setVideoBlobStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [failureTypes, setFailureTypes] = useState<FailureTypeItem[]>([]);
 
   const artifactUrlsRef = useRef<ArtifactUrls>({
     loginImageUrl: null,
@@ -239,6 +246,32 @@ function EvidenceTasksDrawerContent({ selectedItem, onClose }: EvidenceTasksDraw
     },
     [fetchArtifactBlobUrl]
   );
+
+  // 获取失败类型列表
+  useEffect(() => {
+    const fetchFailureTypes = async () => {
+      try {
+        const res = await apiFetch("/evidence/failure-types");
+        if (!res.ok) {
+          throw new Error("获取失败类型列表失败");
+        }
+        const data = (await res.json()) as FailureTypesResponse;
+        setFailureTypes(data.items);
+      } catch (error) {
+        console.error("获取失败类型列表失败:", error);
+        toast.error("获取失败类型列表失败");
+      }
+    };
+    fetchFailureTypes();
+  }, []);
+
+  // 从 API 获取的失败类型构建标签映射
+  const failureTypeLabel: Record<string, string> = useMemo(() => {
+    return failureTypes.reduce((acc, item) => {
+      acc[item.value] = item.label;
+      return acc;
+    }, {} as Record<string, string>);
+  }, [failureTypes]);
 
   useEffect(() => {
     selectedItemIdRef.current = selectedItem?.id ?? null;
@@ -655,7 +688,7 @@ function EvidenceTasksDrawerContent({ selectedItem, onClose }: EvidenceTasksDraw
               <div className="text-sm font-semibold text-slate-700">任务结果</div>
               {selectedItem.status === "FAILED" && selectedItem.failure_type && (
                 <span className="inline-flex items-center rounded-md bg-rose-50 px-2 py-1 text-xs font-medium text-rose-700 ring-1 ring-inset ring-rose-600/10">
-                  {selectedItem.failure_type}
+                  {failureTypeLabel[selectedItem.failure_type] || selectedItem.failure_type}
                 </span>
               )}
             </div>

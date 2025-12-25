@@ -420,10 +420,10 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
               router.push('/subscription');
               setIsTasksDrawerOpen(true);
             }}
-            className="border-sky-200 text-sky-600 hover:bg-sky-50"
+            className="group border-sky-200 text-sky-600 hover:bg-sky-200 hover:border-sky-300 hover:text-sky-800 transition-colors duration-200"
           >
             全部任务
-            <ArrowRight className="ml-1 h-4 w-4" />
+            <ArrowRight className="ml-1 h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
           </Button>
         </div>
         <div className="mt-4 overflow-x-auto">

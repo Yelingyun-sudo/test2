@@ -37,3 +37,12 @@ export type PaginatedListResponse<T> = {
   page_size: number;
 };
 
+export type FailureTypeItem = {
+  value: string;
+  label: string;
+};
+
+export type FailureTypesResponse = {
+  items: FailureTypeItem[];
+};
+

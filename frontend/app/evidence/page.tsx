@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, Search } from "lucide-react";
+import { toast } from "sonner";
 
 import { DashboardShell } from "@/components/dashboard/shell";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,13 @@ import { apiFetch } from "@/lib/api";
 import { formatDateTime } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
 import type { EvidenceItem, EvidenceListResponse } from "@/types/evidence";
-import { STATUS_LABELS, STATUS_STYLES, type TaskStatus } from "@/types/common";
+import {
+  STATUS_LABELS,
+  STATUS_STYLES,
+  type TaskStatus,
+  type FailureTypeItem,
+  type FailureTypesResponse,
+} from "@/types/common";
 
 const PAGE_SIZE = 15;
 
@@ -23,6 +30,7 @@ export default function EvidencePage() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [selectedItem, setSelectedItem] = useState<EvidenceItem | null>(null);
+  const [failureTypes, setFailureTypes] = useState<FailureTypeItem[]>([]);
 
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(total / PAGE_SIZE)),
@@ -49,6 +57,14 @@ export default function EvidencePage() {
   };
 
   const pageItems = useMemo(() => getPageItems(page, totalPages), [page, totalPages]);
+
+  // 从 API 获取的失败类型构建标签映射
+  const failureTypeLabel: Record<string, string> = useMemo(() => {
+    return failureTypes.reduce((acc, item) => {
+      acc[item.value] = item.label;
+      return acc;
+    }, {} as Record<string, string>);
+  }, [failureTypes]);
 
   const renderStatus = (value?: string) => {
     if (!value) return <span className="text-slate-400">-</span>;
@@ -122,6 +138,24 @@ export default function EvidencePage() {
     },
     [page, query]
   );
+
+  // 获取失败类型列表
+  useEffect(() => {
+    const fetchFailureTypes = async () => {
+      try {
+        const res = await apiFetch("/evidence/failure-types");
+        if (!res.ok) {
+          throw new Error("获取失败类型列表失败");
+        }
+        const data = (await res.json()) as FailureTypesResponse;
+        setFailureTypes(data.items);
+      } catch (error) {
+        console.error("获取失败类型列表失败:", error);
+        toast.error("获取失败类型列表失败");
+      }
+    };
+    fetchFailureTypes();
+  }, []);
 
   useEffect(() => {
     fetchData();
@@ -235,8 +269,15 @@ export default function EvidencePage() {
                 <div className="truncate pr-4">
                   {formatTaskDuration(item.duration_seconds, item.status)}
                 </div>
-                <div className="truncate" title={item.result || undefined}>
-                  {item.result || "-"}
+                <div className="flex items-center gap-2 min-w-0" title={item.result || undefined}>
+                  {item.status === "FAILED" && item.failure_type && (
+                    <span className="inline-flex items-center rounded-md bg-rose-50 px-2 py-1 text-xs font-medium text-rose-700 ring-1 ring-inset ring-rose-600/10 flex-shrink-0">
+                      {failureTypeLabel[item.failure_type] || item.failure_type}
+                    </span>
+                  )}
+                  <span className="truncate">
+                    {item.result || "-"}
+                  </span>
                 </div>
               </div>
             ))

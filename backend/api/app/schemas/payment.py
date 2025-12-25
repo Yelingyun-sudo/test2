@@ -1,4 +1,8 @@
+from typing import TypeAlias
+
 from pydantic import BaseModel, Field
+
+from .common import PaginatedListResponse
 
 
 class PaymentItem(BaseModel):
@@ -7,8 +11,4 @@ class PaymentItem(BaseModel):
     created_at: str = Field(..., description="任务创建时间 ISO 字符串")
 
 
-class PaymentListResponse(BaseModel):
-    items: list[PaymentItem]
-    total: int
-    page: int
-    page_size: int
+PaymentListResponse: TypeAlias = PaginatedListResponse[PaymentItem]

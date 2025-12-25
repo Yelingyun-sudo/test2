@@ -1,4 +1,8 @@
+from typing import TypeAlias
+
 from pydantic import BaseModel, Field
+
+from .common import LLMUsage, PaginatedListResponse
 
 
 class EvidenceItem(BaseModel):
@@ -13,11 +17,7 @@ class EvidenceItem(BaseModel):
     result: str | None = Field(None, description="任务结果")
     failure_type: str | None = Field(None, description="失败类型")
     task_dir: str | None = Field(None, description="任务目录")
-    llm_usage: dict | None = Field(None, description="LLM 使用统计")
+    llm_usage: LLMUsage | None = Field(None, description="LLM 使用统计")
 
 
-class EvidenceListResponse(BaseModel):
-    items: list[EvidenceItem]
-    total: int
-    page: int
-    page_size: int
+EvidenceListResponse: TypeAlias = PaginatedListResponse[EvidenceItem]

@@ -24,7 +24,13 @@ import type {
   MediaFlags,
   SubscriptionListResponse,
 } from "@/types/subscription";
-import { STATUS_LABELS, STATUS_STYLES, type TaskStatus } from "@/types/common";
+import {
+  STATUS_LABELS,
+  STATUS_STYLES,
+  type TaskStatus,
+  type FailureTypeItem,
+  type FailureTypesResponse,
+} from "@/types/common";
 
 const PAGE_SIZE = 15;
 
@@ -107,9 +113,7 @@ function SubscriptionContent() {
   const [failureTypeStats, setFailureTypeStats] = useState<
     Array<{ type: string; label: string; count: number }>
   >([]);
-  const [failureTypes, setFailureTypes] = useState<
-    Array<{ value: string; label: string }>
-  >([]);
+  const [failureTypes, setFailureTypes] = useState<FailureTypeItem[]>([]);
 
   // 获取失败类型列表
   useEffect(() => {
@@ -119,7 +123,7 @@ function SubscriptionContent() {
         if (!res.ok) {
           throw new Error("获取失败类型列表失败");
         }
-        const data = await res.json() as { items: Array<{ value: string; label: string }> };
+        const data = (await res.json()) as FailureTypesResponse;
         setFailureTypes(data.items);
       } catch (error) {
         console.error("获取失败类型列表失败:", error);

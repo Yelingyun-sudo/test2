@@ -15,13 +15,11 @@ from sqlalchemy.orm import Session
 from ..db import get_db
 from ..models import SubscriptionTask, TaskStatus
 from ..utils import resolve_task_dir
+from ..schemas.common import FailureTypeItem, FailureTypesResponse, LLMUsage
 from ..schemas.subscription import (
     DailyTrendItem,
     FailureSummary,
     FailureTypeDistributionItem,
-    FailureTypeItem,
-    FailureTypesResponse,
-    LLMUsage,
     RecentTaskItem,
     StatusDistributionItem,
     SubscriptionArtifactsResponse,
