@@ -4,11 +4,11 @@ from datetime import timedelta, timezone
 from typing import List
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func
+from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from ..db import get_db
-from ..models import EvidenceTask
+from ..models import EvidenceTask, TaskStatus
 from ..schemas.evidence import EvidenceItem, EvidenceListResponse
 
 router = APIRouter(
@@ -34,8 +34,20 @@ def list_evidence(
         query = query.filter(func.lower(EvidenceTask.url).like(keyword))
 
     total = query.count()
+
+    # 按状态优先级排序：执行中 > 已完成 > 待执行
+    status_priority = case(
+        (EvidenceTask.status == TaskStatus.RUNNING, 0),
+        (EvidenceTask.status.in_([TaskStatus.SUCCESS, TaskStatus.FAILED]), 1),
+        else_=2,
+    )
+
     records: List[EvidenceTask] = (
-        query.order_by(EvidenceTask.id.asc())
+        query.order_by(
+            status_priority,
+            EvidenceTask.executed_at.desc().nulls_last(),
+            EvidenceTask.id.asc(),
+        )
         .offset((page - 1) * page_size)
         .limit(page_size)
         .all()
