@@ -15,9 +15,16 @@ export type EvidenceItem = {
   llm_usage?: LLMUsage | null;
 };
 
+export type EvidenceEntryDetail = {
+  json: string;
+  screenshot: string;
+  text: string;
+};
+
 export type TaskArtifacts = {
   login_image_path: string | null;
   evidence_image_path: string | null;
+  evidence_entries_detail?: EvidenceEntryDetail[] | null;
   video_path: string | null;
   video_seek_seconds: number | null;
 };

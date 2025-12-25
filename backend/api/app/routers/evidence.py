@@ -114,11 +114,20 @@ def list_evidence(
     )
 
 
+class EvidenceEntryDetail(BaseModel):
+    """证据入口详情"""
+
+    json: str
+    screenshot: str
+    text: str
+
+
 class TaskArtifacts(BaseModel):
     """任务产物元信息"""
 
     login_image_path: str | None
     evidence_image_path: str | None
+    evidence_entries_detail: list[EvidenceEntryDetail] | None = None
     video_path: str | None
     video_seek_seconds: float | None
 
@@ -162,9 +171,22 @@ def get_task_artifacts(
                 if isinstance(first_entry, dict):
                     evidence_image_path = first_entry.get("screenshot")
 
+        # 获取证据入口详情
+        evidence_entries_detail = None
+        entries_detail_raw = evidence_result.get("entries_detail", [])
+        if entries_detail_raw and isinstance(entries_detail_raw, list):
+            try:
+                evidence_entries_detail = [
+                    EvidenceEntryDetail(**entry) for entry in entries_detail_raw if isinstance(entry, dict)
+                ]
+            except Exception:
+                # 如果解析失败，返回 None（向后兼容）
+                evidence_entries_detail = None
+
         return TaskArtifacts(
             login_image_path=operations.get("login", {}).get("cover_image_path"),
             evidence_image_path=evidence_image_path,
+            evidence_entries_detail=evidence_entries_detail,
             video_path=coordinator.get("video_path"),
             video_seek_seconds=coordinator.get("video_seek_seconds"),
         )

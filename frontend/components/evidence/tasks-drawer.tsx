@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, Pause, Play, RotateCcw } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Pause, Play, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -60,6 +60,19 @@ function formatNumber(num: number | undefined): string {
   return num.toLocaleString("zh-CN");
 }
 
+function extractEntryLabel(screenshotPath: string, keepExtension = false): string {
+  // 从路径中提取中文名称，例如 "evidence/02_我的订单.png" -> "我的订单" 或 "我的订单.png"
+  const fileName = screenshotPath.split("/").pop() || screenshotPath;
+  // 去掉序号前缀（两位数字 + 下划线），例如 "02_我的订单.png" -> "我的订单.png"
+  const withoutPrefix = fileName.replace(/^\d{2}_/, "");
+  if (keepExtension) {
+    return withoutPrefix;
+  }
+  // 去掉文件扩展名
+  const withoutExt = withoutPrefix.replace(/\.[^.]+$/, "");
+  return withoutExt;
+}
+
 type EvidenceTasksDrawerProps = {
   selectedItem: EvidenceItem | null;
   onClose: () => void;
@@ -77,7 +90,15 @@ function EvidenceTasksDrawerContent({ selectedItem, onClose }: EvidenceTasksDraw
     title: string;
     src: string | null;
     seekSeconds?: number | null;
+    evidenceEntries?: Array<{ screenshot: string; json: string; text: string }> | null;
+    currentEvidenceIndex?: number;
   } | null>(null);
+  const [currentEvidenceIndex, setCurrentEvidenceIndex] = useState(0);
+  const [currentEvidenceImageUrl, setCurrentEvidenceImageUrl] = useState<string | null>(null);
+  const [evidenceImageLoading, setEvidenceImageLoading] = useState(false);
+  const [cardEvidenceIndex, setCardEvidenceIndex] = useState(0);
+  const [cardEvidenceImageUrls, setCardEvidenceImageUrls] = useState<(string | null)[]>([]);
+  const [cardEvidenceLoading, setCardEvidenceLoading] = useState(false);
   const [viewerVideoState, setViewerVideoState] = useState({
     paused: true,
     ended: false
@@ -106,6 +127,7 @@ function EvidenceTasksDrawerContent({ selectedItem, onClose }: EvidenceTasksDraw
     evidenceImageUrl: null,
     videoUrl: null
   });
+  const cardEvidenceImageUrlsRef = useRef<(string | null)[]>([]);
   const viewerVideoRef = useRef<HTMLVideoElement | null>(null);
   const artifactsControllerRef = useRef<AbortController | null>(null);
   const selectedItemIdRef = useRef<number | null>(null);
@@ -292,6 +314,13 @@ function EvidenceTasksDrawerContent({ selectedItem, onClose }: EvidenceTasksDraw
       videoBlobPromiseRef.current = null;
       artifactsControllerRef.current?.abort();
       artifactsControllerRef.current = null;
+      // 清理卡片轮播图片 URL
+      cardEvidenceImageUrlsRef.current.forEach((url) => {
+        if (url) URL.revokeObjectURL(url);
+      });
+      cardEvidenceImageUrlsRef.current = [];
+      setCardEvidenceImageUrls([]);
+      setCardEvidenceIndex(0);
       return;
     }
 
@@ -349,6 +378,56 @@ function EvidenceTasksDrawerContent({ selectedItem, onClose }: EvidenceTasksDraw
         artifactUrlsRef.current = { loginImageUrl, evidenceImageUrl, videoUrl: null };
         setArtifactUrls(artifactUrlsRef.current);
 
+        // 加载所有取证图片（用于卡片轮播）
+        if (payload.evidence_entries_detail && payload.evidence_entries_detail.length > 0) {
+          setCardEvidenceLoading(true);
+          setCardEvidenceIndex(0);
+          // 找到当前封面图在 entries 中的索引
+          const currentIndex = payload.evidence_entries_detail.findIndex(
+            (entry) => entry.screenshot === payload.evidence_image_path
+          );
+          const initialIndex = currentIndex >= 0 ? currentIndex : 0;
+          setCardEvidenceIndex(initialIndex);
+
+          Promise.all(
+            payload.evidence_entries_detail.map((entry) =>
+              fetchArtifactBlobUrl(selectedItem.id, entry.screenshot, controller.signal)
+            )
+          )
+            .then((urls) => {
+              if (!cancelled) {
+                // 先清理旧的 URL
+                cardEvidenceImageUrlsRef.current.forEach((url) => {
+                  if (url) URL.revokeObjectURL(url);
+                });
+                cardEvidenceImageUrlsRef.current = urls;
+                setCardEvidenceImageUrls(urls);
+                // 更新 evidenceImageUrl 为当前索引的图片
+                if (urls[initialIndex]) {
+                  artifactUrlsRef.current.evidenceImageUrl = urls[initialIndex];
+                  setArtifactUrls({ ...artifactUrlsRef.current });
+                }
+              } else {
+                // 取消时释放已加载的 URL
+                urls.forEach((url) => {
+                  if (url) URL.revokeObjectURL(url);
+                });
+              }
+            })
+            .catch(() => {
+              // 忽略错误
+            })
+            .finally(() => {
+              if (!cancelled) {
+                setCardEvidenceLoading(false);
+              }
+            });
+        } else {
+          // 没有 entries_detail，重置状态
+          setCardEvidenceImageUrls([]);
+          setCardEvidenceIndex(0);
+        }
+
         if (payload.video_path) {
           const schedulePrefetch = () => {
             if (cancelled) return;
@@ -393,6 +472,13 @@ function EvidenceTasksDrawerContent({ selectedItem, onClose }: EvidenceTasksDraw
         videoUrl: null
       };
       artifactsControllerRef.current = null;
+      // 清理卡片轮播图片 URL
+      cardEvidenceImageUrlsRef.current.forEach((url) => {
+        if (url) URL.revokeObjectURL(url);
+      });
+      cardEvidenceImageUrlsRef.current = [];
+      setCardEvidenceImageUrls([]);
+      setCardEvidenceIndex(0);
     };
   }, [ensureVideoBlobUrl, fetchArtifactBlobUrl, revokeArtifactUrls, selectedItem]);
 
@@ -405,11 +491,95 @@ function EvidenceTasksDrawerContent({ selectedItem, onClose }: EvidenceTasksDraw
   useEffect(() => {
     if (!viewer) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setViewer(null);
+      if (event.key === "Escape") {
+        setViewer(null);
+        return;
+      }
+      // 轮播切换：只在查看器显示图片且有多个图片时生效
+      if (viewer.type === "image" && viewer.evidenceEntries && viewer.evidenceEntries.length > 1) {
+        if (event.key === "ArrowLeft") {
+          event.preventDefault();
+          const newIndex =
+            currentEvidenceIndex > 0 ? currentEvidenceIndex - 1 : viewer.evidenceEntries.length - 1;
+          setCurrentEvidenceIndex(newIndex);
+          if (viewer.currentEvidenceIndex !== undefined) {
+            setViewer({ ...viewer, currentEvidenceIndex: newIndex });
+          }
+        } else if (event.key === "ArrowRight") {
+          event.preventDefault();
+          const newIndex =
+            currentEvidenceIndex < viewer.evidenceEntries.length - 1 ? currentEvidenceIndex + 1 : 0;
+          setCurrentEvidenceIndex(newIndex);
+          if (viewer.currentEvidenceIndex !== undefined) {
+            setViewer({ ...viewer, currentEvidenceIndex: newIndex });
+          }
+        }
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [viewer]);
+  }, [viewer, currentEvidenceIndex]);
+
+  // 加载当前索引的取证图片
+  useEffect(() => {
+    if (
+      !viewer ||
+      viewer.type !== "image" ||
+      !viewer.evidenceEntries ||
+      viewer.evidenceEntries.length === 0 ||
+      !selectedItem ||
+      currentEvidenceIndex < 0 ||
+      currentEvidenceIndex >= viewer.evidenceEntries.length
+    )
+      return;
+
+    const entry = viewer.evidenceEntries[currentEvidenceIndex];
+    if (!entry) return;
+
+    setEvidenceImageLoading(true);
+    const controller = new AbortController();
+
+    fetchArtifactBlobUrl(selectedItem.id, entry.screenshot, controller.signal)
+      .then((url) => {
+        if (!controller.signal.aborted && url) {
+          // 释放旧的 URL
+          if (currentEvidenceImageUrl) {
+            URL.revokeObjectURL(currentEvidenceImageUrl);
+          }
+          setCurrentEvidenceImageUrl(url);
+          setViewer((prev) => {
+            if (!prev || prev.type !== "image") return prev;
+            return {
+              ...prev,
+              title: "取证截图",
+              src: url,
+              currentEvidenceIndex: currentEvidenceIndex,
+            };
+          });
+        }
+      })
+      .catch(() => {
+        // 忽略错误
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setEvidenceImageLoading(false);
+        }
+      });
+
+    return () => {
+      controller.abort();
+    };
+  }, [currentEvidenceIndex, viewer?.type, viewer?.evidenceEntries?.length, selectedItem?.id, fetchArtifactBlobUrl]);
+
+  // 清理图片 URL
+  useEffect(() => {
+    return () => {
+      if (currentEvidenceImageUrl) {
+        URL.revokeObjectURL(currentEvidenceImageUrl);
+      }
+    };
+  }, [currentEvidenceImageUrl]);
 
   useEffect(() => {
     if (!viewer || viewer.type !== "video") return;
@@ -757,50 +927,149 @@ function EvidenceTasksDrawerContent({ selectedItem, onClose }: EvidenceTasksDraw
                 <div className="mb-3 flex items-center justify-between">
                   <div className="text-sm font-semibold text-slate-800">取证截图</div>
                 </div>
-                {artifactsLoading ? (
+                {artifactsLoading || cardEvidenceLoading ? (
                   <div className="relative w-full aspect-[16/10] overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
                     <div className="absolute inset-0 animate-pulse bg-slate-100/70" />
                     <MediaLoadingOverlay label="加载中..." />
                   </div>
-                ) : artifactUrls.evidenceImageUrl ? (
-                  <button
-                    type="button"
-                    className="group relative block w-full"
-                    onClick={() => {
-                      const src = artifactUrls.evidenceImageUrl;
-                      if (!src) return;
-                      setViewer({
-                        type: "image",
-                        title: "取证截图",
-                        src
-                      });
-                    }}
-                  >
-                    {!mediaReady.evidence && !mediaError.evidence ? (
-                      <MediaLoadingOverlay label="加载中..." />
-                    ) : null}
-                    {mediaError.evidence ? (
-                      <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400">
-                        加载失败
-                      </div>
-                    ) : null}
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={artifactUrls.evidenceImageUrl}
-                      alt="取证截图"
-                      className={cn(
-                        "w-full aspect-[16/10] rounded-xl border border-slate-200 object-contain bg-slate-50 cursor-zoom-in group-hover:shadow-sm transition-opacity",
-                        mediaReady.evidence && !mediaError.evidence ? "opacity-100" : "opacity-0"
-                      )}
-                      onLoad={() => setMediaReady((prev) => ({ ...prev, evidence: true }))}
-                      onError={() => setMediaError((prev) => ({ ...prev, evidence: true }))}
-                    />
-                  </button>
-                ) : (
-                  <div className="flex w-full aspect-[16/10] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400">
-                    暂无数据
-                  </div>
-                )}
+                ) : (() => {
+                  // 确定要显示的图片 URL（使用 ref 获取最新值）
+                  const urls = cardEvidenceImageUrlsRef.current;
+                  const displayImageUrl =
+                    urls.length > 0 && urls[cardEvidenceIndex]
+                      ? urls[cardEvidenceIndex]
+                      : artifactUrls.evidenceImageUrl;
+                  const hasMultipleImages = urls.length > 1;
+                  const currentEntry = artifacts?.evidence_entries_detail?.[cardEvidenceIndex];
+
+                  return displayImageUrl ? (
+                    <div className="relative">
+                      <button
+                        type="button"
+                        className="group relative block w-full"
+                        onClick={async () => {
+                          if (!selectedItem) return;
+                          const entries = artifacts?.evidence_entries_detail;
+                          if (entries && entries.length > 0) {
+                            const initialIndex = cardEvidenceIndex;
+                            setCurrentEvidenceIndex(initialIndex);
+                            const entry = entries[initialIndex];
+                            if (entry) {
+                              // 使用 ref 获取最新值
+                              const urls = cardEvidenceImageUrlsRef.current;
+                              const imageUrl = urls[initialIndex] || await fetchArtifactBlobUrl(
+                                selectedItem.id,
+                                entry.screenshot,
+                                artifactsControllerRef.current?.signal
+                              );
+                              if (imageUrl) {
+                                setCurrentEvidenceImageUrl(imageUrl);
+                                setViewer({
+                                  type: "image",
+                                  title: "取证截图",
+                                  src: imageUrl,
+                                  evidenceEntries: entries,
+                                  currentEvidenceIndex: initialIndex,
+                                });
+                              }
+                            }
+                          } else {
+                            setViewer({
+                              type: "image",
+                              title: "取证截图",
+                              src: displayImageUrl,
+                            });
+                          }
+                        }}
+                      >
+                        {!mediaReady.evidence && !mediaError.evidence ? (
+                          <MediaLoadingOverlay label="加载中..." />
+                        ) : null}
+                        {mediaError.evidence ? (
+                          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400">
+                            加载失败
+                          </div>
+                        ) : null}
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={displayImageUrl}
+                          alt="取证截图"
+                          className={cn(
+                            "w-full aspect-[16/10] rounded-xl border border-slate-200 object-contain bg-slate-50 cursor-zoom-in group-hover:shadow-sm transition-opacity",
+                            mediaReady.evidence && !mediaError.evidence ? "opacity-100" : "opacity-0"
+                          )}
+                          onLoad={() => setMediaReady((prev) => ({ ...prev, evidence: true }))}
+                          onError={() => setMediaError((prev) => ({ ...prev, evidence: true }))}
+                        />
+                      </button>
+                      {hasMultipleImages ? (
+                        <>
+                          {/* 左箭头 */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const urls = cardEvidenceImageUrlsRef.current;
+                              if (urls.length === 0) return;
+                              const newIndex =
+                                cardEvidenceIndex > 0
+                                  ? cardEvidenceIndex - 1
+                                  : urls.length - 1;
+                              setCardEvidenceIndex(newIndex);
+                              // 更新显示的图片 URL（使用 ref 获取最新值）
+                              const newUrl = urls[newIndex];
+                              if (newUrl) {
+                                artifactUrlsRef.current.evidenceImageUrl = newUrl;
+                                setArtifactUrls({ ...artifactUrlsRef.current });
+                                setMediaReady((prev) => ({ ...prev, evidence: false }));
+                                setMediaError((prev) => ({ ...prev, evidence: false }));
+                              }
+                            }}
+                            className="absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/40 p-1.5 text-white backdrop-blur-sm transition hover:bg-black/60"
+                            aria-label="上一张"
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                          </button>
+                          {/* 右箭头 */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const urls = cardEvidenceImageUrlsRef.current;
+                              if (urls.length === 0) return;
+                              const newIndex =
+                                cardEvidenceIndex < urls.length - 1
+                                  ? cardEvidenceIndex + 1
+                                  : 0;
+                              setCardEvidenceIndex(newIndex);
+                              // 更新显示的图片 URL（使用 ref 获取最新值）
+                              const newUrl = urls[newIndex];
+                              if (newUrl) {
+                                artifactUrlsRef.current.evidenceImageUrl = newUrl;
+                                setArtifactUrls({ ...artifactUrlsRef.current });
+                                setMediaReady((prev) => ({ ...prev, evidence: false }));
+                                setMediaError((prev) => ({ ...prev, evidence: false }));
+                              }
+                            }}
+                            className="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/40 p-1.5 text-white backdrop-blur-sm transition hover:bg-black/60"
+                            aria-label="下一张"
+                          >
+                            <ChevronRight className="h-4 w-4" />
+                          </button>
+                          {/* 底部指示器 */}
+                          <div className="absolute bottom-2 left-1/2 z-10 -translate-x-1/2 rounded-full bg-black/40 px-3 py-1 text-xs text-white backdrop-blur-sm">
+                            {cardEvidenceIndex + 1} / {cardEvidenceImageUrlsRef.current.length}
+                            {currentEntry && ` - ${extractEntryLabel(currentEntry.screenshot)}`}
+                          </div>
+                        </>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="flex w-full aspect-[16/10] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400">
+                      暂无数据
+                    </div>
+                  );
+                })()}
               </div>
 
               <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -914,12 +1183,63 @@ function EvidenceTasksDrawerContent({ selectedItem, onClose }: EvidenceTasksDraw
             </div>
             <div className="p-4">
               {viewer.type === "image" ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={viewer.src ?? ""}
-                  alt={viewer.title}
-                  className="max-h-[80vh] w-full rounded-xl bg-white object-contain"
-                />
+                <div className="relative">
+                  {viewer.evidenceEntries && viewer.evidenceEntries.length > 1 ? (
+                    <>
+                      {/* 左箭头 */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newIndex =
+                            currentEvidenceIndex > 0
+                              ? currentEvidenceIndex - 1
+                              : viewer.evidenceEntries!.length - 1;
+                          setCurrentEvidenceIndex(newIndex);
+                          setViewer({ ...viewer, currentEvidenceIndex: newIndex });
+                        }}
+                        className="absolute left-4 top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/40 p-2 text-white backdrop-blur-sm transition hover:bg-black/60"
+                        aria-label="上一张"
+                      >
+                        <ChevronLeft className="h-6 w-6" />
+                      </button>
+                      {/* 右箭头 */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newIndex =
+                            currentEvidenceIndex < viewer.evidenceEntries!.length - 1
+                              ? currentEvidenceIndex + 1
+                              : 0;
+                          setCurrentEvidenceIndex(newIndex);
+                          setViewer({ ...viewer, currentEvidenceIndex: newIndex });
+                        }}
+                        className="absolute right-4 top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/40 p-2 text-white backdrop-blur-sm transition hover:bg-black/60"
+                        aria-label="下一张"
+                      >
+                        <ChevronRight className="h-6 w-6" />
+                      </button>
+                      {/* 底部指示器 */}
+                      <div className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2 rounded-full bg-black/40 px-4 py-2 text-sm text-white backdrop-blur-sm">
+                        {currentEvidenceIndex + 1} / {viewer.evidenceEntries.length} -{" "}
+                        {viewer.evidenceEntries[currentEvidenceIndex]
+                          ? extractEntryLabel(viewer.evidenceEntries[currentEvidenceIndex].screenshot)
+                          : extractEntryLabel(viewer.title)}
+                      </div>
+                    </>
+                  ) : null}
+                  {evidenceImageLoading ? (
+                    <div className="flex min-h-[400px] items-center justify-center">
+                      <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+                    </div>
+                  ) : (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={viewer.src ?? currentEvidenceImageUrl ?? ""}
+                      alt={viewer.title}
+                      className="max-h-[80vh] w-full rounded-xl bg-white object-contain"
+                    />
+                  )}
+                </div>
               ) : (
                 <div className="relative">
                   <div className="relative w-full aspect-[16/10] max-h-[80vh] overflow-hidden rounded-xl bg-black">
