@@ -15,6 +15,7 @@ from .security import get_current_user
 from .task_cleaner import run_task_cleaner_loop
 from .task_importer import run_task_importer_loop
 from .task_reporter import run_task_reporter_loop
+from .task_runner_evidence import run_evidence_runner_loop
 from .task_runner_subscription import run_subscription_runner_loop
 
 # 统一日志配置
@@ -61,6 +62,7 @@ async def lifespan(app: FastAPI):
         app.state.subscription_runner = asyncio.create_task(
             run_subscription_runner_loop()
         )
+        app.state.evidence_runner = asyncio.create_task(run_evidence_runner_loop())
     if settings.task_cleaner_enabled:
         app.state.task_cleaner = asyncio.create_task(run_task_cleaner_loop())
     if settings.task_importer_enabled:
@@ -73,6 +75,11 @@ async def lifespan(app: FastAPI):
     # 关闭逻辑
     if settings.task_runner_enabled:
         task = getattr(app.state, "subscription_runner", None)
+        if task:
+            task.cancel()
+            with contextlib.suppress(Exception, asyncio.CancelledError):
+                await task
+        task = getattr(app.state, "evidence_runner", None)
         if task:
             task.cancel()
             with contextlib.suppress(Exception, asyncio.CancelledError):
