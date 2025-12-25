@@ -95,7 +95,12 @@ def main() -> None:
             url = record.get("url")
             if not url:
                 continue
-            task = EvidenceTask(url=url, created_at=now)
+            task = EvidenceTask(
+                url=url,
+                account=record.get("account"),
+                password=record.get("password"),
+                created_at=now
+            )
             session.add(task)
             try:
                 session.commit()
