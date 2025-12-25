@@ -58,10 +58,11 @@ logging.config.dictConfig(LOGGING_CONFIG)
 async def lifespan(app: FastAPI):
     settings = get_settings()
     # 启动逻辑
-    if settings.task_runner_enabled:
+    if settings.task_runner_enabled_subscription:
         app.state.subscription_runner = asyncio.create_task(
             run_subscription_runner_loop()
         )
+    if settings.task_runner_enabled_evidence:
         app.state.evidence_runner = asyncio.create_task(run_evidence_runner_loop())
     if settings.task_cleaner_enabled:
         app.state.task_cleaner = asyncio.create_task(run_task_cleaner_loop())
@@ -73,12 +74,13 @@ async def lifespan(app: FastAPI):
     yield
 
     # 关闭逻辑
-    if settings.task_runner_enabled:
+    if settings.task_runner_enabled_subscription:
         task = getattr(app.state, "subscription_runner", None)
         if task:
             task.cancel()
             with contextlib.suppress(Exception, asyncio.CancelledError):
                 await task
+    if settings.task_runner_enabled_evidence:
         task = getattr(app.state, "evidence_runner", None)
         if task:
             task.cancel()

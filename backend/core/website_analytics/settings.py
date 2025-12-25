@@ -65,7 +65,8 @@ class Settings(BaseSettings):
     llm_snapshot_fullpage: bool = True
 
     # 任务调度
-    task_runner_enabled: bool = True
+    task_runner_enabled_subscription: bool = True
+    task_runner_enabled_evidence: bool = True
     task_runner_interval_seconds: int = 5
     task_runner_headless: bool = True
     task_runner_timeout_seconds: int = 600
