@@ -112,12 +112,12 @@ class LoginOutput(BaseModel):
 
 
 class InspectOutput(BaseModel):
-    """巡检代理的结构化输出。"""
+    """取证代理的结构化输出。"""
 
-    success: bool = Field(description="是否巡检成功（至少成功一个入口）")
+    success: bool = Field(description="是否取证成功（至少成功一个入口）")
     message: str = Field(description="详细消息")
     entries_total: int = Field(default=0, description="识别的入口总数")
-    entries_success: int = Field(default=0, description="成功巡检的入口数")
+    entries_success: int = Field(default=0, description="成功取证的入口数")
     entries_failed: int = Field(default=0, description="失败的入口数")
     report_file: str = Field(default="", description="生成的报告文件路径")
     error_type: str | None = Field(
@@ -136,18 +136,6 @@ class ExtractOutput(BaseModel):
         default=None,
         description="失败原因枚举值（success=false 时建议必填），取值范围同 CoordinatorOutput.error_type",
     )
-
-
-class InspectEntryOutput(BaseModel):
-    """单入口巡检代理的结构化输出。"""
-
-    entry_id: str = Field(description="入口唯一标识")
-    status: Literal["success", "failed"] = Field(description="巡检状态")
-    screenshot: str | None = Field(default=None, description="截图文件路径（成功时）")
-    text_snapshot: str | None = Field(
-        default=None, description="文本快照文件路径（成功时）"
-    )
-    error: str | None = Field(default=None, description="错误信息（失败时）")
 
 
 class CoordinatorOutput(BaseModel):

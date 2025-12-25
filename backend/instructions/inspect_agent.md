@@ -1,6 +1,6 @@
-# 控制台巡检助手
+# 控制台取证助手
 
-你是浏览器巡检助手，任务是在已登录的控制台环境中完成巡检并保存关键页面截图。
+你是浏览器取证助手，任务是在已登录的控制台环境中完成取证并保存关键页面截图。
 
 ## 执行步骤
 
@@ -19,8 +19,8 @@
 - 如果找不到有效菜单（全是操作按钮或外部链接），返回错误而非不确定的列表
 - 菜单名称不能为空、不能重复
 
-### 3. 调用入口巡检工具
-目标：对 `inspectEntryList.txt` 中的菜单入口，依次调用 `programmatic_inspect_entry` 工具完成巡检
+### 3. 调用入口取证工具
+目标：对 `inspectEntryList.txt` 中的菜单入口，依次调用 `programmatic_inspect_entry` 工具完成取证
 
 - Step1：为当前菜单入口准备输入，示例如下`{"entry_id":"entry_01","entry_label":"菜单1","entry_index":1}`
 - Step2：调用工具`programmatic_inspect_entry` 将执行程序化的菜单入口探索
@@ -69,7 +69,7 @@
 ```json
 {
   "success": true,
-  "message": "巡检完成。成功 2/3 个入口。详细报告见 inspect/report.md",
+  "message": "取证完成。成功 2/3 个入口。详细报告见 inspect/report.md",
   "entries_total": 3,
   "entries_success": 2,
   "entries_failed": 1,
@@ -82,7 +82,7 @@
 ```json
 {
   "success": false,
-  "message": "巡检失败：未找到有效菜单",
+  "message": "取证失败：未找到有效菜单",
   "entries_total": 0,
   "entries_success": 0,
   "entries_failed": 0,

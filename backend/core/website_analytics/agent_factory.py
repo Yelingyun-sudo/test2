@@ -11,7 +11,6 @@ from agents.result import RunResult
 from website_analytics.output_types import (
     CoordinatorOutput,
     ExtractOutput,
-    InspectEntryOutput,
     InspectOutput,
     LoginOutput,
 )
@@ -53,21 +52,6 @@ def build_extract_agent(playwright_server: MCPServerStdio, instructions: str) ->
     )
 
 
-def build_inspect_entry_agent(
-    playwright_server: MCPServerStdio,
-    instructions: str,
-    extra_tools: Sequence[Tool] | None = None,
-) -> Agent:
-    return Agent(
-        name="inspectEntryAgent",
-        instructions=instructions,
-        tools=[*extra_tools] if extra_tools else [],
-        mcp_servers=[playwright_server],
-        model=settings.agent_model,
-        output_type=InspectEntryOutput,
-    )
-
-
 def build_inspect_agent(
     playwright_server: MCPServerStdio,
     instructions: str,
@@ -103,7 +87,7 @@ def build_coordinator_agent(
         ),
         inspect_agent.as_tool(
             tool_name="perform_inspect",
-            tool_description="巡检控制台一级菜单并保存截图。",
+            tool_description="取证网站的一级菜单并保存截图。",
             max_turns=100,
             hooks=child_hooks,
             run_config=run_config,

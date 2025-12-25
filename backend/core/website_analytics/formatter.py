@@ -77,7 +77,7 @@ def _format_operation_result(name: str, payload: Any) -> list[str]:
                     "entries_total": "入口总数",
                     "entries_success": "成功入口",
                     "entries_failed": "失败入口",
-                    "report_file": "巡检报告",
+                    "report_file": "取证报告",
                 }[entry_key]
                 lines.append(f"  {label}: {payload.get(entry_key)}")
                 handled_keys.add(entry_key)

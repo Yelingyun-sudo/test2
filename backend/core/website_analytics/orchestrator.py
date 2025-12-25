@@ -214,7 +214,7 @@ async def execute(
             for key, value in os.environ.items()
             if key in {"DISPLAY", "XAUTHORITY"} and value
         }
-        # 创建巡检报告工具
+        # 创建取证报告工具
         compile_inspect_report_tool = build_compile_inspect_report_tool(working_dir)
         # 创建保存页面文本工具（用于保存 inspectEntryList.txt）
         save_page_text_tool = build_save_page_text_tool(working_dir)
@@ -235,7 +235,7 @@ async def execute(
                 llm_hooks.set_playwright_server(playwright_server)
             if hasattr(llm_hooks, "set_video_start_t"):
                 llm_hooks.set_video_start_t(time.perf_counter())
-            # 创建程序化巡检工具（替代手动流程）
+            # 创建程序化取证工具（替代手动流程）
             programmatic_inspect_entry_tool = build_programmatic_inspect_entry_tool(
                 working_dir,
                 playwright_server,

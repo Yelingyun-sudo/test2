@@ -47,7 +47,7 @@ def build_save_entry_result_tool(task_dir: Path) -> Tool:
 
     @function_tool(
         name_override="save_entry_result",
-        description_override="将单个入口的巡检结果写入与文本/截图同名前缀的 `.json` 文件。",
+        description_override="将单个入口的取证结果写入与文本/截图同名前缀的 `.json` 文件。",
     )
     def save_entry_result(filename: str, result_json: str) -> str:
         base_name = Path(filename).name.strip()
@@ -82,13 +82,13 @@ def build_compile_inspect_report_tool(task_dir: Path) -> Tool:
 
     @function_tool(
         name_override="compile_inspect_report",
-        description_override="读取巡检入口 JSON 结果并生成 Markdown 报告与统计信息。",
+        description_override="读取取证入口 JSON 结果并生成 Markdown 报告与统计信息。",
     )
     def compile_inspect_report(
         output_filename: str | None = None,
     ) -> str:
         if not inspect_dir.exists():
-            raise ValueError("inspect 目录不存在，无法生成巡检报告。")
+            raise ValueError("inspect 目录不存在，无法生成取证报告。")
 
         json_files = sorted(
             path
@@ -231,7 +231,7 @@ def build_compile_inspect_report_tool(task_dir: Path) -> Tool:
             compiled_records.append(record)
 
         if not compiled_records:
-            raise ValueError("所有入口 JSON 文件解析失败，无法生成巡检报告。")
+            raise ValueError("所有入口 JSON 文件解析失败，无法生成取证报告。")
 
         compiled_records.sort(key=lambda item: item["entry_id"])
 
@@ -246,14 +246,14 @@ def build_compile_inspect_report_tool(task_dir: Path) -> Tool:
         now = datetime.now(UTC).astimezone(timezone(timedelta(hours=8)))
 
         header_lines = [
-            "# 巡检结果报告",
+            "# 取证结果报告",
             "",
             f"- 生成时间（UTC+8）：{now.strftime('%Y-%m-%d %H:%M:%S')}",
         ]
         header_lines.extend(
             [
                 f"- 任务目录：{task_dir.name}",
-                f"- 巡检入口总数：{entry_count}",
+                f"- 取证入口总数：{entry_count}",
                 f"- 成功入口数：{success_count}",
                 f"- 失败或缺资源入口数：{failure_count}",
             ]
@@ -364,7 +364,7 @@ def build_capture_and_save_tool(task_dir: Path) -> Tool:
     @function_tool(
         name_override="capture_and_save",
         description_override=(
-            "一次性完成数据保存：将页面文本和巡检结果保存到文件。"
+            "一次性完成数据保存：将页面文本和取证结果保存到文件。"
             "接受 entry_index, entry_label, text_content, screenshot_path 参数，"
             "生成 .txt 和 .json 文件。"
         ),
@@ -376,7 +376,7 @@ def build_capture_and_save_tool(task_dir: Path) -> Tool:
         text_content: str,
         screenshot_path: str,
     ) -> str:
-        """保存文本快照和巡检结果。
+        """保存文本快照和取证结果。
 
         Args:
             entry_id: 入口唯一标识
@@ -482,7 +482,7 @@ def build_programmatic_inspect_entry_tool(
     task_dir: Path,
     playwright_server: Any,
 ) -> Tool:
-    """创建完全程序化的单入口巡检工具。
+    """创建完全程序化的单入口取证工具。
 
     将 8 轮 LLM 调用减少到 1 轮，直接在工具内部调用浏览器操作。
 
@@ -491,7 +491,7 @@ def build_programmatic_inspect_entry_tool(
         playwright_server: AutoSwitchingPlaywrightServer 实例
 
     Returns:
-        程序化巡检工具
+        程序化取证工具
     """
     import asyncio
 
@@ -502,14 +502,14 @@ def build_programmatic_inspect_entry_tool(
 
     @function_tool(
         name_override="programmatic_inspect_entry",
-        description_override="程序化巡检单个菜单入口，自动完成点击、截图、文本采集。",
+        description_override="程序化取证单个菜单入口，自动完成点击、截图、文本采集。",
     )
     def programmatic_inspect_entry(
         entry_id: str,
         entry_index: int,
         entry_label: str,
     ) -> str:
-        """程序化巡检单个入口。
+        """程序化取证单个入口。
 
         Args:
             entry_id: 入口唯一标识
@@ -517,7 +517,7 @@ def build_programmatic_inspect_entry_tool(
             entry_label: 菜单标签
 
         Returns:
-            JSON 字符串，包含巡检结果
+            JSON 字符串，包含取证结果
         """
         # 获取或创建事件循环
         try:
@@ -655,7 +655,7 @@ def build_programmatic_inspect_entry_tool(
                     "status": "failed",
                     "screenshot": None,
                     "text_snapshot": None,
-                    "error": f"巡检失败：{exc}",
+                    "error": f"取证失败：{exc}",
                 }
 
         # 在当前事件循环中运行异步逻辑

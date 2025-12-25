@@ -59,7 +59,7 @@ class Settings(BaseSettings):
     # 清理缓冲时间（秒），预留给 Playwright 清理和孤儿进程检测的额外时间
     playwright_cleanup_buffer_seconds: int = 120
 
-    # 巡检与截图
+    # 取证与截图
     inspect_max_menu_entries: int = 3
     llm_snapshot: bool = True
     llm_snapshot_fullpage: bool = True
