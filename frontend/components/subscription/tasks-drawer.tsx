@@ -17,56 +17,14 @@ import {
 import { apiFetch } from "@/lib/api";
 import { formatDateTime, parseDateTime } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
-
-type LLMUsage = {
-  total_input_tokens: number;
-  total_output_tokens: number;
-  total_tokens: number;
-  llm_turns: number;
-  total_cached_tokens?: number;
-  total_reasoning_tokens?: number;
-};
-
-type SubscriptionItem = {
-  id: number;
-  url: string;
-  account: string;
-  password: string;
-  status: string;
-  created_at?: string | null;
-  duration_seconds: number;
-  executed_at?: string | null;
-  task_dir?: string | null;
-  result?: string | null;
-  failure_type?: string | null;
-  llm_usage?: LLMUsage | null;
-};
-
-type TaskArtifacts = {
-  status: string;
-  login_image_path: string | null;
-  extract_image_path: string | null;
-  video_path: string | null;
-  video_seek_seconds: number | null;
-};
-
-type ArtifactUrls = {
-  loginImageUrl: string | null;
-  extractImageUrl: string | null;
-  videoUrl: string | null;
-};
-
-type MediaFlags = {
-  login: boolean;
-  extract: boolean;
-};
-
-type SubscriptionListResponse = {
-  items: SubscriptionItem[];
-  total: number;
-  page: number;
-  page_size: number;
-};
+import type {
+  SubscriptionItem,
+  TaskArtifacts,
+  ArtifactUrls,
+  MediaFlags,
+  SubscriptionListResponse,
+} from "@/types/subscription";
+import { STATUS_LABELS, STATUS_STYLES, type TaskStatus } from "@/types/common";
 
 const PAGE_SIZE = 15;
 
@@ -353,13 +311,6 @@ function SubscriptionContent() {
     });
   };
 
-  const statusLabel: Record<string, string> = {
-    PENDING: "待执行",
-    RUNNING: "执行中",
-    SUCCESS: "成功",
-    FAILED: "失败"
-  };
-
   const statusOptions: Array<{ value: string; label: string }> = [
     { value: "", label: "全部" },
     { value: "SUCCESS", label: "成功" },
@@ -409,14 +360,7 @@ function SubscriptionContent() {
 
   const renderStatus = (value?: string) => {
     if (!value) return <span className="text-slate-400">-</span>;
-    const label = statusLabel[value] ?? value;
-
-    const styles: Record<string, string> = {
-      PENDING: "bg-slate-100 text-slate-600 border border-slate-200",
-      RUNNING: "bg-yellow-100 text-yellow-700 border border-yellow-200",
-      SUCCESS: "bg-emerald-50 text-emerald-600 border border-emerald-100",
-      FAILED: "bg-rose-50 text-rose-600 border border-rose-100"
-    };
+    const label = STATUS_LABELS[value as TaskStatus] ?? value;
 
     const icon: Record<string, JSX.Element | null> = {
       PENDING: null,
@@ -425,7 +369,7 @@ function SubscriptionContent() {
       FAILED: null
     };
 
-    const pillClass = styles[value] || "bg-slate-100 text-slate-600 border border-slate-200";
+    const pillClass = STATUS_STYLES[value as TaskStatus] || "bg-slate-100 text-slate-600 border border-slate-200";
 
     return (
       <span className={cn("inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium", pillClass)}>

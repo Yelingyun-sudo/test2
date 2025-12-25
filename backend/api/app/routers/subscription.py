@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from ..db import get_db
 from ..models import SubscriptionTask, TaskStatus
+from ..utils import resolve_task_dir
 from ..schemas.subscription import (
     DailyTrendItem,
     FailureSummary,
@@ -33,7 +34,6 @@ from website_analytics.output_types import (
     FAILURE_TYPE_LABELS,
     get_failure_types_ordered,
 )
-from website_analytics.utils import PROJECT_ROOT
 
 logger = logging.getLogger(__name__)
 
@@ -210,18 +210,6 @@ def list_subscription(
     )
 
 
-def _resolve_task_dir(task_dir: str) -> Path:
-    raw = Path(task_dir)
-    if raw.is_absolute() or ".." in raw.parts:
-        raise HTTPException(status_code=400, detail="非法 task_dir")
-    resolved = (PROJECT_ROOT / raw).resolve()
-    try:
-        resolved.relative_to(PROJECT_ROOT.resolve())
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail="非法 task_dir") from exc
-    return resolved
-
-
 def _read_task_summary(task_dir_abs: Path) -> dict:
     summary_path = task_dir_abs / "task_summary.json"
     if not summary_path.exists():
@@ -250,7 +238,7 @@ def get_task_artifacts(
     if not task_dir:
         return SubscriptionArtifactsResponse(status=status_value or "")
 
-    task_dir_abs = _resolve_task_dir(task_dir)
+    task_dir_abs = resolve_task_dir(task_dir)
     summary = _read_task_summary(task_dir_abs)
     coordinator = summary.get("coordinator_output") or {}
     operations_results = coordinator.get("operations_results") or {}
@@ -294,7 +282,7 @@ def get_task_artifact(
     if not task.task_dir:
         raise HTTPException(status_code=404, detail="任务暂无产物")
 
-    task_dir_abs = _resolve_task_dir(task.task_dir)
+    task_dir_abs = resolve_task_dir(task.task_dir)
     raw = Path(path)
     if raw.is_absolute() or ".." in raw.parts:
         raise HTTPException(status_code=400, detail="非法 path")

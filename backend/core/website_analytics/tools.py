@@ -481,9 +481,10 @@ def build_programmatic_evidence_entry_tool(
     task_dir: Path,
     playwright_server: Any,
 ) -> Tool:
-    """创建完全程序化的单入口取证工具。
+    """创建完全程序化的单入口取证工具（异步版本）。
 
     将 8 轮 LLM 调用减少到 1 轮，直接在工具内部调用浏览器操作。
+    使用异步函数直接 await playwright_server.call_tool()，无需 event loop 桥接。
 
     Args:
         task_dir: 任务目录
@@ -492,23 +493,70 @@ def build_programmatic_evidence_entry_tool(
     Returns:
         程序化取证工具
     """
-    import asyncio
-
-    import nest_asyncio
-
     evidence_dir = task_dir / "evidence"
     evidence_dir.mkdir(parents=True, exist_ok=True)
+
+    async def _wait_for_page_ready(target_label: str) -> None:
+        """等待页面加载完成（最多等待 4 秒）
+
+        Args:
+            target_label: 目标菜单标签，用于验证页面内容是否符合预期
+
+        等待策略：
+        1. 每秒检查一次 DOM
+        2. 检查三个条件：
+           a) 目标菜单项仍然存在（说明导航栏已加载）
+           b) DOM 元素数量充足（页面不是空白）
+           c) DOM 稳定（连续2次 ref 数量相同）
+        3. 所有条件都满足时才认为加载完成
+        4. 超时后也直接返回（不报错）
+        """
+        max_wait_seconds = 4
+        stable_count = 0
+        last_ref_count = 0
+
+        for _ in range(max_wait_seconds):
+            await playwright_server.call_tool("browser_wait_for", {"time": 1})
+
+            check_snapshot = await playwright_server.call_tool(
+                "browser_snapshot", {}
+            )
+            snapshot_text = check_snapshot.content[0].text
+
+            # 条件1: 目标菜单项是否存在（导航栏已加载）
+            target_ref = _find_ref_by_label(snapshot_text, target_label)
+            if not target_ref:
+                stable_count = 0
+                continue  # 目标菜单项不存在，继续等待
+
+            # 条件2: DOM 元素数量是否充足
+            ref_count = snapshot_text.count("[ref=")
+            if ref_count < 15:
+                stable_count = 0
+                continue  # DOM 元素太少，继续等待
+
+            # 条件3: DOM 是否稳定
+            if ref_count == last_ref_count:
+                stable_count += 1
+                if stable_count >= 2:
+                    return  # 目标存在 + DOM 稳定，返回
+            else:
+                stable_count = 0
+
+            last_ref_count = ref_count
+
+        # 超时，也直接返回（尝试继续截图）
 
     @function_tool(
         name_override="programmatic_evidence_entry",
         description_override="程序化取证单个菜单入口，自动完成点击、截图、文本采集。",
     )
-    def programmatic_evidence_entry(
+    async def programmatic_evidence_entry(
         entry_id: str,
         entry_index: int,
         entry_label: str,
     ) -> str:
-        """程序化取证单个入口。
+        """程序化取证单个入口（异步版本）。
 
         Args:
             entry_id: 入口唯一标识
@@ -518,161 +566,24 @@ def build_programmatic_evidence_entry_tool(
         Returns:
             JSON 字符串，包含取证结果
         """
-        # 获取或创建事件循环
         try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+            # 1. 直接获取当前页面快照（不再导航回首页）
+            snapshot_result = await playwright_server.call_tool(
+                "browser_snapshot", {}
+            )
 
-        # 定义异步等待页面加载的辅助函数
-        async def _wait_for_page_ready(target_label: str):
-            """等待页面加载完成（最多等待 4 秒）
-
-            Args:
-                target_label: 目标菜单标签，用于验证页面内容是否符合预期
-
-            等待策略：
-            1. 每秒检查一次 DOM
-            2. 检查三个条件：
-               a) 目标菜单项仍然存在（说明导航栏已加载）
-               b) DOM 元素数量充足（页面不是空白）
-               c) DOM 稳定（连续2次 ref 数量相同）
-            3. 所有条件都满足时才认为加载完成
-            4. 超时后也直接返回（不报错）
-            """
-            max_wait_seconds = 4
-            stable_count = 0
-            last_ref_count = 0
-
-            for _ in range(max_wait_seconds):
-                await playwright_server.call_tool("browser_wait_for", {"time": 1})
-
-                check_snapshot = await playwright_server.call_tool(
-                    "browser_snapshot", {}
-                )
-                snapshot_text = check_snapshot.content[0].text
-
-                # 条件1: 目标菜单项是否存在（导航栏已加载）
-                target_ref = _find_ref_by_label(snapshot_text, target_label)
-                if not target_ref:
-                    stable_count = 0
-                    continue  # 目标菜单项不存在，继续等待
-
-                # 条件2: DOM 元素数量是否充足
-                ref_count = snapshot_text.count("[ref=")
-                if ref_count < 15:
-                    stable_count = 0
-                    continue  # DOM 元素太少，继续等待
-
-                # 条件3: DOM 是否稳定
-                if ref_count == last_ref_count:
-                    stable_count += 1
-                    if stable_count >= 2:
-                        return  # 目标存在 + DOM 稳定，返回
-                else:
-                    stable_count = 0
-
-                last_ref_count = ref_count
-
-            # 超时，也直接返回（尝试继续截图）
-
-        # 定义异步逻辑
-        async def _do_inspect():
-            try:
-                # 1. 直接获取当前页面快照（不再导航回首页）
-                snapshot_result = await playwright_server.call_tool(
-                    "browser_snapshot", {}
-                )
-
-                # 2. 解析快照，匹配 entry_label
-                snapshot_text = snapshot_result.content[0].text
-                ref = _find_ref_by_label(snapshot_text, entry_label)
-                if not ref:
-                    result_data = {
-                        "entry_id": entry_id,
-                        "status": "failed",
-                        "screenshot": None,
-                        "text_snapshot": None,
-                        "error": f"菜单 '{entry_label}' 在快照中不存在。",
-                    }
-                    # 保存失败记录到 JSON
-                    safe_label = (
-                        entry_label.strip()
-                        .replace(" ", "_")
-                        .translate(str.maketrans("", "", r'/\:*?"<>|'))
-                    )
-                    json_path = evidence_dir / f"{entry_index:02d}_{safe_label}.json"
-                    json_path.write_text(
-                        json.dumps(result_data, ensure_ascii=False, indent=2),
-                        encoding="utf-8",
-                    )
-                    return result_data
-
-                # 3. 点击菜单
-                await playwright_server.call_tool(
-                    "browser_click", {"element": entry_label, "ref": ref}
-                )
-
-                # 4. 等待页面加载完成（验证目标菜单项仍然可见）
-                await _wait_for_page_ready(entry_label)
-
-                # 5. 截图
-                safe_label = (
-                    entry_label.strip()
-                    .replace(" ", "_")
-                    .translate(str.maketrans("", "", r'/\:*?"<>|'))
-                )
-                prefix = f"{entry_index:02d}_{safe_label}"
-                screenshot_path = f"evidence/{prefix}.png"
-
-                await playwright_server.call_tool(
-                    "browser_take_screenshot",
-                    {"filename": screenshot_path, "fullPage": True},
-                )
-
-                # 7. 获取文本
-                text_result = await playwright_server.call_tool(
-                    "browser_evaluate", {"function": "() => document.body.innerText"}
-                )
-                text_content = text_result.content[0].text
-
-                # 清理 Playwright 调试输出
-                clean_text = text_content
-                if clean_text.startswith('### Result\n"') and clean_text.endswith('"'):
-                    clean_text = clean_text[14:-1]
-                elif clean_text.startswith("### Result\n"):
-                    clean_text = clean_text[12:]
-
-                # 8. 保存文本
-                text_path = evidence_dir / f"{prefix}.txt"
-                text_path.write_text(clean_text, encoding="utf-8")
-
-                # 9. 保存 JSON
-                result_data = {
-                    "entry_id": entry_id,
-                    "status": "success",
-                    "screenshot": screenshot_path,
-                    "text_snapshot": f"evidence/{prefix}.txt",
-                    "error": None,
-                }
-                json_path = evidence_dir / f"{prefix}.json"
-                json_path.write_text(
-                    json.dumps(result_data, ensure_ascii=False, indent=2),
-                    encoding="utf-8",
-                )
-
-                return result_data
-
-            except Exception as exc:
+            # 2. 解析快照，匹配 entry_label
+            snapshot_text = snapshot_result.content[0].text
+            ref = _find_ref_by_label(snapshot_text, entry_label)
+            if not ref:
                 result_data = {
                     "entry_id": entry_id,
                     "status": "failed",
                     "screenshot": None,
                     "text_snapshot": None,
-                    "error": f"取证失败：{exc}",
+                    "error": f"菜单 '{entry_label}' 在快照中不存在。",
                 }
-                # 保存异常记录到 JSON
+                # 保存失败记录到 JSON
                 safe_label = (
                     entry_label.strip()
                     .replace(" ", "_")
@@ -683,13 +594,83 @@ def build_programmatic_evidence_entry_tool(
                     json.dumps(result_data, ensure_ascii=False, indent=2),
                     encoding="utf-8",
                 )
-                return result_data
+                return json.dumps(result_data, ensure_ascii=False)
 
-        # 在当前事件循环中运行异步逻辑
-        nest_asyncio.apply()  # 允许嵌套事件循环
-        result = loop.run_until_complete(_do_inspect())
+            # 3. 点击菜单
+            await playwright_server.call_tool(
+                "browser_click", {"element": entry_label, "ref": ref}
+            )
 
-        return json.dumps(result, ensure_ascii=False)
+            # 4. 等待页面加载完成（验证目标菜单项仍然可见）
+            await _wait_for_page_ready(entry_label)
+
+            # 5. 截图
+            safe_label = (
+                entry_label.strip()
+                .replace(" ", "_")
+                .translate(str.maketrans("", "", r'/\:*?"<>|'))
+            )
+            prefix = f"{entry_index:02d}_{safe_label}"
+            screenshot_path = f"evidence/{prefix}.png"
+
+            await playwright_server.call_tool(
+                "browser_take_screenshot",
+                {"filename": screenshot_path, "fullPage": True},
+            )
+
+            # 6. 获取文本
+            text_result = await playwright_server.call_tool(
+                "browser_evaluate", {"function": "() => document.body.innerText"}
+            )
+            text_content = text_result.content[0].text
+
+            # 清理 Playwright 调试输出
+            clean_text = text_content
+            if clean_text.startswith('### Result\n"') and clean_text.endswith('"'):
+                clean_text = clean_text[14:-1]
+            elif clean_text.startswith("### Result\n"):
+                clean_text = clean_text[12:]
+
+            # 7. 保存文本
+            text_path = evidence_dir / f"{prefix}.txt"
+            text_path.write_text(clean_text, encoding="utf-8")
+
+            # 8. 保存 JSON
+            result_data = {
+                "entry_id": entry_id,
+                "status": "success",
+                "screenshot": screenshot_path,
+                "text_snapshot": f"evidence/{prefix}.txt",
+                "error": None,
+            }
+            json_path = evidence_dir / f"{prefix}.json"
+            json_path.write_text(
+                json.dumps(result_data, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+
+            return json.dumps(result_data, ensure_ascii=False)
+
+        except Exception as exc:
+            result_data = {
+                "entry_id": entry_id,
+                "status": "failed",
+                "screenshot": None,
+                "text_snapshot": None,
+                "error": f"取证失败：{exc}",
+            }
+            # 保存异常记录到 JSON
+            safe_label = (
+                entry_label.strip()
+                .replace(" ", "_")
+                .translate(str.maketrans("", "", r'/\:*?"<>|'))
+            )
+            json_path = evidence_dir / f"{entry_index:02d}_{safe_label}.json"
+            json_path.write_text(
+                json.dumps(result_data, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            return json.dumps(result_data, ensure_ascii=False)
 
     return programmatic_evidence_entry
 
@@ -698,10 +679,11 @@ def build_capture_page_data_tool(
     task_dir: Path,
     playwright_server: Any,
 ) -> Tool:
-    """创建页面数据采集工具（截图+文本）。
+    """创建页面数据采集工具（截图+文本，异步版本）。
 
     前提：LLM 已经导航到目标页面。
     职责：只负责采集当前页面的数据。
+    使用异步函数直接 await playwright_server.call_tool()，无需 event loop 桥接。
 
     Args:
         task_dir: 任务目录
@@ -710,10 +692,6 @@ def build_capture_page_data_tool(
     Returns:
         页面数据采集工具
     """
-    import asyncio
-
-    import nest_asyncio
-
     evidence_dir = task_dir / "evidence"
     evidence_dir.mkdir(parents=True, exist_ok=True)
 
@@ -721,12 +699,12 @@ def build_capture_page_data_tool(
         name_override="capture_page_data",
         description_override="采集当前页面的截图和文本，保存为指定格式。前提：LLM已导航到目标页面。",
     )
-    def capture_page_data(
+    async def capture_page_data(
         entry_id: str,
         entry_index: int,
         entry_label: str,
     ) -> str:
-        """采集当前页面的截图和文本。
+        """采集当前页面的截图和文本（异步版本）。
 
         Args:
             entry_id: 入口唯一标识
@@ -736,77 +714,63 @@ def build_capture_page_data_tool(
         Returns:
             JSON 字符串，包含采集结果
         """
-        # 获取或创建事件循环
         try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+            # 1. 截图
+            safe_label = (
+                entry_label.strip()
+                .replace(" ", "_")
+                .translate(str.maketrans("", "", r'/\:*?"<>|'))
+            )
+            prefix = f"{entry_index:02d}_{safe_label}"
+            screenshot_path = f"evidence/{prefix}.png"
 
-        # 定义异步逻辑
-        async def _do_capture():
-            try:
-                # 1. 截图
-                safe_label = (
-                    entry_label.strip()
-                    .replace(" ", "_")
-                    .translate(str.maketrans("", "", r'/\:*?"<>|'))
-                )
-                prefix = f"{entry_index:02d}_{safe_label}"
-                screenshot_path = f"evidence/{prefix}.png"
+            await playwright_server.call_tool(
+                "browser_take_screenshot",
+                {"filename": screenshot_path, "fullPage": True},
+            )
 
-                await playwright_server.call_tool(
-                    "browser_take_screenshot",
-                    {"filename": screenshot_path, "fullPage": True},
-                )
+            # 2. 文本采集
+            text_result = await playwright_server.call_tool(
+                "browser_evaluate", {"function": "() => document.body.innerText"}
+            )
+            text_content = text_result.content[0].text
 
-                # 2. 文本采集
-                text_result = await playwright_server.call_tool(
-                    "browser_evaluate", {"function": "() => document.body.innerText"}
-                )
-                text_content = text_result.content[0].text
+            # 清理 Playwright 调试输出
+            clean_text = text_content
+            if clean_text.startswith('### Result\n"') and clean_text.endswith('"'):
+                clean_text = clean_text[14:-1]
+            elif clean_text.startswith("### Result\n"):
+                clean_text = clean_text[12:]
 
-                # 清理 Playwright 调试输出
-                clean_text = text_content
-                if clean_text.startswith('### Result\n"') and clean_text.endswith('"'):
-                    clean_text = clean_text[14:-1]
-                elif clean_text.startswith("### Result\n"):
-                    clean_text = clean_text[12:]
+            # 3. 保存文本
+            text_path = evidence_dir / f"{prefix}.txt"
+            text_path.write_text(clean_text, encoding="utf-8")
 
-                # 3. 保存文本
-                text_path = evidence_dir / f"{prefix}.txt"
-                text_path.write_text(clean_text, encoding="utf-8")
+            # 4. 保存 JSON
+            result_data = {
+                "entry_id": entry_id,
+                "status": "success",
+                "screenshot": screenshot_path,
+                "text_snapshot": f"evidence/{prefix}.txt",
+                "error": None,
+            }
+            json_path = evidence_dir / f"{prefix}.json"
+            json_path.write_text(
+                json.dumps(result_data, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
 
-                # 4. 保存 JSON
-                result_data = {
-                    "entry_id": entry_id,
-                    "status": "success",
-                    "screenshot": screenshot_path,
-                    "text_snapshot": f"evidence/{prefix}.txt",
-                    "error": None,
-                }
-                json_path = evidence_dir / f"{prefix}.json"
-                json_path.write_text(
-                    json.dumps(result_data, ensure_ascii=False, indent=2),
-                    encoding="utf-8",
-                )
+            return json.dumps(result_data, ensure_ascii=False)
 
-                return result_data
-
-            except Exception as exc:
-                return {
-                    "entry_id": entry_id,
-                    "status": "failed",
-                    "screenshot": None,
-                    "text_snapshot": None,
-                    "error": f"数据采集失败：{exc}",
-                }
-
-        # 在当前事件循环中运行异步逻辑
-        nest_asyncio.apply()  # 允许嵌套事件循环
-        result = loop.run_until_complete(_do_capture())
-
-        return json.dumps(result, ensure_ascii=False)
+        except Exception as exc:
+            result_data = {
+                "entry_id": entry_id,
+                "status": "failed",
+                "screenshot": None,
+                "text_snapshot": None,
+                "error": f"数据采集失败：{exc}",
+            }
+            return json.dumps(result_data, ensure_ascii=False)
 
     return capture_page_data
 

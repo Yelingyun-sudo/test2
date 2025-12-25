@@ -6,17 +6,12 @@ import { Loader2, Search } from "lucide-react";
 import { DashboardShell } from "@/components/dashboard/shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { EvidenceTasksDrawer } from "@/components/evidence/tasks-drawer";
 import { apiFetch } from "@/lib/api";
 import { formatDateTime } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
-
-type EvidenceItem = { id: number; url: string; status: string; created_at: string; executed_at: string; duration_seconds: number; result: string | null };
-type EvidenceListResponse = {
-  items: EvidenceItem[];
-  total: number;
-  page: number;
-  page_size: number;
-};
+import type { EvidenceItem, EvidenceListResponse } from "@/types/evidence";
+import { STATUS_LABELS, STATUS_STYLES, type TaskStatus } from "@/types/common";
 
 const PAGE_SIZE = 15;
 
@@ -27,6 +22,7 @@ export default function EvidencePage() {
   const [pageInput, setPageInput] = useState("1");
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<EvidenceItem | null>(null);
 
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(total / PAGE_SIZE)),
@@ -54,23 +50,9 @@ export default function EvidencePage() {
 
   const pageItems = useMemo(() => getPageItems(page, totalPages), [page, totalPages]);
 
-  const statusLabel: Record<string, string> = {
-    PENDING: "待执行",
-    RUNNING: "执行中",
-    SUCCESS: "成功",
-    FAILED: "失败"
-  };
-
   const renderStatus = (value?: string) => {
     if (!value) return <span className="text-slate-400">-</span>;
-    const label = statusLabel[value] ?? value;
-
-    const styles: Record<string, string> = {
-      PENDING: "bg-slate-100 text-slate-600 border border-slate-200",
-      RUNNING: "bg-yellow-100 text-yellow-700 border border-yellow-200",
-      SUCCESS: "bg-emerald-50 text-emerald-600 border border-emerald-100",
-      FAILED: "bg-rose-50 text-rose-600 border border-rose-100"
-    };
+    const label = STATUS_LABELS[value as TaskStatus] ?? value;
 
     const icon: Record<string, JSX.Element | null> = {
       PENDING: null,
@@ -79,7 +61,7 @@ export default function EvidencePage() {
       FAILED: null
     };
 
-    const pillClass = styles[value] || "bg-slate-100 text-slate-600 border border-slate-200";
+    const pillClass = STATUS_STYLES[value as TaskStatus] || "bg-slate-100 text-slate-600 border border-slate-200";
 
     return (
       <span className={cn("inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium", pillClass)}>
@@ -169,6 +151,14 @@ export default function EvidencePage() {
     fetchData({ page: target });
   };
 
+  const handleRowClick = (item: EvidenceItem) => {
+    setSelectedItem(item);
+  };
+
+  const handleCloseModal = () => {
+    setSelectedItem(null);
+  };
+
   return (
     <DashboardShell
       title="注册取证任务"
@@ -223,8 +213,9 @@ export default function EvidencePage() {
                 className={cn(
                   "grid grid-cols-[70px_1fr_0.6fr_0.85fr_0.85fr_0.7fr_1.2fr] items-center px-4 py-3 text-sm text-slate-700",
                   idx % 2 === 0 ? "bg-white" : "bg-slate-50/70",
-                  "transition-colors hover:bg-slate-100/80"
+                  "cursor-pointer transition-colors hover:bg-slate-100/80"
                 )}
+                onClick={() => handleRowClick(item)}
               >
                 <div className="font-mono text-xs text-slate-500">
                   {item.id ?? (page - 1) * PAGE_SIZE + idx + 1}
@@ -314,6 +305,8 @@ export default function EvidencePage() {
           </div>
         </div>
       </div>
+
+      <EvidenceTasksDrawer selectedItem={selectedItem} onClose={handleCloseModal} />
     </DashboardShell>
   );
 }

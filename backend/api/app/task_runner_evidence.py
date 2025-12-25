@@ -23,43 +23,43 @@ def _build_instruction(task: EvidenceTask) -> str:
     """构建证据任务执行指令。
 
     根据 account/password 是否存在，生成不同的指令：
-    - 有账密：登录 {url}（账号和密码分别为 {account} 和 {password}）并完成巡检
-    - 无账密：访问 {url} 并完成巡检
+    - 有账密：登录 {url}（账号和密码分别为 {account} 和 {password}）并完成取证
+    - 无账密：访问 {url} 并完成取证
     """
     if task.account and task.password:
-        return f"登录 {task.url}（账号和密码分别为 {task.account} 和 {task.password}）并完成巡检"
+        return f"登录 {task.url}（账号和密码分别为 {task.account} 和 {task.password}）并完成取证"
     else:
-        return f"访问 {task.url} 并完成巡检"
+        return f"访问 {task.url} 并完成取证"
 
 
 def _extract_success_result(exec_result: ExecutionResult | None) -> str:
-    """从 ExecutionResult 提取成功结果（巡检摘要）。
+    """从 ExecutionResult 提取成功结果（取证摘要）。
 
     返回格式：
-    - "巡检完成。成功 3/3 个入口。报告：inspect/report.md"
-    - "巡检部分成功。成功 2/3 个入口。报告：inspect/report.md"
+    - "取证完成。成功 3/3 个入口。报告：evidence/report.md"
+    - "取证部分成功。成功 2/3 个入口。报告：evidence/report.md"
     """
     if not exec_result or not exec_result.coordinator_output:
         return "任务结果不可用"
     try:
         coordinator = exec_result.coordinator_output
         operations_results = coordinator.get("operations_results") or {}
-        inspect_result = operations_results.get("inspect") or {}
+        evidence_result = operations_results.get("evidence") or {}
 
         # 提取核心信息
-        entries_total = inspect_result.get("entries_total", 0)
-        entries_success = inspect_result.get("entries_success", 0)
-        entries_failed = inspect_result.get("entries_failed", 0)
-        report_file = inspect_result.get("report_file", "")
-        message = inspect_result.get("message", "")
+        entries_total = evidence_result.get("entries_total", 0)
+        entries_success = evidence_result.get("entries_success", 0)
+        entries_failed = evidence_result.get("entries_failed", 0)
+        report_file = evidence_result.get("report_file", "")
+        message = evidence_result.get("message", "")
 
         # 构建摘要
         if entries_total > 0:
-            summary = f"巡检完成。成功 {entries_success}/{entries_total} 个入口"
+            summary = f"取证完成。成功 {entries_success}/{entries_total} 个入口"
             if entries_failed > 0:
-                summary = f"巡检部分成功。成功 {entries_success}/{entries_total} 个入口"
+                summary = f"取证部分成功。成功 {entries_success}/{entries_total} 个入口"
         else:
-            summary = message or "巡检完成"
+            summary = message or "取证完成"
 
         if report_file:
             summary += f"。报告：{report_file}"

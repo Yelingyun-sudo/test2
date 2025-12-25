@@ -1,3 +1,5 @@
+import type { TaskStatus } from "@/types/common";
+
 export interface StatsSummary {
   total_tasks: number;
   today_tasks: number;
@@ -30,14 +32,14 @@ export interface DailyTrendItem {
 }
 
 export interface StatusDistributionItem {
-  status: string;
+  status: TaskStatus;
   count: number;
 }
 
 export interface RecentTaskItem {
   id: number;
   url: string;
-  status: string;
+  status: TaskStatus;
   executed_at: string | null;
   duration_seconds: number | null;
   result: string | null;

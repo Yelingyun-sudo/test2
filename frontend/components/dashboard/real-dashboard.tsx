@@ -28,6 +28,7 @@ import { formatDateTime } from "@/lib/datetime";
 import { cn, formatTokenCount } from "@/lib/utils";
 import { toast } from "sonner";
 import type { StatsResponse } from "@/lib/types";
+import { STATUS_LABELS, STATUS_STYLES, STATUS_COLORS, type TaskStatus } from "@/types/common";
 
 type DashboardProps = {
   onLogout: () => void;
@@ -51,27 +52,6 @@ function formatDurationSeconds(value?: number | null): string {
   return `${days}天${hours}小时${minutes}分${seconds}秒`;
 }
 
-// 状态映射
-const statusLabel: Record<string, string> = {
-  PENDING: "待执行",
-  RUNNING: "执行中",
-  SUCCESS: "成功",
-  FAILED: "失败"
-};
-
-const statusStyles: Record<string, string> = {
-  PENDING: "bg-slate-100 text-slate-700",
-  RUNNING: "bg-yellow-100 text-yellow-700",
-  SUCCESS: "bg-green-100 text-green-700",
-  FAILED: "bg-red-100 text-red-700"
-};
-
-const statusColor: Record<string, string> = {
-  PENDING: "#94a3b8",
-  RUNNING: "#facc15",
-  SUCCESS: "#22c55e",
-  FAILED: "#ef4444"
-};
 
 export function RealDashboard({ onLogout, account }: DashboardProps) {
   const router = useRouter();
@@ -151,9 +131,9 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
 
   const totalStatusCount = status_distribution.reduce((sum, item) => sum + item.count, 0);
   const distributionData = status_distribution.map((item) => ({
-    name: statusLabel[item.status] || item.status,
+    name: STATUS_LABELS[item.status as TaskStatus] || item.status,
     value: item.count,
-    color: statusColor[item.status] || "#94a3b8",
+    color: STATUS_COLORS[item.status as TaskStatus] || "#94a3b8",
     percentage: totalStatusCount > 0 ? ((item.count / totalStatusCount) * 100).toFixed(1) : 0,
     status: item.status  // 保存原始状态值用于路由跳转
   }));
@@ -504,13 +484,13 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
                       <span
                         className={cn(
                           "inline-flex items-center rounded-full px-2 py-1 text-xs font-medium",
-                          statusStyles[task.status] || "bg-slate-100 text-slate-700"
+                          STATUS_STYLES[task.status as TaskStatus] || "bg-slate-100 text-slate-600 border border-slate-200"
                         )}
                       >
                         {task.status === "RUNNING" && (
                           <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
                         )}
-                        {statusLabel[task.status] || task.status}
+                        {STATUS_LABELS[task.status as TaskStatus] || task.status}
                       </span>
                     </td>
                     <td className="p-2 text-sm text-slate-700">

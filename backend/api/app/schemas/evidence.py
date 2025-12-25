@@ -11,6 +11,9 @@ class EvidenceItem(BaseModel):
     executed_at: str = Field(..., description="任务执行时间 ISO 字符串")
     duration_seconds: int = Field(..., description="任务时长（秒）")
     result: str | None = Field(None, description="任务结果")
+    failure_type: str | None = Field(None, description="失败类型")
+    task_dir: str | None = Field(None, description="任务目录")
+    llm_usage: dict | None = Field(None, description="LLM 使用统计")
 
 
 class EvidenceListResponse(BaseModel):
