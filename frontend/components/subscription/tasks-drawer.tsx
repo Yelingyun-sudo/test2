@@ -9,6 +9,13 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -74,9 +81,9 @@ function SubscriptionContent() {
   const [page, setPage] = useState(1);
   const [pageInput, setPageInput] = useState("1");
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [failureTypeFilter, setFailureTypeFilter] = useState("");
-  const [timeRangeFilter, setTimeRangeFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [failureTypeFilter, setFailureTypeFilter] = useState("ALL");
+  const [timeRangeFilter, setTimeRangeFilter] = useState("ALL");
   const [loading, setLoading] = useState(false);
   const [selectedItem, setSelectedItem] = useState<SubscriptionItem | null>(null);
   const [artifacts, setArtifacts] = useState<TaskArtifacts | null>(null);
@@ -198,9 +205,9 @@ function SubscriptionContent() {
           page_size: String(PAGE_SIZE)
         });
         if (params.q) searchParams.set("q", params.q);
-        if (params.status) searchParams.set("status", params.status);
-        if (params.failureType) searchParams.set("failure_type", params.failureType);
-        if (params.timeRange) searchParams.set("executed_within", params.timeRange);
+        if (params.status && params.status !== "ALL") searchParams.set("status", params.status);
+        if (params.failureType && params.failureType !== "ALL") searchParams.set("failure_type", params.failureType);
+        if (params.timeRange && params.timeRange !== "ALL") searchParams.set("executed_within", params.timeRange);
 
         const res = await apiFetch(
           `/subscription/list?${searchParams.toString()}`
@@ -224,7 +231,7 @@ function SubscriptionContent() {
     try {
       // 构建查询参数，传递时间范围
       const params = new URLSearchParams();
-      if (timeRange) {
+      if (timeRange && timeRange !== "ALL") {
         params.set('executed_within', timeRange);
       }
       const url = `/subscription/stats${params.toString() ? `?${params.toString()}` : ''}`;
@@ -242,14 +249,14 @@ function SubscriptionContent() {
     // 从 URL 读取所有参数
     const urlPage = searchParams.get("page");
     const urlQuery = searchParams.get("q") || ""; // 默认空字符串
-    let urlStatus = searchParams.get("status") || "";
-    let urlFailureType = searchParams.get("failure_type") || "";
-    const urlTimeRange = searchParams.get("executed_within") || "";
+    let urlStatus = searchParams.get("status") || "ALL";
+    let urlFailureType = searchParams.get("failure_type") || "ALL";
+    const urlTimeRange = searchParams.get("executed_within") || "ALL";
 
     // 修正：只有 status=FAILED 时才保留 failure_type（与现有逻辑一致）
     // 支持大小写不敏感比较，以兼容不同来源的 URL
     if (urlStatus.toUpperCase() !== "FAILED") {
-      urlFailureType = "";
+      urlFailureType = "ALL";
     }
 
     // 解析并验证 page（防止 NaN）
@@ -316,7 +323,7 @@ function SubscriptionContent() {
   };
 
   const statusOptions: Array<{ value: string; label: string }> = [
-    { value: "", label: "全部" },
+    { value: "ALL", label: "全部" },
     { value: "SUCCESS", label: "成功" },
     { value: "FAILED", label: "失败" },
     { value: "RUNNING", label: "执行中" },
@@ -333,7 +340,7 @@ function SubscriptionContent() {
 
   const failureTypeOptions: Array<{ value: string; label: string }> = useMemo(() => {
     const baseOptions = [
-      { value: "", label: "全部" }
+      { value: "ALL", label: "全部" }
     ];
 
     // 创建统计数据的映射表（来自后端API，匹配当前时间范围）
@@ -354,7 +361,7 @@ function SubscriptionContent() {
   }, [failureTypeStats, failureTypes]);
 
   const timeRangeOptions: Array<{ value: string; label: string }> = [
-    { value: "", label: "全部" },
+    { value: "ALL", label: "全部" },
     { value: "today", label: "今天" },
     { value: "yesterday", label: "昨天" },
     { value: "3d", label: "最近3天" },
@@ -781,18 +788,18 @@ function SubscriptionContent() {
   };
 
   const handleStatusChange = (value: string) => {
-    const newFailureType = value !== "FAILED" ? "" : failureTypeFilter;
-    
+    const newFailureType = value !== "FAILED" ? "ALL" : failureTypeFilter;
+
     // 如果切换到 PENDING 或 RUNNING，清空时间范围
-    const newTimeRange = (value === "PENDING" || value === "RUNNING") ? "" : timeRangeFilter;
+    const newTimeRange = (value === "PENDING" || value === "RUNNING") ? "ALL" : timeRangeFilter;
 
     // 更新状态
     setStatusFilter(value);
     if (value !== "FAILED") {
-      setFailureTypeFilter("");
+      setFailureTypeFilter("ALL");
     }
     if (value === "PENDING" || value === "RUNNING") {
-      setTimeRangeFilter("");
+      setTimeRangeFilter("ALL");
     }
     setPage(1);
     setPageInput("1");
@@ -854,57 +861,66 @@ function SubscriptionContent() {
       {/* 顶部操作栏 */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4 mb-4">
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-[0_6px_18px_rgba(15,23,42,0.06)]">
+          <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-slate-700">状态</span>
-            <select
+            <Select
               value={statusFilter}
-              onChange={(e) => handleStatusChange(e.target.value)}
-              className="h-9 min-w-[100px] rounded-md bg-transparent text-sm text-slate-800 focus:outline-none"
+              onValueChange={handleStatusChange}
               disabled={loading}
-              aria-label="状态筛选"
             >
-              {statusOptions.map((option) => (
-                <option key={option.value || "all"} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="w-[120px] h-10 border-slate-200 bg-white shadow-[0_6px_18px_rgba(15,23,42,0.06)]">
+                <SelectValue placeholder="全部" />
+              </SelectTrigger>
+              <SelectContent>
+                {statusOptions.map((option) => (
+                  <SelectItem key={option.value || "all"} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           {statusFilter === "FAILED" && (
-            <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-[0_6px_18px_rgba(15,23,42,0.06)]">
+            <div className="flex items-center gap-2">
               <span className="text-sm font-semibold text-slate-700">失败类型</span>
-              <select
+              <Select
                 value={failureTypeFilter}
-                onChange={(e) => handleFailureTypeChange(e.target.value)}
-                className="h-9 min-w-[160px] rounded-md bg-transparent text-sm text-slate-800 focus:outline-none"
+                onValueChange={handleFailureTypeChange}
                 disabled={loading}
-                aria-label="失败类型筛选"
               >
-                {failureTypeOptions.map((option) => (
-                  <option key={option.value || "all"} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-[180px] h-10 border-slate-200 bg-white shadow-[0_6px_18px_rgba(15,23,42,0.06)]">
+                  <SelectValue placeholder="全部" />
+                </SelectTrigger>
+                <SelectContent>
+                  {failureTypeOptions.map((option) => (
+                    <SelectItem key={option.value || "all"} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           )}
           {/* 只在 SUCCESS 或 FAILED 状态时显示时间范围选择框 */}
-          {(statusFilter === "" || statusFilter === "SUCCESS" || statusFilter === "FAILED") && (
-            <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-[0_6px_18px_rgba(15,23,42,0.06)]">
+          {(statusFilter === "ALL" || statusFilter === "SUCCESS" || statusFilter === "FAILED") && (
+            <div className="flex items-center gap-2">
               <span className="text-sm font-semibold text-slate-700">时间范围</span>
-              <select
+              <Select
                 value={timeRangeFilter}
-                onChange={(e) => handleTimeRangeChange(e.target.value)}
-                className="h-9 min-w-[120px] rounded-md bg-transparent text-sm text-slate-800 focus:outline-none"
+                onValueChange={handleTimeRangeChange}
                 disabled={loading}
-                aria-label="时间范围筛选"
               >
-                {timeRangeOptions.map((option) => (
-                  <option key={option.value || "all"} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-[140px] h-10 border-slate-200 bg-white shadow-[0_6px_18px_rgba(15,23,42,0.06)]">
+                  <SelectValue placeholder="全部" />
+                </SelectTrigger>
+                <SelectContent>
+                  {timeRangeOptions.map((option) => (
+                    <SelectItem key={option.value || "all"} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           )}
         </div>
