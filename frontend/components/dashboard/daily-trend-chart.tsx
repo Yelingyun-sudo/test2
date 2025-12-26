@@ -40,11 +40,11 @@ export function DailyTrendChart({
   return (
     <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm flex flex-col h-full">
       <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-slate-900">
+          每日任务趋势
+        </h3>
         <div className="flex items-center gap-4">
-          <h3 className="text-lg font-semibold text-slate-900">
-            每日任务趋势
-          </h3>
-          {/* 自定义图例 */}
+          {/* 自定义图例 - 右对齐 */}
           <div className="flex items-center gap-3 text-xs">
             <div className="flex items-center gap-1.5">
               <span className="inline-block h-3 w-3 rounded-sm bg-[#c7d2fe]" />
@@ -63,15 +63,15 @@ export function DailyTrendChart({
               <span className="text-slate-600 font-medium">失败任务数</span>
             </div>
           </div>
+          {showViewDetails && onViewDetails && (
+            <button
+              onClick={onViewDetails}
+              className="text-sm text-sky-600 hover:text-sky-700 hover:underline transition-colors"
+            >
+              查看详情 →
+            </button>
+          )}
         </div>
-        {showViewDetails && onViewDetails && (
-          <button
-            onClick={onViewDetails}
-            className="text-sm text-sky-600 hover:text-sky-700 hover:underline transition-colors"
-          >
-            查看详情 →
-          </button>
-        )}
       </div>
       <div className="mt-4 flex-1 min-h-[224px]">
         <ResponsiveContainer width="100%" height="100%">
