@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   CartesianGrid,
@@ -22,13 +22,15 @@ import { ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { TasksDrawer } from "@/components/subscription/tasks-drawer";
+import { TaskDetailModal } from "@/components/subscription/task-detail-modal";
 import { DashboardShell } from "./shell";
 import { apiFetch } from "@/lib/api";
 import { formatDateTime } from "@/lib/datetime";
 import { cn, formatTokenCount } from "@/lib/utils";
 import { toast } from "sonner";
 import type { StatsResponse } from "@/lib/types";
-import { STATUS_LABELS, STATUS_STYLES, STATUS_COLORS, STATUS_COLORS_ENHANCED, type TaskStatus } from "@/types/common";
+import { STATUS_LABELS, STATUS_STYLES, STATUS_COLORS_ENHANCED, type TaskStatus } from "@/types/common";
+import type { SubscriptionItem } from "@/types/subscription";
 
 type DashboardProps = {
   onLogout: () => void;
@@ -60,6 +62,12 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
   const [loading, setLoading] = useState(true);
   const [isTasksDrawerOpen, setIsTasksDrawerOpen] = useState(false);
 
+  // 最近任务完整数据（用于显示详情）
+  const [recentTasks, setRecentTasks] = useState<SubscriptionItem[]>([]);
+
+  // 任务详情弹窗相关状态
+  const [selectedTask, setSelectedTask] = useState<SubscriptionItem | null>(null);
+
   // 检查 URL 参数，如果有任务查询相关参数，自动打开抽屉
   useEffect(() => {
     const hasQueryParams = 
@@ -78,9 +86,15 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
   useEffect(() => {
     async function fetchStats() {
       try {
-        const res = await apiFetch("/subscription/stats");
-        const data = await res.json();
-        setStats(data);
+        // 获取统计数据
+        const statsRes = await apiFetch("/subscription/stats");
+        const statsData = await statsRes.json();
+        setStats(statsData);
+
+        // 单独获取最近任务的完整数据（用于显示详情）
+        const recentRes = await apiFetch("/subscription/list?page=1&page_size=6");
+        const recentData = await recentRes.json();
+        setRecentTasks(recentData.items || []);
       } catch (error) {
         toast.error("加载统计数据失败");
         console.error(error);
@@ -115,7 +129,7 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
     );
   }
 
-  const { summary, daily_trend, status_distribution, recent_tasks } = stats;
+  const { summary, daily_trend, status_distribution } = stats;
 
   // 处理图表数据（只显示最近5天）
   const trendData = daily_trend.slice(-5).map((item) => ({
@@ -162,7 +176,7 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
           <div className="mt-2">
             <div className="inline-flex items-center gap-2 rounded-full bg-white/60 px-3 py-1 text-xs font-medium text-slate-600">
               <span className="h-2 w-2 rounded-full bg-amber-400/60" />
-              消耗 {formatTokenCount(summary.total_tokens)} Token，{daily_trend.length > 0 ? formatTokenCount(Math.round(summary.total_tokens / daily_trend.length)) : 0} Token/天
+              总计消耗 {formatTokenCount(summary.total_tokens)} Token
             </div>
           </div>
         </div>
@@ -465,7 +479,7 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
               </tr>
             </thead>
             <tbody>
-              {recent_tasks.length === 0 ? (
+              {recentTasks.length === 0 ? (
                 <tr>
                   <td
                     colSpan={6}
@@ -475,10 +489,11 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
                   </td>
                 </tr>
               ) : (
-                recent_tasks.map((task) => (
+                recentTasks.map((task) => (
                   <tr
                     key={task.id}
-                    className="border-b border-slate-100 hover:bg-slate-50"
+                    className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors"
+                    onClick={() => setSelectedTask(task)}
                   >
                     <td className="p-2 text-sm text-slate-700">{task.id}</td>
                     <td className="p-2 text-sm text-slate-700">
@@ -587,7 +602,7 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
                     cursor="pointer"
                     label={{
                       position: 'right',
-                      formatter: (value: number, entry: any) => {
+                      formatter: (_value: number, entry: any) => {
                         if (!entry || typeof entry.percentage === 'undefined') return '';
                         return `${entry.percentage.toFixed(1)}%`;
                       },
@@ -595,7 +610,7 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
                       fill: '#64748b'
                     }}
                   >
-                    {stats.failure_type_distribution.map((entry, index) => {
+                    {stats.failure_type_distribution.map((_entry, index) => {
                       // 渐变色谱配色：橙 → 琥珀 → 青 → 灰
                       const colors = ['#f97316', '#fb923c', '#fbbf24', '#fcd34d', '#22d3ee', '#94a3b8'];
                       return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
@@ -627,6 +642,14 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
           <TasksDrawer />
         </SheetContent>
       </Sheet>
+
+      {/* 任务详情弹窗 */}
+      {selectedTask && (
+        <TaskDetailModal
+          task={selectedTask}
+          onClose={() => setSelectedTask(null)}
+        />
+      )}
     </DashboardShell>
   );
 }

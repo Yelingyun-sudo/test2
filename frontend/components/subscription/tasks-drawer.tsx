@@ -15,15 +15,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { apiFetch } from "@/lib/api";
 import { formatDateTime, parseDateTime } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
+import { TaskDetailModal } from "./task-detail-modal";
 import type {
   SubscriptionItem,
   TaskArtifacts,
@@ -41,23 +36,6 @@ import {
 
 const PAGE_SIZE = 15;
 
-function shellQuoteSingle(value: string): string {
-  return `'${value.replace(/'/g, `'\\''`)}'`;
-}
-
-function buildReplayInstruction(item: SubscriptionItem): string {
-  const url = (item.url ?? "").trim();
-  const account = (item.account ?? "").trim();
-  const password = (item.password ?? "").trim();
-  return `登录 ${url}（账号和密码分别为 ${account} 和 ${password}）并提取订阅地址`;
-}
-
-function buildReplayCommand(item: SubscriptionItem): string {
-  return `uv run python -m website_analytics.main --instruction ${shellQuoteSingle(
-    buildReplayInstruction(item)
-  )}`;
-}
-
 function MediaLoadingOverlay({ label }: { label: string }) {
   return (
     <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white/75 backdrop-blur-sm">
@@ -65,11 +43,6 @@ function MediaLoadingOverlay({ label }: { label: string }) {
       <div className="text-xs text-slate-500">{label}</div>
     </div>
   );
-}
-
-function formatNumber(num: number | undefined): string {
-  if (num === undefined || num === null) return "0";
-  return num.toLocaleString("zh-CN");
 }
 
 function SubscriptionContent() {
@@ -140,24 +113,6 @@ function SubscriptionContent() {
     fetchFailureTypes();
   }, []);
 
-  const handleCopyReplayCommand = useCallback(async () => {
-    if (!selectedItem) return;
-
-    const url = (selectedItem.url ?? "").trim();
-    const account = (selectedItem.account ?? "").trim();
-    const password = (selectedItem.password ?? "").trim();
-    if (!url || !account || !password) {
-      toast.error("缺少网址/用户名/密码，无法生成命令");
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(buildReplayCommand(selectedItem));
-      toast.success("复制成功");
-    } catch {
-      toast.error("复制失败，请手动复制");
-    }
-  }, [selectedItem]);
   const artifactUrlsRef = useRef<ArtifactUrls>({
     loginImageUrl: null,
     extractImageUrl: null,
@@ -253,9 +208,14 @@ function SubscriptionContent() {
     let urlFailureType = searchParams.get("failure_type") || "ALL";
     const urlTimeRange = searchParams.get("executed_within") || "ALL";
 
+    // 将状态参数转换为大写，以匹配 statusOptions 中的值
+    // 支持大小写不敏感的 URL 参数（如 ?status=failed 或 ?status=FAILED）
+    if (urlStatus !== "ALL") {
+      urlStatus = urlStatus.toUpperCase();
+    }
+
     // 修正：只有 status=FAILED 时才保留 failure_type（与现有逻辑一致）
-    // 支持大小写不敏感比较，以兼容不同来源的 URL
-    if (urlStatus.toUpperCase() !== "FAILED") {
+    if (urlStatus !== "FAILED") {
       urlFailureType = "ALL";
     }
 
@@ -410,13 +370,6 @@ function SubscriptionContent() {
       return "-";
     }
     return formatDurationSeconds(durationSeconds);
-  };
-
-  const getWaitSeconds = (item: SubscriptionItem) => {
-    const createdAt = parseDateTime(item.created_at);
-    const executedAt = parseDateTime(item.executed_at);
-    if (!createdAt || !executedAt) return null;
-    return (executedAt.getTime() - createdAt.getTime()) / 1000;
   };
 
   const handlePageChange = (nextPage: number) => {
@@ -1074,351 +1027,10 @@ function SubscriptionContent() {
       </div>
 
       {selectedItem && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={handleCloseModal}
-        >
-          <div
-            className="relative w-full max-w-6xl rounded-2xl bg-white shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-label="订阅链接任务详情"
-          >
-            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-              <div className="space-y-1">
-                <h3 className="text-lg font-semibold text-slate-900">订阅链接任务详情</h3>
-                <p className="text-sm text-slate-500">ID: {selectedItem.id ?? "-"}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={handleCopyReplayCommand}>
-                  复制重跑命令
-                </Button>
-                <Button variant="outline" size="sm" onClick={handleCloseModal}>
-                  关闭
-                </Button>
-              </div>
-            </div>
-
-            <div className="grid gap-4 px-6 py-5 text-sm text-slate-700 sm:grid-cols-2 lg:grid-cols-3">
-              <div className="space-y-1">
-                <div className="text-slate-500">网址</div>
-                <div className="break-all font-medium text-slate-800">{selectedItem.url}</div>
-              </div>
-              <div className="space-y-1">
-                <div className="text-slate-500">用户名</div>
-                <div className="break-all font-medium text-slate-800">{selectedItem.account}</div>
-              </div>
-              <div className="space-y-1">
-                <div className="text-slate-500">密码</div>
-                <div className="break-all font-medium text-slate-800">{selectedItem.password}</div>
-              </div>
-              <div className="space-y-1">
-                <div className="text-slate-500">任务状态</div>
-                <div className="flex items-center gap-2">{renderStatus(selectedItem.status)}</div>
-              </div>
-              <div className="space-y-1">
-                <div className="text-slate-500">任务创建时间</div>
-                <div className="font-medium">{formatDateTime(selectedItem.created_at)}</div>
-              </div>
-              <div className="space-y-1">
-                <div className="text-slate-500">任务执行时间</div>
-                <div className="font-medium">{formatDateTime(selectedItem.executed_at)}</div>
-              </div>
-              <div className="space-y-1">
-                <div className="text-slate-500">任务等待时间</div>
-                <div className="font-medium">{formatDurationSeconds(getWaitSeconds(selectedItem))}</div>
-              </div>
-              <div className="space-y-1">
-                <div className="text-slate-500">任务时长 (s)</div>
-                <div className="font-medium">{formatTaskDuration(selectedItem.duration_seconds, selectedItem.status)}</div>
-              </div>
-              {selectedItem.llm_usage && (
-                <TooltipProvider delayDuration={200}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="space-y-1 cursor-help">
-                        <div className="text-slate-500">Token 使用</div>
-                        <div className="font-medium text-blue-600 underline decoration-dashed decoration-slate-300 underline-offset-2">
-                          🤖 {formatNumber(selectedItem.llm_usage.total_tokens)}
-                        </div>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent
-                      side="top"
-                      align="center"
-                      className="w-64 p-4 bg-sky-50/95 backdrop-blur-sm border border-sky-100 shadow-md"
-                    >
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-2 border-b border-sky-200 pb-2">
-                          <span className="text-sm font-semibold text-slate-900">📊 Token 使用详情</span>
-                        </div>
-
-                        <div className="space-y-2 text-xs">
-                          <div className="flex justify-between">
-                            <span className="text-slate-600">输入 Token</span>
-                            <span className="font-mono text-blue-600">
-                              {formatNumber(selectedItem.llm_usage.total_input_tokens)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-slate-600">输出 Token</span>
-                            <span className="font-mono text-green-600">
-                              {formatNumber(selectedItem.llm_usage.total_output_tokens)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between border-t border-sky-200 pt-2">
-                            <span className="font-medium text-slate-900">总计</span>
-                            <span className="font-mono font-bold text-slate-900">
-                              {formatNumber(selectedItem.llm_usage.total_tokens)}
-                            </span>
-                          </div>
-                        </div>
-
-                        {(selectedItem.llm_usage.total_cached_tokens ||
-                          selectedItem.llm_usage.total_reasoning_tokens) && (
-                          <div className="space-y-2 border-t border-sky-200 pt-2 text-xs">
-                            {selectedItem.llm_usage.total_cached_tokens && (
-                              <div className="flex justify-between">
-                                <span className="text-slate-600">缓存优化</span>
-                                <span className="font-mono text-orange-600">
-                                  {formatNumber(selectedItem.llm_usage.total_cached_tokens)}
-                                </span>
-                              </div>
-                            )}
-                            {selectedItem.llm_usage.total_reasoning_tokens && (
-                              <div className="flex justify-between">
-                                <span className="text-slate-600">推理 Token</span>
-                                <span className="font-mono text-purple-600">
-                                  {formatNumber(selectedItem.llm_usage.total_reasoning_tokens)}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        <div className="flex justify-between border-t border-sky-200 pt-2 text-xs">
-                          <span className="text-slate-600">LLM 调用轮次</span>
-                          <span className="font-mono text-cyan-600">
-                            {selectedItem.llm_usage.llm_turns} 次
-                          </span>
-                        </div>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-            </div>
-
-            <div className="px-6 pb-6">
-              <div className="mb-2 flex items-center gap-2">
-                <div className="text-sm font-semibold text-slate-700">任务结果</div>
-                {selectedItem.status === "FAILED" && selectedItem.failure_type && (
-                  <span className="inline-flex items-center rounded-md bg-rose-50 px-2 py-1 text-xs font-medium text-rose-700 ring-1 ring-inset ring-rose-600/10">
-                    {failureTypeLabel[selectedItem.failure_type] || selectedItem.failure_type}
-                  </span>
-                )}
-              </div>
-              <Input
-                readOnly
-                value={(selectedItem.result ?? "").replace(/\s+/g, " ").trim()}
-                placeholder="暂无结果"
-                className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-mono text-sm text-slate-800 shadow-inner focus:outline-none"
-              />
-            </div>
-
-            <div className="px-6 pb-6">
-              <div className="mb-2 text-sm font-semibold text-slate-700">任务日志</div>
-              <div className="grid gap-4 lg:grid-cols-3">
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                  <div className="mb-3 flex items-center justify-between">
-                    <div className="text-sm font-semibold text-slate-800">登录截图</div>
-                </div>
-                  {artifactsLoading ? (
-                    <div className="relative w-full aspect-[16/10] overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-                      <div className="absolute inset-0 animate-pulse bg-slate-100/70" />
-                      <MediaLoadingOverlay label="加载中..." />
-                    </div>
-                  ) : artifactUrls.loginImageUrl ? (
-                    <button
-                      type="button"
-                      className="group relative block w-full"
-                      onClick={() => {
-                        const src = artifactUrls.loginImageUrl;
-                        if (!src) return;
-                        setViewer({
-                          type: "image",
-                          title: "登录截图",
-                          src
-                        });
-                      }}
-                    >
-                      {!mediaReady.login && !mediaError.login ? (
-                        <MediaLoadingOverlay label="加载中..." />
-                      ) : null}
-                      {mediaError.login ? (
-                        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400">
-                          加载失败
-                        </div>
-                      ) : null}
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={artifactUrls.loginImageUrl}
-                        alt="登录截图"
-                        className={cn(
-                          "w-full aspect-[16/10] rounded-xl border border-slate-200 object-contain bg-slate-50 cursor-zoom-in group-hover:shadow-sm transition-opacity",
-                          mediaReady.login && !mediaError.login ? "opacity-100" : "opacity-0"
-                        )}
-                        onLoad={() => setMediaReady((prev) => ({ ...prev, login: true }))}
-                        onError={() => setMediaError((prev) => ({ ...prev, login: true }))}
-                      />
-                    </button>
-                  ) : (
-                    <div className="flex w-full aspect-[16/10] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400">
-                      不存在
-                    </div>
-                  )}
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                  <div className="mb-3 flex items-center justify-between">
-                    <div className="text-sm font-semibold text-slate-800">提取截图</div>
-                </div>
-                  {artifactsLoading ? (
-                    <div className="relative w-full aspect-[16/10] overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-                      <div className="absolute inset-0 animate-pulse bg-slate-100/70" />
-                      <MediaLoadingOverlay label="加载中..." />
-                    </div>
-                  ) : artifactUrls.extractImageUrl ? (
-                    <button
-                      type="button"
-                      className="group relative block w-full"
-                      onClick={() => {
-                        const src = artifactUrls.extractImageUrl;
-                        if (!src) return;
-                        setViewer({
-                          type: "image",
-                          title: "提取截图",
-                          src
-                        });
-                      }}
-                    >
-                      {!mediaReady.extract && !mediaError.extract ? (
-                        <MediaLoadingOverlay label="加载中..." />
-                      ) : null}
-                      {mediaError.extract ? (
-                        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400">
-                          加载失败
-                        </div>
-                      ) : null}
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={artifactUrls.extractImageUrl}
-                        alt="提取截图"
-                        className={cn(
-                          "w-full aspect-[16/10] rounded-xl border border-slate-200 object-contain bg-slate-50 cursor-zoom-in group-hover:shadow-sm transition-opacity",
-                          mediaReady.extract && !mediaError.extract ? "opacity-100" : "opacity-0"
-                        )}
-                        onLoad={() => setMediaReady((prev) => ({ ...prev, extract: true }))}
-                        onError={() => setMediaError((prev) => ({ ...prev, extract: true }))}
-                      />
-                    </button>
-                  ) : (
-                    <div className="flex w-full aspect-[16/10] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400">
-                      不存在
-                    </div>
-                  )}
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                  <div className="mb-3 flex items-center justify-between">
-                    <div className="flex items-baseline gap-2">
-                      <div className="text-sm font-semibold text-slate-800">操作视频</div>
-                      {artifacts?.video_seek_seconds ? (
-                        <div className="text-xs text-slate-500">
-                          建议从 {artifacts.video_seek_seconds}s 开始播放(x3倍速)
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                  {artifactsLoading ? (
-                    <div className="relative w-full aspect-[16/10] overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-                      <div className="absolute inset-0 animate-pulse bg-slate-100/70" />
-                      <MediaLoadingOverlay label="加载中..." />
-                    </div>
-                  ) : artifacts?.video_path ? (
-                    <button
-                      type="button"
-                      className="group relative block w-full"
-                      onClick={async () => {
-                        if (!selectedItem) return;
-                        const videoPath = artifacts?.video_path;
-                        if (!videoPath) return;
-
-                        const existing = artifactUrlsRef.current.videoUrl;
-                        setViewer({
-                          type: "video",
-                          title: "操作视频",
-                          src: existing,
-                          seekSeconds: artifacts?.video_seek_seconds ?? null
-                        });
-
-                        if (existing) return;
-
-                        setViewerVideoFetch({ loading: true, error: false, ready: false });
-                        const videoUrl = await ensureVideoBlobUrl(
-                          selectedItem.id,
-                          videoPath,
-                          artifactsControllerRef.current?.signal
-                        );
-                        if (!videoUrl) {
-                          setViewerVideoFetch({ loading: false, error: true, ready: false });
-                          return;
-                        }
-                        setViewer((prev) =>
-                          prev && prev.type === "video"
-                            ? { ...prev, src: videoUrl }
-                            : prev
-                        );
-                      }}
-                      aria-label="播放操作视频"
-                    >
-                      {artifactUrls.loginImageUrl && !mediaError.login ? (
-                        <>
-                          {!mediaReady.login ? <MediaLoadingOverlay label="加载中..." /> : null}
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={artifactUrls.loginImageUrl}
-                            alt="操作视频封面"
-                            className={cn(
-                              "w-full aspect-[16/10] rounded-xl border border-slate-200 object-contain bg-slate-50 transition-opacity",
-                              mediaReady.login && !mediaError.login ? "opacity-100" : "opacity-0"
-                            )}
-                            onLoad={() => setMediaReady((prev) => ({ ...prev, login: true }))}
-                            onError={() => setMediaError((prev) => ({ ...prev, login: true }))}
-                          />
-                        </>
-                      ) : (
-                        <div className="relative w-full aspect-[16/10] overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-                          <div className="absolute inset-0 bg-slate-100/60" />
-                        </div>
-                      )}
-                      <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center">
-                        <div className="flex h-14 w-14 items-center justify-center rounded-full border border-white/60 bg-black/40 backdrop-blur-sm transition group-hover:scale-105 group-hover:bg-black/55">
-                          <Play className="h-7 w-7 translate-x-[1px] text-white" fill="currentColor" />
-                        </div>
-                      </div>
-                    </button>
-                  ) : (
-                    <div className="flex w-full aspect-[16/10] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400">
-                      不存在
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <TaskDetailModal
+          task={selectedItem}
+          onClose={handleCloseModal}
+        />
       )}
 
       {viewer && (
