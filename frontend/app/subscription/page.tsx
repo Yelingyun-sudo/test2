@@ -6,9 +6,9 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { clearLocalAuth, isJwtExpired } from "@/lib/api";
 
-const RealDashboard = dynamic(
+const SubscriptionDashboard = dynamic(
   () =>
-    import("@/components/dashboard/real-dashboard").then((mod) => mod.RealDashboard),
+    import("@/components/dashboard/subscription-dashboard").then((mod) => mod.SubscriptionDashboard),
   { ssr: false }
 );
 
@@ -62,7 +62,7 @@ export default function SubscriptionPage() {
   }
 
   return (
-    <RealDashboard onLogout={handleLogout} account={account ?? undefined} />
+    <SubscriptionDashboard onLogout={handleLogout} account={account ?? undefined} />
   );
 }
 

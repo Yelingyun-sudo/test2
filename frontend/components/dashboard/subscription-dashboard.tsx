@@ -53,7 +53,7 @@ function formatDurationSeconds(value?: number | null): string {
 }
 
 
-export function RealDashboard({ onLogout, account }: DashboardProps) {
+export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [stats, setStats] = useState<StatsResponse | null>(null);
@@ -630,3 +630,4 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
     </DashboardShell>
   );
 }
+
