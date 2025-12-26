@@ -8,8 +8,7 @@ import {
   ResponsiveContainer,
   Tooltip,
   XAxis,
-  YAxis,
-  Legend
+  YAxis
 } from "recharts";
 import type { DailyTrendItem } from "@/lib/types";
 
@@ -40,11 +39,30 @@ export function DailyTrendChart({
 
   return (
     <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm flex flex-col h-full">
-      <div className="flex items-start justify-between">
-        <div>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
           <h3 className="text-lg font-semibold text-slate-900">
             每日任务趋势
           </h3>
+          {/* 自定义图例 */}
+          <div className="flex items-center gap-3 text-xs">
+            <div className="flex items-center gap-1.5">
+              <span className="inline-block h-3 w-3 rounded-sm bg-[#c7d2fe]" />
+              <span className="text-slate-600 font-medium">成功率</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="inline-block h-3 w-3 rounded-sm bg-[#0ea5e9]" />
+              <span className="text-slate-600 font-medium">总任务数</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="inline-block h-3 w-3 rounded-sm bg-[#22c55e]" />
+              <span className="text-slate-600 font-medium">成功任务数</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="inline-block h-3 w-3 rounded-sm bg-[#ef4444]" />
+              <span className="text-slate-600 font-medium">失败任务数</span>
+            </div>
+          </div>
         </div>
         {showViewDetails && onViewDetails && (
           <button
@@ -95,9 +113,6 @@ export function DailyTrendChart({
                   </div>
                 );
               }}
-            />
-            <Legend
-              formatter={(value) => <span style={{ color: '#475569', fontSize: '12px', fontWeight: 500 }}>{value}</span>}
             />
             <Bar
               yAxisId="right"
