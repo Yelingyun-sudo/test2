@@ -1,21 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   CartesianGrid,
   Cell,
-  ComposedChart,
   Bar,
   BarChart,
-  Line,
   PieChart,
   Pie,
   ResponsiveContainer,
   Tooltip,
   XAxis,
-  YAxis,
-  Legend
+  YAxis
 } from "recharts";
 import { ArrowRight, Loader2 } from "lucide-react";
 
@@ -29,7 +26,7 @@ import { formatDateTime } from "@/lib/datetime";
 import { cn, formatTokenCount } from "@/lib/utils";
 import { toast } from "sonner";
 import type { StatsResponse } from "@/lib/types";
-import { STATUS_LABELS, STATUS_STYLES, STATUS_COLORS_ENHANCED, type TaskStatus } from "@/types/common";
+import { STATUS_LABELS, STATUS_STYLES, STATUS_COLORS_ENHANCED, type TaskStatus, type FailureTypeItem, type FailureTypesResponse } from "@/types/common";
 import type { SubscriptionItem } from "@/types/subscription";
 
 type DashboardProps = {
@@ -68,6 +65,12 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
   // 任务详情弹窗相关状态
   const [selectedTask, setSelectedTask] = useState<SubscriptionItem | null>(null);
 
+  // 响应式：判断是否为桌面端
+  const [isDesktop, setIsDesktop] = useState(true);
+
+  // 失败类型列表
+  const [failureTypes, setFailureTypes] = useState<FailureTypeItem[]>([]);
+
   // 检查 URL 参数，如果有任务查询相关参数，自动打开抽屉
   useEffect(() => {
     const hasQueryParams = 
@@ -82,7 +85,18 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
     }
   }, [searchParams]);
 
-  // 数据获取逻辑（仅在页面加载时执行一次）
+  // 响应式检测：桌面端 vs 移动端
+  useEffect(() => {
+    const checkIsDesktop = () => {
+      setIsDesktop(window.innerWidth >= 1024); // lg breakpoint
+    };
+    
+    checkIsDesktop();
+    window.addEventListener("resize", checkIsDesktop);
+    return () => window.removeEventListener("resize", checkIsDesktop);
+  }, []);
+
+  // 数据获取逻辑
   useEffect(() => {
     async function fetchStats() {
       try {
@@ -90,11 +104,6 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
         const statsRes = await apiFetch("/subscription/stats");
         const statsData = await statsRes.json();
         setStats(statsData);
-
-        // 单独获取最近任务的完整数据（用于显示详情）
-        const recentRes = await apiFetch("/subscription/list?page=1&page_size=6");
-        const recentData = await recentRes.json();
-        setRecentTasks(recentData.items || []);
       } catch (error) {
         toast.error("加载统计数据失败");
         console.error(error);
@@ -104,6 +113,48 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
     }
     fetchStats();
   }, []);
+
+  // 获取失败类型列表
+  useEffect(() => {
+    const fetchFailureTypes = async () => {
+      try {
+        const res = await apiFetch("/subscription/failure-types");
+        if (!res.ok) {
+          throw new Error("获取失败类型列表失败");
+        }
+        const data = (await res.json()) as FailureTypesResponse;
+        setFailureTypes(data.items);
+      } catch (error) {
+        console.error("获取失败类型列表失败:", error);
+        toast.error("获取失败类型列表失败");
+      }
+    };
+    fetchFailureTypes();
+  }, []);
+
+  // 根据响应式状态获取最近任务列表
+  useEffect(() => {
+    async function fetchRecentTasks() {
+      try {
+        // 桌面端显示 13 条，移动端显示 8 条
+        const pageSize = isDesktop ? 13 : 8;
+        const recentRes = await apiFetch(`/subscription/list?page=1&page_size=${pageSize}`);
+        const recentData = await recentRes.json();
+        setRecentTasks(recentData.items || []);
+      } catch (error) {
+        console.error("加载最近任务失败", error);
+      }
+    }
+    fetchRecentTasks();
+  }, [isDesktop]);
+
+  // 从 API 获取的失败类型构建标签映射（必须在所有条件返回之前）
+  const failureTypeLabel: Record<string, string> = useMemo(() => {
+    return failureTypes.reduce((acc, item) => {
+      acc[item.value] = item.label;
+      return acc;
+    }, {} as Record<string, string>);
+  }, [failureTypes]);
 
   if (loading) {
     return (
@@ -129,19 +180,7 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
     );
   }
 
-  const { summary, daily_trend, status_distribution } = stats;
-
-  // 处理图表数据（只显示最近5天）
-  const trendData = daily_trend.slice(-5).map((item) => ({
-    date: new Date(item.date).toLocaleDateString("zh-CN", {
-      month: "2-digit",
-      day: "2-digit"
-    }),
-    total_count: item.total_count,
-    success_count: item.success_count,
-    failed_count: item.failed_count,
-    success_rate: item.success_rate * 100 // 转换为百分比
-  }));
+  const { summary, status_distribution } = stats;
 
   const totalStatusCount = status_distribution.reduce((sum, item) => sum + item.count, 0);
   const distributionData = status_distribution.map((item) => ({
@@ -159,28 +198,6 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
     >
       {/* KPI 卡片 */}
       <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {/* 总任务数 */}
-        <div className="rounded-2xl border bg-gradient-to-br from-amber-500/10 to-amber-600/10 text-amber-700 border-amber-100 p-5 shadow-sm backdrop-blur">
-          <p className="text-sm text-slate-600">总任务数</p>
-          <div className="mt-2 flex items-baseline gap-3">
-            <div className="text-3xl font-semibold">
-              {summary.total_tasks.toLocaleString()}
-            </div>
-            <div className="flex items-baseline gap-1">
-              <span className="text-xs text-slate-600">成功率</span>
-              <span className="text-base text-slate-600">
-                {(summary.success_rate * 100).toFixed(1)}%
-              </span>
-            </div>
-          </div>
-          <div className="mt-2">
-            <div className="inline-flex items-center gap-2 rounded-full bg-white/60 px-3 py-1 text-xs font-medium text-slate-600">
-              <span className="h-2 w-2 rounded-full bg-amber-400/60" />
-              总计消耗 {formatTokenCount(summary.total_tokens)} Token
-            </div>
-          </div>
-        </div>
-
         {/* 今日已执行 */}
         <div className="rounded-2xl border bg-gradient-to-br from-sky-500/10 to-sky-600/10 text-sky-700 border-sky-100 p-5 shadow-sm backdrop-blur">
           <p className="text-sm text-slate-600">今日已执行</p>
@@ -189,10 +206,11 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
               {summary.today_success_count + summary.today_failed_count}
             </div>
             <div className="flex items-baseline gap-1">
-              <span className="text-xs text-slate-600">成功率</span>
+              <span className="text-xs text-slate-600">总计消耗</span>
               <span className="text-base text-slate-600">
-                {(summary.today_success_rate * 100).toFixed(1)}%
+                {formatTokenCount(summary.today_tokens)}
               </span>
+              <span className="text-xs text-slate-600">token</span>
             </div>
           </div>
           <div className="mt-2">
@@ -248,116 +266,37 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
             </div>
           </div>
         </div>
+
+        {/* 今日成功率 */}
+        <div className="rounded-2xl border bg-gradient-to-br from-violet-500/10 to-violet-600/10 text-violet-800 border-violet-100 p-5 shadow-sm backdrop-blur">
+          <p className="text-sm text-slate-600">今日成功率</p>
+          <div className="mt-2">
+            <div className="text-3xl font-semibold text-violet-800">
+              {(summary.today_success_rate * 100).toFixed(1)}%
+            </div>
+          </div>
+          <div className="mt-2">
+            <div className="inline-flex items-center gap-2 rounded-full bg-white/60 px-3 py-1 text-xs font-medium text-slate-600">
+              <span className="h-2 w-2 rounded-full bg-violet-400/60" />
+              成功 {summary.today_success_count} · 失败 {summary.today_failed_count}
+            </div>
+          </div>
+        </div>
       </section>
 
       {/* 图表区域 */}
-      <section className="grid gap-6 lg:grid-cols-3">
-        {/* 每日任务趋势图 - 2/3 宽度 */}
-        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm lg:col-span-2">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm text-slate-500">最近 5 天</p>
-              <h3 className="text-lg font-semibold text-slate-900">
-                每日任务趋势
-              </h3>
-            </div>
-          </div>
-          <div className="mt-4 h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={trendData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="date" stroke="#94a3b8" />
-                <YAxis yAxisId="left" stroke="#94a3b8" />
-                <YAxis
-                  yAxisId="right"
-                  orientation="right"
-                  stroke="#94a3b8"
-                  unit="%"
-                  domain={[0, 100]}
-                />
-                <Tooltip
-                  content={({ payload, label }) => {
-                    if (!payload || payload.length === 0) return null;
-                    return (
-                      <div className="rounded-lg border border-sky-100 bg-sky-50/90 backdrop-blur-sm p-3 shadow-md">
-                        <p className="font-medium text-slate-900 mb-2">{label}</p>
-                        <div className="space-y-1">
-                          {payload.map((entry, index) => (
-                            <div key={index} className="flex items-center justify-between gap-4">
-                              <div className="flex items-center gap-2">
-                                <span
-                                  className="inline-block h-3 w-3 rounded-sm"
-                                  style={{ backgroundColor: entry.color ?? '#94a3b8' }}
-                                />
-                                <span className="text-xs text-slate-600">{entry.name ?? '未知'}</span>
-                              </div>
-                              <span className="text-sm font-semibold text-slate-900">
-                                {entry.name === "成功率"
-                                  ? `${Number(entry.value ?? 0).toFixed(1)}%`
-                                  : entry.value ?? 0}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  }}
-                />
-                <Legend
-                  formatter={(value) => <span style={{ color: '#475569', fontSize: '12px', fontWeight: 500 }}>{value}</span>}
-                />
-                <Bar
-                  yAxisId="right"
-                  dataKey="success_rate"
-                  name="成功率"
-                  fill="#c7d2fe"
-                  radius={[4, 4, 0, 0]}
-                  maxBarSize={60}
-                  legendType="square"
-                />
-                <Line
-                  yAxisId="left"
-                  type="monotone"
-                  dataKey="total_count"
-                  name="总任务数"
-                  stroke="#0ea5e9"
-                  strokeWidth={2}
-                  dot={{ r: 3, fill: "#0ea5e9" }}
-                />
-                <Line
-                  yAxisId="left"
-                  type="monotone"
-                  dataKey="success_count"
-                  name="成功任务数"
-                  stroke="#22c55e"
-                  strokeWidth={2}
-                  dot={{ r: 3, fill: "#22c55e" }}
-                />
-                <Line
-                  yAxisId="left"
-                  type="monotone"
-                  dataKey="failed_count"
-                  name="失败任务数"
-                  stroke="#ef4444"
-                  strokeWidth={2}
-                  dot={{ r: 3, fill: "#ef4444" }}
-                />
-              </ComposedChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
+      <section className="grid gap-6 lg:grid-cols-4 lg:grid-rows-2">
         {/* 任务状态分布图 - 1/3 宽度 */}
         <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm lg:col-span-1">
           <div className="flex items-start justify-between mb-4">
             <div>
-              <p className="text-sm text-slate-500">状态统计</p>
+              <p className="text-sm text-slate-500">状态统计（共 {status_distribution.length} 种状态）</p>
               <h3 className="text-lg font-semibold text-slate-900">
                 任务状态分布
               </h3>
             </div>
           </div>
-          <div className="mt-4 h-72">
+          <div className="mt-4 h-56">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -366,10 +305,21 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
                   nameKey="name"
                   cx="50%"
                   cy="50%"
-                  outerRadius={90}
+                  outerRadius={78}
                   innerRadius={0}
                   labelLine={true}
-                  label={({ name, percentage }) => `${name} (${percentage}%)`}
+                  label={({ x, y, name, percentage }: any) => (
+                    <text
+                      x={x}
+                      y={y}
+                      fontSize="13"
+                      fill="#475569"
+                      textAnchor="middle"
+                      dominantBaseline="central"
+                    >
+                      {`${name} (${percentage}%)`}
+                    </text>
+                  )}
                   onClick={(data) => {
                     // 点击饼图扇区跳转到订阅列表，自动筛选该状态
                     const status = data.payload?.status;
@@ -424,11 +374,11 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
           </div>
         </div>
 
-        {/* 最近任务列表 - 2/3 宽度 */}
-        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm lg:col-span-2">
+        {/* 最近任务列表 - 3/4 宽度（1:3 比例），占满两行 */}
+        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm lg:col-span-3 lg:row-span-2">
         <div className="flex items-start justify-between">
           <div>
-            <p className="text-sm text-slate-500">最新 6 个</p>
+            <p className="text-sm text-slate-500">最新 {isDesktop ? 13 : 8} 个</p>
             <h3 className="text-lg font-semibold text-slate-900">
               最近任务列表
             </h3>
@@ -446,15 +396,15 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
             <ArrowRight className="ml-1 h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
           </Button>
         </div>
-        <div className="mt-4 overflow-x-auto">
+        <div className="mt-4 max-h-[600px] overflow-y-auto overflow-x-auto">
           <table className="w-full border-collapse">
             <colgroup>
               <col className="w-[5%]" />
-              <col className="w-[16%]" />
-              <col className="w-[15%]" />
-              <col className="w-[34%]" />
-              <col className="w-[16%]" />
               <col className="w-[14%]" />
+              <col className="w-[12%]" />
+              <col className="w-[22%]" />
+              <col className="w-[12%]" />
+              <col className="w-[35%]" />
             </colgroup>
             <thead>
               <tr className="border-b border-slate-200">
@@ -523,8 +473,15 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
                         : formatDurationSeconds(task.duration_seconds)}
                     </td>
                     <td className="p-2 text-sm text-slate-700">
-                      <div className="max-w-[200px] truncate" title={task.result || ""}>
-                        {task.result || "-"}
+                      <div className="flex items-center gap-2 min-w-0 max-w-[270px]">
+                        {task.status === "FAILED" && task.failure_type && (
+                          <span className="inline-flex items-center rounded-md bg-rose-50 px-2 py-1 text-xs font-medium text-rose-700 ring-1 ring-inset ring-rose-600/10 flex-shrink-0">
+                            {failureTypeLabel[task.failure_type] || task.failure_type}
+                          </span>
+                        )}
+                        <span className="truncate" title={task.result || ""}>
+                          {task.result || "-"}
+                        </span>
                       </div>
                     </td>
                   </tr>
@@ -549,12 +506,15 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => router.push('/subscription?status=failed')}
+              onClick={() => {
+                router.push('/subscription?status=failed');
+                setIsTasksDrawerOpen(true);
+              }}
             >
               查看全部
             </Button>
           </div>
-          <div className="mt-4 h-72">
+          <div className="mt-4 h-56">
             {stats.failure_type_distribution && stats.failure_type_distribution.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={stats.failure_type_distribution} layout="vertical">
@@ -590,7 +550,8 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
                   <Bar 
                     dataKey="count" 
                     radius={[0, 8, 8, 0]}
-                    onClick={(data) => {
+                    maxBarSize={30}
+                    onClick={(data: any) => {
                       // 点击跳转到订阅列表，自动筛选该失败类型
                       const failureType = data.payload?.type;
                       if (failureType && failureType !== 'others') {

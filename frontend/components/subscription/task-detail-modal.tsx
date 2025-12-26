@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, Pause, Play, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 
@@ -20,6 +20,8 @@ import {
   STATUS_LABELS,
   STATUS_STYLES,
   type TaskStatus,
+  type FailureTypeItem,
+  type FailureTypesResponse,
 } from "@/types/common";
 
 interface TaskArtifacts {
@@ -138,6 +140,9 @@ export function TaskDetailModal({ task, onClose }: TaskDetailModalProps) {
     error: false,
     ready: false
   });
+
+  // 失败类型列表
+  const [failureTypes, setFailureTypes] = useState<FailureTypeItem[]>([]);
 
   const artifactUrlsRef = useRef<ArtifactUrls>({
     loginImageUrl: null,
@@ -369,6 +374,32 @@ export function TaskDetailModal({ task, onClose }: TaskDetailModalProps) {
       return { ...prev, dragging: false, currentTime: target, dragValue: displayValue };
     });
   };
+
+  // 获取失败类型列表
+  useEffect(() => {
+    const fetchFailureTypes = async () => {
+      try {
+        const res = await apiFetch("/subscription/failure-types");
+        if (!res.ok) {
+          throw new Error("获取失败类型列表失败");
+        }
+        const data = (await res.json()) as FailureTypesResponse;
+        setFailureTypes(data.items);
+      } catch (error) {
+        console.error("获取失败类型列表失败:", error);
+        toast.error("获取失败类型列表失败");
+      }
+    };
+    fetchFailureTypes();
+  }, []);
+
+  // 从 API 获取的失败类型构建标签映射（必须在所有条件返回之前）
+  const failureTypeLabel: Record<string, string> = useMemo(() => {
+    return failureTypes.reduce((acc, item) => {
+      acc[item.value] = item.label;
+      return acc;
+    }, {} as Record<string, string>);
+  }, [failureTypes]);
 
   useEffect(() => {
     if (!task) {
@@ -644,7 +675,7 @@ export function TaskDetailModal({ task, onClose }: TaskDetailModalProps) {
             <div className="text-sm font-semibold text-slate-700">任务结果</div>
             {task.status === "FAILED" && task.failure_type && (
               <span className="inline-flex items-center rounded-md bg-rose-50 px-2 py-1 text-xs font-medium text-rose-700 ring-1 ring-inset ring-rose-600/10">
-                {task.failure_type}
+                {failureTypeLabel[task.failure_type] || task.failure_type}
               </span>
             )}
           </div>

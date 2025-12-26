@@ -1,0 +1,145 @@
+"use client";
+
+import {
+  CartesianGrid,
+  ComposedChart,
+  Bar,
+  Line,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+  Legend
+} from "recharts";
+import type { DailyTrendItem } from "@/lib/types";
+
+type DailyTrendChartProps = {
+  dailyTrend: DailyTrendItem[];
+  days?: number; // 显示最近多少天，默认5天
+  showViewDetails?: boolean;
+  onViewDetails?: () => void;
+};
+
+export function DailyTrendChart({
+  dailyTrend,
+  days = 5,
+  showViewDetails = false,
+  onViewDetails
+}: DailyTrendChartProps) {
+  // 处理图表数据（只显示最近N天）
+  const trendData = dailyTrend.slice(-days).map((item) => ({
+    date: new Date(item.date).toLocaleDateString("zh-CN", {
+      month: "2-digit",
+      day: "2-digit"
+    }),
+    total_count: item.total_count,
+    success_count: item.success_count,
+    failed_count: item.failed_count,
+    success_rate: item.success_rate * 100 // 转换为百分比
+  }));
+
+  return (
+    <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm lg:col-span-2">
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-sm text-slate-500">最近 {days} 天</p>
+          <h3 className="text-lg font-semibold text-slate-900">
+            每日任务趋势
+          </h3>
+        </div>
+        {showViewDetails && onViewDetails && (
+          <button
+            onClick={onViewDetails}
+            className="text-sm text-sky-600 hover:text-sky-700 hover:underline transition-colors"
+          >
+            查看详情 →
+          </button>
+        )}
+      </div>
+      <div className="mt-4 h-72">
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart data={trendData}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+            <XAxis dataKey="date" stroke="#94a3b8" />
+            <YAxis yAxisId="left" stroke="#94a3b8" />
+            <YAxis
+              yAxisId="right"
+              orientation="right"
+              stroke="#94a3b8"
+              unit="%"
+              domain={[0, 100]}
+            />
+            <Tooltip
+              content={({ payload, label }) => {
+                if (!payload || payload.length === 0) return null;
+                return (
+                  <div className="rounded-lg border border-sky-100 bg-sky-50/90 backdrop-blur-sm p-3 shadow-md">
+                    <p className="font-medium text-slate-900 mb-2">{label}</p>
+                    <div className="space-y-1">
+                      {payload.map((entry, index) => (
+                        <div key={index} className="flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="inline-block h-3 w-3 rounded-sm"
+                              style={{ backgroundColor: entry.color ?? '#94a3b8' }}
+                            />
+                            <span className="text-xs text-slate-600">{entry.name ?? '未知'}</span>
+                          </div>
+                          <span className="text-sm font-semibold text-slate-900">
+                            {entry.name === "成功率"
+                              ? `${Number(entry.value ?? 0).toFixed(1)}%`
+                              : entry.value ?? 0}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              }}
+            />
+            <Legend
+              formatter={(value) => <span style={{ color: '#475569', fontSize: '12px', fontWeight: 500 }}>{value}</span>}
+            />
+            <Bar
+              yAxisId="right"
+              dataKey="success_rate"
+              name="成功率"
+              fill="#c7d2fe"
+              radius={[4, 4, 0, 0]}
+              maxBarSize={60}
+              legendType="square"
+            />
+            <Line
+              yAxisId="left"
+              type="monotone"
+              dataKey="total_count"
+              name="总任务数"
+              stroke="#0ea5e9"
+              strokeWidth={2}
+              dot={{ r: 3, fill: "#0ea5e9" }}
+            />
+            <Line
+              yAxisId="left"
+              type="monotone"
+              dataKey="success_count"
+              name="成功任务数"
+              stroke="#22c55e"
+              strokeWidth={2}
+              dot={{ r: 3, fill: "#22c55e" }}
+            />
+            <Line
+              yAxisId="left"
+              type="monotone"
+              dataKey="failed_count"
+              name="失败任务数"
+              stroke="#ef4444"
+              strokeWidth={2}
+              dot={{ r: 3, fill: "#ef4444" }}
+            />
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+

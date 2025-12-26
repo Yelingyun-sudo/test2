@@ -6,6 +6,17 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
+import {
+  CartesianGrid,
+  ComposedChart,
+  Bar,
+  Line,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+  Legend
+} from "recharts";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -18,9 +29,10 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { DashboardShell } from "@/components/dashboard/shell";
-import { cn } from "@/lib/utils";
+import { cn, formatTokenCount } from "@/lib/utils";
 import { toast } from "sonner";
-import { clearLocalAuth, isJwtExpired } from "@/lib/api";
+import { clearLocalAuth, isJwtExpired, apiFetch } from "@/lib/api";
+import type { StatsResponse } from "@/lib/types";
 
 const schema = z.object({
   username: z.string().min(1, "请输入用户名"),
@@ -32,11 +44,30 @@ const API_BASE_URL =
 
 type FormValues = z.infer<typeof schema>;
 
+// 格式化时长
+function formatDurationSeconds(value?: number | null): string {
+  if (value == null || isNaN(value)) return "-";
+  const totalSeconds = Math.max(0, Math.floor(value));
+  if (totalSeconds < 60) return `${totalSeconds}秒`;
+
+  const days = Math.floor(totalSeconds / 86_400);
+  const hours = Math.floor((totalSeconds % 86_400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (totalSeconds < 3600) return `${minutes}分${seconds}秒`;
+  if (totalSeconds < 86_400)
+    return `${hours}小时${minutes}分${seconds}秒`;
+  return `${days}天${hours}小时${minutes}分${seconds}秒`;
+}
+
 export default function Page() {
   const router = useRouter();
   const [isAuthed, setIsAuthed] = useState(false);
   const [account, setAccount] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const [stats, setStats] = useState<StatsResponse | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -61,6 +92,26 @@ export default function Page() {
     if (token) setIsAuthed(true);
     if (savedAccount) setAccount(savedAccount);
   }, []);
+
+  // 获取统计数据
+  useEffect(() => {
+    if (!isAuthed) return;
+    
+    async function fetchStats() {
+      setLoading(true);
+      try {
+        const statsRes = await apiFetch("/subscription/stats");
+        const statsData = await statsRes.json();
+        setStats(statsData);
+      } catch (error) {
+        toast.error("加载统计数据失败");
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchStats();
+  }, [isAuthed]);
 
   const handleSubmit = async (values: FormValues) => {
     try {
@@ -121,24 +172,272 @@ export default function Page() {
   }
 
   if (isAuthed) {
+    // 处理趋势图数据（只显示最近5天）
+    const trendData = stats?.daily_trend
+      ? stats.daily_trend.slice(-5).map((item) => ({
+          date: new Date(item.date).toLocaleDateString("zh-CN", {
+            month: "2-digit",
+            day: "2-digit"
+          }),
+          total_count: item.total_count,
+          success_count: item.success_count,
+          failed_count: item.failed_count,
+          success_rate: item.success_rate * 100 // 转换为百分比
+        }))
+      : [];
+
     return (
       <DashboardShell
         title="系统概览"
-        description="系统概览与数据汇总（建设中）"
+        description="系统概览与数据汇总"
         account={account ?? undefined}
         onLogout={handleLogout}
       >
-        <div className="flex min-h-[400px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50">
-          <div className="text-center">
-            <div className="mb-2 text-4xl">🏗️</div>
-            <div className="text-lg font-medium text-slate-700">
-              页面建设中
-            </div>
-            <div className="mt-1 text-sm text-slate-500">
-              系统概览功能即将上线
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-sky-200 border-t-sky-600" />
+          </div>
+        ) : stats ? (
+          <>
+            {/* KPI 卡片 - Subscription 业务 */}
+            <section className="mb-6">
+              <h2 className="mb-4 text-lg font-semibold text-slate-900">订阅链接任务</h2>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                {/* 总任务数 */}
+                <div className="rounded-2xl border bg-gradient-to-br from-amber-500/10 to-amber-600/10 text-amber-700 border-amber-100 p-5 shadow-sm backdrop-blur">
+                  <p className="text-sm text-slate-600">总任务数</p>
+                  <div className="mt-2 flex items-baseline gap-3">
+                    <div className="text-3xl font-semibold">
+                      {stats.summary.total_tasks.toLocaleString()}
+                    </div>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-xs text-slate-600">成功率</span>
+                      <span className="text-base text-slate-600">
+                        {(stats.summary.success_rate * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                  <div className="mt-2">
+                    <div className="inline-flex items-center gap-2 rounded-full bg-white/60 px-3 py-1 text-xs font-medium text-slate-600">
+                      <span className="h-2 w-2 rounded-full bg-amber-400/60" />
+                      总计消耗 {formatTokenCount(stats.summary.total_tokens)} Token
+                    </div>
+                  </div>
+                </div>
+
+                {/* 今日已执行 */}
+                <div className="rounded-2xl border bg-gradient-to-br from-sky-500/10 to-sky-600/10 text-sky-700 border-sky-100 p-5 shadow-sm backdrop-blur">
+                  <p className="text-sm text-slate-600">今日已执行</p>
+                  <div className="mt-2 flex items-baseline gap-3">
+                    <div className="text-3xl font-semibold">
+                      {stats.summary.today_success_count + stats.summary.today_failed_count}
+                    </div>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-xs text-slate-600">成功率</span>
+                      <span className="text-base text-slate-600">
+                        {(stats.summary.today_success_rate * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                  <div className="mt-2">
+                    <div className="inline-flex items-center gap-2 rounded-full bg-white/60 px-3 py-1 text-xs font-medium text-slate-600">
+                      <span className="h-2 w-2 rounded-full bg-sky-400/60" />
+                      待执行 {stats.summary.pending_count} · 执行中 {stats.summary.running_count}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 今日成功 */}
+                <div className="rounded-2xl border bg-gradient-to-br from-emerald-500/10 to-emerald-600/10 text-emerald-700 border-emerald-100 p-5 shadow-sm backdrop-blur">
+                  <p className="text-sm text-slate-600">今日成功</p>
+                  <div className="mt-2 flex items-baseline gap-3">
+                    <div className="text-3xl font-semibold text-emerald-700">
+                      {stats.summary.today_success_count}
+                    </div>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-xs text-slate-600">平均消耗</span>
+                      <span className="text-base text-slate-600">
+                        {formatTokenCount(stats.summary.today_avg_success_tokens)}
+                      </span>
+                      <span className="text-xs text-slate-600">Token</span>
+                    </div>
+                  </div>
+                  <div className="mt-2">
+                    <div className="inline-flex items-center gap-2 rounded-full bg-white/60 px-3 py-1 text-xs font-medium text-slate-600">
+                      <span className="h-2 w-2 rounded-full bg-emerald-400/60" />
+                      平均耗时：{formatDurationSeconds(stats.summary.today_avg_success_duration_seconds)}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 今日失败 */}
+                <div className="rounded-2xl border bg-gradient-to-br from-rose-500/10 to-rose-600/10 text-rose-700 border-rose-100 p-5 shadow-sm backdrop-blur">
+                  <p className="text-sm text-slate-600">今日失败</p>
+                  <div className="mt-2 flex items-baseline gap-3">
+                    <div className="text-3xl font-semibold text-rose-700">
+                      {stats.summary.today_failed_count}
+                    </div>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-xs text-slate-600">平均消耗</span>
+                      <span className="text-base text-slate-600">
+                        {formatTokenCount(stats.summary.today_avg_failed_tokens)}
+                      </span>
+                      <span className="text-xs text-slate-600">Token</span>
+                    </div>
+                  </div>
+                  <div className="mt-2">
+                    <div className="inline-flex items-center gap-2 rounded-full bg-white/60 px-3 py-1 text-xs font-medium text-slate-600">
+                      <span className="h-2 w-2 rounded-full bg-rose-400/60" />
+                      平均耗时：{formatDurationSeconds(stats.summary.today_avg_failed_duration_seconds)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* 趋势图区域 */}
+            <section className="grid gap-6 lg:grid-cols-2">
+              {/* Subscription 每日任务趋势 */}
+              <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm text-slate-500">订阅链接任务 · 最近 5 天</p>
+                    <h3 className="text-lg font-semibold text-slate-900">
+                      每日任务趋势
+                    </h3>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => router.push("/subscription")}
+                    className="group border-sky-200 text-sky-600 hover:bg-sky-200 hover:border-sky-300 hover:text-sky-800 transition-colors duration-200"
+                  >
+                    查看详情
+                    <ArrowRight className="ml-1 h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+                  </Button>
+                </div>
+                <div className="mt-4 h-72">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={trendData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                      <XAxis dataKey="date" stroke="#94a3b8" />
+                      <YAxis yAxisId="left" stroke="#94a3b8" />
+                      <YAxis
+                        yAxisId="right"
+                        orientation="right"
+                        stroke="#94a3b8"
+                        unit="%"
+                        domain={[0, 100]}
+                      />
+                      <Tooltip
+                        content={({ payload, label }) => {
+                          if (!payload || payload.length === 0) return null;
+                          return (
+                            <div className="rounded-lg border border-sky-100 bg-sky-50/90 backdrop-blur-sm p-3 shadow-md">
+                              <p className="font-medium text-slate-900 mb-2">{label}</p>
+                              <div className="space-y-1">
+                                {payload.map((entry, index) => (
+                                  <div key={index} className="flex items-center justify-between gap-4">
+                                    <div className="flex items-center gap-2">
+                                      <span
+                                        className="inline-block h-3 w-3 rounded-sm"
+                                        style={{ backgroundColor: entry.color ?? '#94a3b8' }}
+                                      />
+                                      <span className="text-xs text-slate-600">{entry.name ?? '未知'}</span>
+                                    </div>
+                                    <span className="text-sm font-semibold text-slate-900">
+                                      {entry.name === "成功率"
+                                        ? `${Number(entry.value ?? 0).toFixed(1)}%`
+                                        : entry.value ?? 0}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        }}
+                      />
+                      <Legend
+                        formatter={(value) => <span style={{ color: '#475569', fontSize: '12px', fontWeight: 500 }}>{value}</span>}
+                      />
+                      <Bar
+                        yAxisId="right"
+                        dataKey="success_rate"
+                        name="成功率"
+                        fill="#c7d2fe"
+                        radius={[4, 4, 0, 0]}
+                        maxBarSize={60}
+                        legendType="square"
+                      />
+                      <Line
+                        yAxisId="left"
+                        type="monotone"
+                        dataKey="total_count"
+                        name="总任务数"
+                        stroke="#0ea5e9"
+                        strokeWidth={2}
+                        dot={{ r: 3, fill: "#0ea5e9" }}
+                      />
+                      <Line
+                        yAxisId="left"
+                        type="monotone"
+                        dataKey="success_count"
+                        name="成功任务数"
+                        stroke="#22c55e"
+                        strokeWidth={2}
+                        dot={{ r: 3, fill: "#22c55e" }}
+                      />
+                      <Line
+                        yAxisId="left"
+                        type="monotone"
+                        dataKey="failed_count"
+                        name="失败任务数"
+                        stroke="#ef4444"
+                        strokeWidth={2}
+                        dot={{ r: 3, fill: "#ef4444" }}
+                      />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Evidence 每日趋势 - 预留位置 */}
+              <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-5 shadow-sm">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm text-slate-500">证据收集任务</p>
+                    <h3 className="text-lg font-semibold text-slate-900">
+                      每日任务趋势
+                    </h3>
+                  </div>
+                </div>
+                <div className="mt-4 flex h-72 items-center justify-center">
+                  <div className="text-center">
+                    <div className="mb-2 text-4xl">🚧</div>
+                    <div className="text-sm font-medium text-slate-600">
+                      敬请期待
+                    </div>
+                    <div className="mt-1 text-xs text-slate-500">
+                      Evidence 业务趋势图即将上线
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </>
+        ) : (
+          <div className="flex min-h-[400px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50">
+            <div className="text-center">
+              <div className="mb-2 text-4xl">📊</div>
+              <div className="text-lg font-medium text-slate-700">
+                暂无数据
+              </div>
+              <div className="mt-1 text-sm text-slate-500">
+                请稍后再试
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </DashboardShell>
     );
   }
