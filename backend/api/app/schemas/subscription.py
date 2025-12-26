@@ -105,7 +105,7 @@ class SubscriptionStatsResponse(BaseModel):
         ..., description="状态分布"
     )
     recent_tasks: list[RecentTaskItem] = Field(
-        ..., description="最近任务列表（最近5条）"
+        ..., description="最新任务列表（最近5条）"
     )
     failure_type_distribution: list[FailureTypeDistributionItem] = Field(
         ..., description="失败类型分布（Top 5 + 其他）"

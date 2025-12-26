@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { ReactNode, useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { ReactNode, useCallback, useEffect, useState } from "react";
 import { ChevronDown, LogOut } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -12,10 +12,27 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { clearLocalAuth, isJwtExpired, queueAuthExpiredToast } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 import { dashboardNavItems } from "./nav";
+
+// 全局时间范围选项
+const timeRangeOptions: Array<{ value: string; label: string }> = [
+  { value: "today", label: "今天" },
+  { value: "yesterday", label: "昨天" },
+  { value: "3d", label: "最近3天" },
+  { value: "7d", label: "最近7天" },
+  { value: "30d", label: "最近30天" },
+  { value: "ALL", label: "全部" }
+];
 
 type DashboardShellProps = {
   title?: string;
@@ -29,7 +46,23 @@ type DashboardShellProps = {
 export function DashboardShell({ title, description, actions, children, account, onLogout }: DashboardShellProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [accountName, setAccountName] = useState<string | null>(account ?? null);
+
+  // 从 URL 读取时间范围，默认为 "today"
+  const timeRange = searchParams.get("time_range") || "today";
+
+  // 切换时间范围时更新 URL 参数
+  const handleTimeRangeChange = useCallback((value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value === "today") {
+      params.delete("time_range");
+    } else {
+      params.set("time_range", value);
+    }
+    const queryString = params.toString();
+    router.push(`${pathname}${queryString ? `?${queryString}` : ""}`);
+  }, [pathname, router, searchParams]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -100,7 +133,23 @@ export function DashboardShell({ title, description, actions, children, account,
             })}
           </nav>
 
-          <div className="ml-auto">
+          {/* 全局时间范围选择器 */}
+          <div className="hidden md:block">
+            <Select value={timeRange} onValueChange={handleTimeRangeChange}>
+              <SelectTrigger className="w-[120px] h-9 border-slate-200 bg-white/80 text-sm font-medium shadow-sm hover:bg-white">
+                <SelectValue placeholder="今天" />
+              </SelectTrigger>
+              <SelectContent>
+                {timeRangeOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="ml-auto md:ml-0">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="hidden md:flex items-center gap-2 rounded-lg bg-transparent px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100/50 hover:scale-105 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-1">
@@ -161,6 +210,21 @@ export function DashboardShell({ title, description, actions, children, account,
                 </Link>
               );
             })}
+          </div>
+          {/* 移动端时间范围选择器 */}
+          <div className="mt-2">
+            <Select value={timeRange} onValueChange={handleTimeRangeChange}>
+              <SelectTrigger className="w-full h-9 border-slate-200 bg-white text-sm font-medium shadow-sm">
+                <SelectValue placeholder="今天" />
+              </SelectTrigger>
+              <SelectContent>
+                {timeRangeOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </header>

@@ -9,7 +9,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 from pydantic import ValidationError
-from sqlalchemy import Integer, case, func
+from sqlalchemy import Integer, and_, case, func, or_
 from sqlalchemy.orm import Session
 
 from ..db import get_db
@@ -139,11 +139,34 @@ def list_subscription(
     if executed_within:
         start_time, end_time = _parse_time_range(executed_within, tz_cn)
         if start_time and end_time:
-            query = query.filter(
-                SubscriptionTask.executed_at.isnot(None),
-                SubscriptionTask.executed_at >= start_time,
-                SubscriptionTask.executed_at <= end_time,
-            )
+            # 判断时间范围是否包含今天
+            # 如果 end_time 是今天，则包含 PENDING 和 RUNNING 任务
+            # 如果 end_time 是昨天或更早，则不包含 PENDING 和 RUNNING
+            now_cn = datetime.now(tz_cn)
+            today_end = now_cn.replace(hour=23, minute=59, second=59, microsecond=999999)
+            today_end_utc = today_end.astimezone(timezone.utc)
+            
+            # 如果结束时间 >= 今天的结束时间（UTC），说明包含今天
+            if end_time >= today_end_utc:
+                # 包含今天：显示所有任务，包括 PENDING 和 RUNNING
+                query = query.filter(
+                    or_(
+                        SubscriptionTask.status.in_([TaskStatus.PENDING, TaskStatus.RUNNING]),
+                        and_(
+                            SubscriptionTask.executed_at.isnot(None),
+                            SubscriptionTask.executed_at >= start_time,
+                            SubscriptionTask.executed_at <= end_time,
+                        )
+                    )
+                )
+            else:
+                # 纯历史时间范围：只显示已完成的任务
+                query = query.filter(
+                    SubscriptionTask.executed_at.isnot(None),
+                    SubscriptionTask.executed_at >= start_time,
+                    SubscriptionTask.executed_at <= end_time,
+                )
+    # 如果 executed_within 是 "ALL" 或 None，不应用时间过滤，显示所有任务
 
     total = query.count()
     status_priority = case(
@@ -314,7 +337,7 @@ def get_task_artifact(
 )
 def get_subscription_stats(
     executed_within: str | None = Query(
-        None, description="按执行时间范围过滤失败类型统计（today/yesterday/3d/7d/30d）"
+        None, description="按执行时间范围过滤统计数据（today/yesterday/3d/7d/30d）"
     ),
     db: Session = Depends(get_db),
 ):
@@ -323,22 +346,31 @@ def get_subscription_stats(
     - 汇总统计（总数、今日新增、成功率、平均时长等）
     - 每日趋势（最近10天）
     - 状态分布
-    - 最近任务列表（最近6条）
+    - 最新任务列表（最近6条）
     - 失败类型分布（支持时间范围过滤）
     """
     tz_cn = timezone(timedelta(hours=8))
     cn_today = datetime.now(tz_cn).date()
 
-    # 计算今日时间范围（东八区 00:00 - 23:59 转换为 UTC）
+    # 根据 executed_within 参数计算时间范围（默认今天）
     now_cn = datetime.now(tz_cn)
     today_start_cn = now_cn.replace(hour=0, minute=0, second=0, microsecond=0)
     today_end_cn = now_cn.replace(hour=23, minute=59, second=59, microsecond=999999)
-    today_start_utc = today_start_cn.astimezone(timezone.utc)
-    today_end_utc = today_end_cn.astimezone(timezone.utc)
+    
+    if executed_within:
+        range_start_utc, range_end_utc = _parse_time_range(executed_within, tz_cn)
+        if range_start_utc is None or range_end_utc is None:
+            # 无效参数，使用今天
+            range_start_utc = today_start_cn.astimezone(timezone.utc)
+            range_end_utc = today_end_cn.astimezone(timezone.utc)
+    else:
+        range_start_utc = today_start_cn.astimezone(timezone.utc)
+        range_end_utc = today_end_cn.astimezone(timezone.utc)
 
     # 调试日志：排查统计数据异常
     logger.info(f"[统计查询] cn_today={cn_today}")
-    logger.info(f"[统计查询] 今日时间范围(UTC): {today_start_utc} ~ {today_end_utc}")
+    logger.info(f"[统计查询] executed_within={executed_within}")
+    logger.info(f"[统计查询] 时间范围(UTC): {range_start_utc} ~ {range_end_utc}")
     logger.info(f"[统计查询] 系统时区={datetime.now().astimezone().tzinfo}")
 
     # 1. 汇总统计
@@ -390,8 +422,8 @@ def get_subscription_stats(
             case(
                 (
                     (SubscriptionTask.executed_at.isnot(None))
-                    & (SubscriptionTask.executed_at >= today_start_utc)
-                    & (SubscriptionTask.executed_at <= today_end_utc),
+                    & (SubscriptionTask.executed_at >= range_start_utc)
+                    & (SubscriptionTask.executed_at <= range_end_utc),
                     func.coalesce(
                         func.cast(
                             func.json_extract(
@@ -434,8 +466,8 @@ def get_subscription_stats(
             case(
                 (
                     (SubscriptionTask.executed_at.isnot(None))
-                    & (SubscriptionTask.executed_at >= today_start_utc)
-                    & (SubscriptionTask.executed_at <= today_end_utc)
+                    & (SubscriptionTask.executed_at >= range_start_utc)
+                    & (SubscriptionTask.executed_at <= range_end_utc)
                     & (SubscriptionTask.status == TaskStatus.SUCCESS),
                     1,
                 ),
@@ -446,8 +478,8 @@ def get_subscription_stats(
             case(
                 (
                     (SubscriptionTask.executed_at.isnot(None))
-                    & (SubscriptionTask.executed_at >= today_start_utc)
-                    & (SubscriptionTask.executed_at <= today_end_utc)
+                    & (SubscriptionTask.executed_at >= range_start_utc)
+                    & (SubscriptionTask.executed_at <= range_end_utc)
                     & (SubscriptionTask.status == TaskStatus.FAILED),
                     1,
                 ),
@@ -458,8 +490,8 @@ def get_subscription_stats(
             case(
                 (
                     (SubscriptionTask.executed_at.isnot(None))
-                    & (SubscriptionTask.executed_at >= today_start_utc)
-                    & (SubscriptionTask.executed_at <= today_end_utc)
+                    & (SubscriptionTask.executed_at >= range_start_utc)
+                    & (SubscriptionTask.executed_at <= range_end_utc)
                     & (SubscriptionTask.status == TaskStatus.SUCCESS),
                     SubscriptionTask.duration_seconds,
                 ),
@@ -470,8 +502,8 @@ def get_subscription_stats(
             case(
                 (
                     (SubscriptionTask.executed_at.isnot(None))
-                    & (SubscriptionTask.executed_at >= today_start_utc)
-                    & (SubscriptionTask.executed_at <= today_end_utc)
+                    & (SubscriptionTask.executed_at >= range_start_utc)
+                    & (SubscriptionTask.executed_at <= range_end_utc)
                     & (SubscriptionTask.status == TaskStatus.FAILED),
                     SubscriptionTask.duration_seconds,
                 ),
@@ -482,8 +514,8 @@ def get_subscription_stats(
             case(
                 (
                     (SubscriptionTask.executed_at.isnot(None))
-                    & (SubscriptionTask.executed_at >= today_start_utc)
-                    & (SubscriptionTask.executed_at <= today_end_utc)
+                    & (SubscriptionTask.executed_at >= range_start_utc)
+                    & (SubscriptionTask.executed_at <= range_end_utc)
                     & (SubscriptionTask.status == TaskStatus.SUCCESS),
                     func.cast(
                         func.json_extract(SubscriptionTask.llm_usage, "$.total_tokens"),
@@ -497,8 +529,8 @@ def get_subscription_stats(
             case(
                 (
                     (SubscriptionTask.executed_at.isnot(None))
-                    & (SubscriptionTask.executed_at >= today_start_utc)
-                    & (SubscriptionTask.executed_at <= today_end_utc)
+                    & (SubscriptionTask.executed_at >= range_start_utc)
+                    & (SubscriptionTask.executed_at <= range_end_utc)
                     & (SubscriptionTask.status == TaskStatus.FAILED),
                     func.cast(
                         func.json_extract(SubscriptionTask.llm_usage, "$.total_tokens"),
@@ -516,6 +548,13 @@ def get_subscription_stats(
     failed_count = summary_result.failed_count or 0
     pending_count = summary_result.pending_count or 0
     running_count = summary_result.running_count or 0
+    
+    # 如果指定了历史时间范围，待执行和执行中应该为0
+    # 因为这些是当前状态，不应该出现在历史时间范围内
+    if executed_within and executed_within != "today":
+        pending_count = 0
+        running_count = 0
+    
     avg_success_duration = summary_result.avg_success_duration or 0.0
     avg_failed_duration = summary_result.avg_failed_duration or 0.0
     total_tokens = summary_result.total_tokens or 0
@@ -610,15 +649,21 @@ def get_subscription_stats(
             )
         )
 
-    # 3. 状态分布
-    status_results = (
-        db.query(
-            SubscriptionTask.status.label("status"),
-            func.count(SubscriptionTask.id).label("count"),
-        )
-        .group_by(SubscriptionTask.status)
-        .all()
+    # 3. 状态分布（根据时间范围过滤）
+    status_query = db.query(
+        SubscriptionTask.status.label("status"),
+        func.count(SubscriptionTask.id).label("count"),
     )
+    
+    # 应用时间范围过滤（如果指定）
+    if executed_within:
+        status_query = status_query.filter(
+            SubscriptionTask.executed_at.isnot(None),
+            SubscriptionTask.executed_at >= range_start_utc,
+            SubscriptionTask.executed_at <= range_end_utc,
+        )
+    
+    status_results = status_query.group_by(SubscriptionTask.status).all()
 
     status_distribution = []
     for row in status_results:
@@ -627,7 +672,7 @@ def get_subscription_stats(
             StatusDistributionItem(status=status_value or "", count=row.count or 0)
         )
 
-    # 4. 最近任务列表（最近6条）
+    # 4. 最新任务列表（最近6条）
     def _format_dt(dt):
         if not dt:
             return None
@@ -642,8 +687,18 @@ def get_subscription_stats(
         else_=2,
     )
 
+    recent_task_query = db.query(SubscriptionTask)
+    
+    # 应用时间范围过滤（如果指定）
+    if executed_within:
+        recent_task_query = recent_task_query.filter(
+            SubscriptionTask.executed_at.isnot(None),
+            SubscriptionTask.executed_at >= range_start_utc,
+            SubscriptionTask.executed_at <= range_end_utc,
+        )
+    
     recent_task_records = (
-        db.query(SubscriptionTask)
+        recent_task_query
         .order_by(
             recent_status_priority,
             SubscriptionTask.executed_at.desc().nulls_last(),

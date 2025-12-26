@@ -27,7 +27,7 @@ import { cn, formatTokenCount } from "@/lib/utils";
 import { toast } from "sonner";
 import type { StatsResponse } from "@/lib/types";
 import { STATUS_LABELS, STATUS_STYLES, STATUS_COLORS_ENHANCED, type TaskStatus, type FailureTypeItem, type FailureTypesResponse } from "@/types/common";
-import type { SubscriptionItem } from "@/types/subscription";
+import type { SubscriptionItem, SubscriptionListResponse } from "@/types/subscription";
 
 type DashboardProps = {
   onLogout: () => void;
@@ -59,8 +59,11 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
   const [loading, setLoading] = useState(true);
   const [isTasksDrawerOpen, setIsTasksDrawerOpen] = useState(false);
 
-  // 最近任务完整数据（用于显示详情）
+  // 最新任务完整数据（用于显示详情）
   const [recentTasks, setRecentTasks] = useState<SubscriptionItem[]>([]);
+  
+  // 总任务数
+  const [totalTasks, setTotalTasks] = useState<number>(0);
 
   // 任务详情弹窗相关状态
   const [selectedTask, setSelectedTask] = useState<SubscriptionItem | null>(null);
@@ -70,6 +73,9 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
 
   // 失败类型列表
   const [failureTypes, setFailureTypes] = useState<FailureTypeItem[]>([]);
+
+  // 从 URL 读取时间范围，默认为 "today"（由全局 header 控制）
+  const timeRange = searchParams.get("time_range") || "today";
 
   // 检查 URL 参数，如果有任务查询相关参数，自动打开抽屉
   useEffect(() => {
@@ -96,12 +102,19 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
     return () => window.removeEventListener("resize", checkIsDesktop);
   }, []);
 
-  // 数据获取逻辑
+  // 数据获取逻辑（根据时间范围获取统计数据）
   useEffect(() => {
     async function fetchStats() {
       try {
+        // 构建查询参数
+        const params = new URLSearchParams();
+        if (timeRange && timeRange !== "ALL") {
+          params.set("executed_within", timeRange);
+        }
+        const url = `/subscription/stats${params.toString() ? `?${params.toString()}` : ""}`;
+        
         // 获取统计数据
-        const statsRes = await apiFetch("/subscription/stats");
+        const statsRes = await apiFetch(url);
         const statsData = await statsRes.json();
         setStats(statsData);
       } catch (error) {
@@ -112,7 +125,7 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
       }
     }
     fetchStats();
-  }, []);
+  }, [timeRange]);
 
   // 获取失败类型列表
   useEffect(() => {
@@ -132,21 +145,33 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
     fetchFailureTypes();
   }, []);
 
-  // 根据响应式状态获取最近任务列表
+  // 根据响应式状态和时间范围获取最新任务列表
   useEffect(() => {
     async function fetchRecentTasks() {
       try {
         // 桌面端显示 13 条，移动端显示 8 条
         const pageSize = isDesktop ? 13 : 8;
-        const recentRes = await apiFetch(`/subscription/list?page=1&page_size=${pageSize}`);
-        const recentData = await recentRes.json();
+        // 构建查询参数，包含时间范围
+        const params = new URLSearchParams({
+          page: "1",
+          page_size: String(pageSize)
+        });
+        if (timeRange && timeRange !== "ALL") {
+          params.set("executed_within", timeRange);
+        }
+        const recentRes = await apiFetch(`/subscription/list?${params.toString()}`);
+        if (!recentRes.ok) {
+          throw new Error("获取任务列表失败");
+        }
+        const recentData = (await recentRes.json()) as SubscriptionListResponse;
         setRecentTasks(recentData.items || []);
+        setTotalTasks(recentData.total ?? 0);
       } catch (error) {
-        console.error("加载最近任务失败", error);
+        console.error("加载最新任务失败", error);
       }
     }
     fetchRecentTasks();
-  }, [isDesktop]);
+  }, [isDesktop, timeRange]);
 
   // 从 API 获取的失败类型构建标签映射（必须在所有条件返回之前）
   const failureTypeLabel: Record<string, string> = useMemo(() => {
@@ -155,6 +180,28 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
       return acc;
     }, {} as Record<string, string>);
   }, [failureTypes]);
+
+  // 根据时间范围生成 KPI 卡片标题前缀
+  const getTimeRangeLabel = (range: string): string => {
+    switch (range) {
+      case "today":
+        return "今日";
+      case "yesterday":
+        return "昨日";
+      case "3d":
+        return "近3天";
+      case "7d":
+        return "近7天";
+      case "30d":
+        return "近30天";
+      case "ALL":
+        return "总计";
+      default:
+        return "今日";
+    }
+  };
+
+  const timeRangeLabel = getTimeRangeLabel(timeRange);
 
   if (loading) {
     return (
@@ -200,7 +247,7 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
       <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {/* 今日已执行 */}
         <div className="rounded-2xl border bg-gradient-to-br from-sky-500/10 to-sky-600/10 text-sky-700 border-sky-100 p-5 shadow-sm backdrop-blur">
-          <p className="text-sm text-slate-600">今日已执行</p>
+          <p className="text-sm text-slate-600">{timeRangeLabel}已执行</p>
           <div className="mt-2 flex items-baseline gap-3">
             <div className="text-3xl font-semibold">
               {summary.today_success_count + summary.today_failed_count}
@@ -223,7 +270,7 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
 
         {/* 今日成功 */}
         <div className="rounded-2xl border bg-gradient-to-br from-emerald-500/10 to-emerald-600/10 text-emerald-700 border-emerald-100 p-5 shadow-sm backdrop-blur">
-          <p className="text-sm text-slate-600">今日成功</p>
+          <p className="text-sm text-slate-600">{timeRangeLabel}成功</p>
           <div className="mt-2 flex items-baseline gap-3">
             <div className="text-3xl font-semibold text-emerald-700">
               {summary.today_success_count}
@@ -246,7 +293,7 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
 
         {/* 今日失败 */}
         <div className="rounded-2xl border bg-gradient-to-br from-rose-500/10 to-rose-600/10 text-rose-700 border-rose-100 p-5 shadow-sm backdrop-blur">
-          <p className="text-sm text-slate-600">今日失败</p>
+          <p className="text-sm text-slate-600">{timeRangeLabel}失败</p>
           <div className="mt-2 flex items-baseline gap-3">
             <div className="text-3xl font-semibold text-rose-700">
               {summary.today_failed_count}
@@ -269,7 +316,7 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
 
         {/* 今日成功率 */}
         <div className="rounded-2xl border bg-gradient-to-br from-violet-500/10 to-violet-600/10 text-violet-800 border-violet-100 p-5 shadow-sm backdrop-blur">
-          <p className="text-sm text-slate-600">今日成功率</p>
+          <p className="text-sm text-slate-600">{timeRangeLabel}成功率</p>
           <div className="mt-2">
             <div className="text-3xl font-semibold text-violet-800">
               {(summary.today_success_rate * 100).toFixed(1)}%
@@ -297,102 +344,127 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
             </div>
           </div>
           <div className="mt-4 h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={distributionData}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={78}
-                  innerRadius={0}
-                  labelLine={true}
-                  label={({ x, y, name, percentage }: any) => (
-                    <text
-                      x={x}
-                      y={y}
-                      fontSize="13"
-                      fill="#475569"
-                      textAnchor="middle"
-                      dominantBaseline="central"
-                    >
-                      {`${name} (${percentage}%)`}
-                    </text>
-                  )}
-                  onClick={(data) => {
-                    // 点击饼图扇区跳转到订阅列表，自动筛选该状态
-                    const status = data.payload?.status;
-                    if (status) {
-                      router.push(`/subscription?status=${encodeURIComponent(status.toLowerCase())}`);
-                    }
-                  }}
-                  cursor="pointer"
-                  paddingAngle={2}
-                  animationBegin={0}
-                  animationDuration={400}
-                >
-                  {distributionData.map((entry, index) => (
-                    <Cell 
-                      key={`cell-${index}`} 
-                      fill={entry.color ?? '#94a3b8'}
-                      stroke="#fff"
-                      strokeWidth={2}
-                      style={{
-                        filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))',
-                        transition: 'opacity 0.2s'
-                      }}
-                    />
-                  ))}
-                </Pie>
-                <Tooltip
-                  content={({ payload }) => {
-                    if (!payload?.[0]) return null;
-                    const data = payload[0].payload;
-                    return (
-                      <div className="rounded-lg border border-sky-100 bg-white/95 backdrop-blur-sm p-3 shadow-lg">
-                        <p className="font-semibold text-slate-900 mb-2">{data.name ?? '未知'}</p>
-                        <div className="space-y-1">
-                          <div className="flex items-center justify-between gap-4">
-                            <span className="text-sm text-slate-600">数量</span>
-                            <span className="font-semibold text-slate-900">{data.value ?? 0}</span>
+            {distributionData && distributionData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={distributionData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={78}
+                    innerRadius={0}
+                    labelLine={true}
+                    label={({ x, y, name, percentage }: any) => (
+                      <text
+                        x={x}
+                        y={y}
+                        fontSize="13"
+                        fill="#475569"
+                        textAnchor="middle"
+                        dominantBaseline="central"
+                      >
+                        {`${name} (${percentage}%)`}
+                      </text>
+                    )}
+                    onClick={(data) => {
+                      // 点击饼图扇区跳转到订阅列表，自动筛选该状态
+                      const status = data.payload?.status;
+                      if (status) {
+                        // 将当前页面的时间范围参数传递给抽屉
+                        const params = new URLSearchParams();
+                        params.set("status", status.toLowerCase());
+                        if (timeRange) {
+                          params.set("time_range", timeRange);
+                        }
+                        router.push(`/subscription?${params.toString()}`);
+                      }
+                    }}
+                    cursor="pointer"
+                    paddingAngle={2}
+                    animationBegin={0}
+                    animationDuration={400}
+                  >
+                    {distributionData.map((entry, index) => (
+                      <Cell 
+                        key={`cell-${index}`} 
+                        fill={entry.color ?? '#94a3b8'}
+                        stroke="#fff"
+                        strokeWidth={2}
+                        style={{
+                          filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))',
+                          transition: 'opacity 0.2s'
+                        }}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    content={({ payload }) => {
+                      if (!payload?.[0]) return null;
+                      const data = payload[0].payload;
+                      return (
+                        <div className="rounded-lg border border-sky-100 bg-white/95 backdrop-blur-sm p-3 shadow-lg">
+                          <p className="font-semibold text-slate-900 mb-2">{data.name ?? '未知'}</p>
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between gap-4">
+                              <span className="text-sm text-slate-600">数量</span>
+                              <span className="font-semibold text-slate-900">{data.value ?? 0}</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-4">
+                              <span className="text-sm text-slate-600">占比</span>
+                              <span className="font-semibold text-sky-600">{data.percentage ?? 0}%</span>
+                            </div>
                           </div>
-                          <div className="flex items-center justify-between gap-4">
-                            <span className="text-sm text-slate-600">占比</span>
-                            <span className="font-semibold text-sky-600">{data.percentage ?? 0}%</span>
-                          </div>
+                          <p className="mt-2 text-xs text-sky-600">
+                            点击查看详情 →
+                          </p>
                         </div>
-                        <p className="mt-2 text-xs text-sky-600">
-                          点击查看详情 →
-                        </p>
-                      </div>
-                    );
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+                      );
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex h-full items-center justify-center text-sm text-slate-400">
+                暂无状态数据
+              </div>
+            )}
           </div>
         </div>
 
-        {/* 最近任务列表 - 3/4 宽度（1:3 比例），占满两行 */}
+        {/* 最新任务列表 - 3/4 宽度（1:3 比例），占满两行 */}
         <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm lg:col-span-3 lg:row-span-2">
         <div className="flex items-start justify-between">
-          <div>
-            <p className="text-sm text-slate-500">最新 {isDesktop ? 13 : 8} 个</p>
+          <div className="flex items-center gap-3">
             <h3 className="text-lg font-semibold text-slate-900">
-              最近任务列表
+              任务列表
             </h3>
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700">
+                {totalTasks} 条
+              </span>
+              <span className="text-xs text-slate-500">
+                显示前 {isDesktop ? 13 : 8} 条
+              </span>
+            </div>
           </div>
           <Button
             variant="outline"
             size="sm"
             onClick={() => {
-              router.push('/subscription');
+              // 将当前页面的时间范围参数传递给抽屉
+              const params = new URLSearchParams();
+              if (timeRange) {
+                params.set("time_range", timeRange);
+              }
+              const queryString = params.toString();
+              router.push(`/subscription${queryString ? `?${queryString}` : ""}`);
               setIsTasksDrawerOpen(true);
             }}
             className="group border-sky-200 text-sky-600 hover:bg-sky-200 hover:border-sky-300 hover:text-sky-800 transition-colors duration-200"
           >
-            全部任务
+            显示全部
             <ArrowRight className="ml-1 h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
           </Button>
         </div>
@@ -507,7 +579,13 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
               variant="outline"
               size="sm"
               onClick={() => {
-                router.push('/subscription?status=failed');
+                // 将当前页面的时间范围参数传递给抽屉
+                const params = new URLSearchParams();
+                params.set("status", "failed");
+                if (timeRange) {
+                  params.set("time_range", timeRange);
+                }
+                router.push(`/subscription?${params.toString()}`);
                 setIsTasksDrawerOpen(true);
               }}
             >
@@ -554,11 +632,16 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
                     onClick={(data: any) => {
                       // 点击跳转到订阅列表，自动筛选该失败类型
                       const failureType = data.payload?.type;
+                      // 将当前页面的时间范围参数传递给抽屉
+                      const params = new URLSearchParams();
+                      params.set("status", "failed");
                       if (failureType && failureType !== 'others') {
-                        router.push(`/subscription?status=failed&failure_type=${encodeURIComponent(failureType)}`);
-                      } else if (failureType === 'others') {
-                        router.push('/subscription?status=failed');
+                        params.set("failure_type", failureType);
                       }
+                      if (timeRange) {
+                        params.set("time_range", timeRange);
+                      }
+                      router.push(`/subscription?${params.toString()}`);
                     }}
                     cursor="pointer"
                     label={{
@@ -589,7 +672,25 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
       </section>
 
       {/* 任务列表抽屉 */}
-      <Sheet open={isTasksDrawerOpen} onOpenChange={setIsTasksDrawerOpen}>
+      <Sheet 
+        open={isTasksDrawerOpen} 
+        onOpenChange={(open) => {
+          setIsTasksDrawerOpen(open);
+          // 当抽屉关闭时，清理筛选相关的 URL 参数
+          if (!open) {
+            const params = new URLSearchParams(searchParams.toString());
+            // 清理抽屉筛选参数
+            params.delete("page");
+            params.delete("status");
+            params.delete("executed_within");
+            params.delete("failure_type");
+            params.delete("q");
+            // 保留 time_range（页面级时间范围选择器）
+            const queryString = params.toString();
+            router.push(`/subscription${queryString ? `?${queryString}` : ""}`);
+          }
+        }}
+      >
         <SheetContent 
           side="right" 
           className="w-[95vw] sm:w-[93vw] lg:w-[90vw] overflow-y-auto p-6"

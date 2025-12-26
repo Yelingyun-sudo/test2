@@ -206,7 +206,8 @@ function SubscriptionContent() {
     const urlQuery = searchParams.get("q") || ""; // 默认空字符串
     let urlStatus = searchParams.get("status") || "ALL";
     let urlFailureType = searchParams.get("failure_type") || "ALL";
-    const urlTimeRange = searchParams.get("executed_within") || "ALL";
+    // 优先读取页面级时间范围参数 time_range，如果没有则读取 executed_within（向后兼容）
+    const urlTimeRange = searchParams.get("time_range") || searchParams.get("executed_within") || "ALL";
 
     // 将状态参数转换为大写，以匹配 statusOptions 中的值
     // 支持大小写不敏感的 URL 参数（如 ?status=failed 或 ?status=FAILED）
@@ -328,6 +329,7 @@ function SubscriptionContent() {
     { value: "7d", label: "最近7天" },
     { value: "30d", label: "最近30天" }
   ];
+  // 注意：选项顺序与页面级选择器保持一致，但抽屉中"全部"作为第一个选项更符合筛选器习惯
 
   const renderStatus = (value?: string) => {
     if (!value) return <span className="text-slate-400">-</span>;
@@ -786,6 +788,19 @@ function SubscriptionContent() {
     setTimeRangeFilter(value);
     setPage(1);
     setPageInput("1");
+
+    // 同步更新 URL 参数，使用 time_range 参数名（与页面级选择器保持一致）
+    const params = new URLSearchParams(searchParams.toString());
+    if (value === "ALL") {
+      // 如果选择"全部"，移除时间范围参数
+      params.delete("time_range");
+      params.delete("executed_within");
+    } else {
+      params.set("time_range", value);
+      // 同时移除旧的 executed_within 参数（如果存在）
+      params.delete("executed_within");
+    }
+    router.push(`/subscription?${params.toString()}`);
 
     // 直接获取数据，使用新值
     fetchData({ 
