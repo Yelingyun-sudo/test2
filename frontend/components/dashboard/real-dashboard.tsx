@@ -144,7 +144,7 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
       onLogout={onLogout}
     >
       {/* KPI 卡片 */}
-      <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+      <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {/* 总任务数 */}
         <div className="rounded-2xl border bg-gradient-to-br from-amber-500/10 to-amber-600/10 text-amber-700 border-amber-100 p-5 shadow-sm backdrop-blur">
           <p className="text-sm text-slate-600">总任务数</p>
@@ -153,16 +153,16 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
               {summary.total_tasks.toLocaleString()}
             </div>
             <div className="flex items-baseline gap-1">
+              <span className="text-xs text-slate-600">成功率</span>
               <span className="text-base text-slate-600">
-                {formatTokenCount(summary.total_tokens)}
+                {(summary.success_rate * 100).toFixed(1)}%
               </span>
-              <span className="text-xs text-slate-600">token</span>
             </div>
           </div>
           <div className="mt-2">
             <div className="inline-flex items-center gap-2 rounded-full bg-white/60 px-3 py-1 text-xs font-medium text-slate-600">
               <span className="h-2 w-2 rounded-full bg-amber-400/60" />
-              平均 {daily_trend.length > 0 ? Math.round(summary.total_tasks / daily_trend.length) : 0} 个/天
+              共 {formatTokenCount(summary.total_tokens)} Token，平均 {daily_trend.length > 0 ? formatTokenCount(Math.round(summary.total_tokens / daily_trend.length)) : 0} Token/天
             </div>
           </div>
         </div>
@@ -175,10 +175,10 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
               {summary.today_success_count + summary.today_failed_count}
             </div>
             <div className="flex items-baseline gap-1">
+              <span className="text-xs text-slate-600">成功率</span>
               <span className="text-base text-slate-600">
-                {formatTokenCount(summary.today_tokens)}
+                {(summary.today_success_rate * 100).toFixed(1)}%
               </span>
-              <span className="text-xs text-slate-600">token</span>
             </div>
           </div>
           <div className="mt-2">
@@ -189,15 +189,15 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
           </div>
         </div>
 
-        {/* 今日成功任务 */}
+        {/* 今日成功 */}
         <div className="rounded-2xl border bg-gradient-to-br from-emerald-500/10 to-emerald-600/10 text-emerald-700 border-emerald-100 p-5 shadow-sm backdrop-blur">
-          <p className="text-sm text-slate-600">今日成功任务</p>
+          <p className="text-sm text-slate-600">今日成功</p>
           <div className="mt-2 flex items-baseline gap-3">
             <div className="text-3xl font-semibold text-emerald-700">
               {summary.today_success_count}
             </div>
             <div className="flex items-baseline gap-1">
-              <span className="text-xs text-slate-600">平均</span>
+              <span className="text-xs text-slate-600">平均消耗</span>
               <span className="text-base text-slate-600">
                 {formatTokenCount(summary.today_avg_success_tokens)}
               </span>
@@ -212,15 +212,15 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
           </div>
         </div>
 
-        {/* 今日失败任务 */}
+        {/* 今日失败 */}
         <div className="rounded-2xl border bg-gradient-to-br from-rose-500/10 to-rose-600/10 text-rose-700 border-rose-100 p-5 shadow-sm backdrop-blur">
-          <p className="text-sm text-slate-600">今日失败任务</p>
+          <p className="text-sm text-slate-600">今日失败</p>
           <div className="mt-2 flex items-baseline gap-3">
             <div className="text-3xl font-semibold text-rose-700">
               {summary.today_failed_count}
             </div>
             <div className="flex items-baseline gap-1">
-              <span className="text-xs text-slate-600">平均</span>
+              <span className="text-xs text-slate-600">平均消耗</span>
               <span className="text-base text-slate-600">
                 {formatTokenCount(summary.today_avg_failed_tokens)}
               </span>
@@ -232,18 +232,6 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
               <span className="h-2 w-2 rounded-full bg-rose-400/60" />
               平均耗时：{formatDurationSeconds(summary.today_avg_failed_duration_seconds)}
             </div>
-          </div>
-        </div>
-
-        {/* 今日成功率 */}
-        <div className="rounded-2xl border bg-gradient-to-br from-violet-500/10 to-indigo-600/10 text-indigo-700 border-indigo-100 p-5 shadow-sm backdrop-blur">
-          <p className="text-sm text-slate-600">今日成功率</p>
-          <div className="mt-2 text-3xl font-semibold">
-            {(summary.today_success_rate * 100).toFixed(1)}%
-          </div>
-          <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-white/60 px-3 py-1 text-xs font-medium text-slate-600">
-            <span className="h-2 w-2 rounded-full bg-indigo-400/60" />
-            成功 {summary.today_success_count} · 失败 {summary.today_failed_count}
           </div>
         </div>
       </section>
