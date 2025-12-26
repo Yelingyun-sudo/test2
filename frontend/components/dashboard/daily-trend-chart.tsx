@@ -39,10 +39,9 @@ export function DailyTrendChart({
   }));
 
   return (
-    <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm lg:col-span-2">
+    <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm flex flex-col h-full">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-sm text-slate-500">最近 {days} 天</p>
           <h3 className="text-lg font-semibold text-slate-900">
             每日任务趋势
           </h3>
@@ -56,7 +55,7 @@ export function DailyTrendChart({
           </button>
         )}
       </div>
-      <div className="mt-4 h-72">
+      <div className="mt-4 flex-1 min-h-[224px]">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={trendData}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -106,7 +105,7 @@ export function DailyTrendChart({
               name="成功率"
               fill="#c7d2fe"
               radius={[4, 4, 0, 0]}
-              maxBarSize={60}
+              maxBarSize={30}
               legendType="square"
             />
             <Line
