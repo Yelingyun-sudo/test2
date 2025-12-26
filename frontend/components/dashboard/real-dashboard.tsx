@@ -28,7 +28,7 @@ import { formatDateTime } from "@/lib/datetime";
 import { cn, formatTokenCount } from "@/lib/utils";
 import { toast } from "sonner";
 import type { StatsResponse } from "@/lib/types";
-import { STATUS_LABELS, STATUS_STYLES, STATUS_COLORS, type TaskStatus } from "@/types/common";
+import { STATUS_LABELS, STATUS_STYLES, STATUS_COLORS, STATUS_COLORS_ENHANCED, type TaskStatus } from "@/types/common";
 
 type DashboardProps = {
   onLogout: () => void;
@@ -133,7 +133,7 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
   const distributionData = status_distribution.map((item) => ({
     name: STATUS_LABELS[item.status as TaskStatus] || item.status,
     value: item.count,
-    color: STATUS_COLORS[item.status as TaskStatus] || "#94a3b8",
+    color: STATUS_COLORS_ENHANCED[item.status as TaskStatus] || "#94a3b8",
     percentage: totalStatusCount > 0 ? ((item.count / totalStatusCount) * 100).toFixed(1) : 0,
     status: item.status  // 保存原始状态值用于路由跳转
   }));
@@ -162,7 +162,7 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
           <div className="mt-2">
             <div className="inline-flex items-center gap-2 rounded-full bg-white/60 px-3 py-1 text-xs font-medium text-slate-600">
               <span className="h-2 w-2 rounded-full bg-amber-400/60" />
-              共 {formatTokenCount(summary.total_tokens)} Token，平均 {daily_trend.length > 0 ? formatTokenCount(Math.round(summary.total_tokens / daily_trend.length)) : 0} Token/天
+              消耗 {formatTokenCount(summary.total_tokens)} Token，{daily_trend.length > 0 ? formatTokenCount(Math.round(summary.total_tokens / daily_trend.length)) : 0} Token/天
             </div>
           </div>
         </div>
@@ -335,7 +335,7 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
 
         {/* 任务状态分布图 - 1/3 宽度 */}
         <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm lg:col-span-1">
-          <div className="flex items-start justify-between">
+          <div className="flex items-start justify-between mb-4">
             <div>
               <p className="text-sm text-slate-500">状态统计</p>
               <h3 className="text-lg font-semibold text-slate-900">
@@ -353,7 +353,9 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
                   cx="50%"
                   cy="50%"
                   outerRadius={90}
-                  label={(entry) => `${entry.name ?? '未知'} (${entry.percentage ?? 0}%)`}
+                  innerRadius={0}
+                  labelLine={true}
+                  label={({ name, percentage }) => `${name} (${percentage}%)`}
                   onClick={(data) => {
                     // 点击饼图扇区跳转到订阅列表，自动筛选该状态
                     const status = data.payload?.status;
@@ -362,9 +364,21 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
                     }
                   }}
                   cursor="pointer"
+                  paddingAngle={2}
+                  animationBegin={0}
+                  animationDuration={400}
                 >
                   {distributionData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color ?? '#94a3b8'} />
+                    <Cell 
+                      key={`cell-${index}`} 
+                      fill={entry.color ?? '#94a3b8'}
+                      stroke="#fff"
+                      strokeWidth={2}
+                      style={{
+                        filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))',
+                        transition: 'opacity 0.2s'
+                      }}
+                    />
                   ))}
                 </Pie>
                 <Tooltip
@@ -372,15 +386,19 @@ export function RealDashboard({ onLogout, account }: DashboardProps) {
                     if (!payload?.[0]) return null;
                     const data = payload[0].payload;
                     return (
-                      <div className="rounded-lg border border-sky-100 bg-sky-50/90 backdrop-blur-sm p-3 shadow-md">
-                        <p className="font-medium text-slate-900">{data.name ?? '未知'}</p>
-                        <p className="text-sm text-slate-500">
-                          数量: <span className="font-semibold text-sky-600">{data.value ?? 0}</span>
-                        </p>
-                        <p className="text-xs text-slate-400">
-                          占比: {data.percentage ?? 0}%
-                        </p>
-                        <p className="mt-2 text-xs text-blue-600 hover:underline">
+                      <div className="rounded-lg border border-sky-100 bg-white/95 backdrop-blur-sm p-3 shadow-lg">
+                        <p className="font-semibold text-slate-900 mb-2">{data.name ?? '未知'}</p>
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between gap-4">
+                            <span className="text-sm text-slate-600">数量</span>
+                            <span className="font-semibold text-slate-900">{data.value ?? 0}</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-4">
+                            <span className="text-sm text-slate-600">占比</span>
+                            <span className="font-semibold text-sky-600">{data.percentage ?? 0}%</span>
+                          </div>
+                        </div>
+                        <p className="mt-2 text-xs text-sky-600">
                           点击查看详情 →
                         </p>
                       </div>

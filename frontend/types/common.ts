@@ -30,6 +30,14 @@ export const STATUS_COLORS: Record<TaskStatus, string> = {
   FAILED: "#ef4444"
 };
 
+// 优化后的颜色方案 - 更柔和现代
+export const STATUS_COLORS_ENHANCED: Record<TaskStatus, string> = {
+  PENDING: "#94a3b8",      // 保持原色（灰色系已经很柔和）
+  RUNNING: "#fbbf24",      // 更柔和的黄色（amber-400）
+  SUCCESS: "#10b981",      // 更柔和的绿色（emerald-500）
+  FAILED: "#f43f5e"        // 更柔和的红色（rose-500）
+};
+
 export type PaginatedListResponse<T> = {
   items: T[];
   total: number;
