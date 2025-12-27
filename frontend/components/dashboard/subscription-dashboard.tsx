@@ -66,6 +66,16 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
     }
   }, [searchParams]);
 
+  // 处理图表日期点击
+  const handleDateClick = (date: string) => {
+    setStatsTimeRange(date); // 设置为 YYYY-MM-DD 格式
+    // 将日期参数设置到 URL，让 TaskListDrawer 能够读取
+    const params = new URLSearchParams();
+    params.set("time_range", date);
+    router.push(`/subscription?${params.toString()}`);
+    setIsTaskListDrawerOpen(true); // 打开抽屉框
+  };
+
   // 下半部分统计数据获取（受 statsTimeRange 控制，包含轮询）
   useEffect(() => {
     async function fetchStats() {
@@ -555,6 +565,7 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
               <DailyTrendChart
                 dailyTrend={stats.daily_trend}
                 days={5}
+                onDateClick={handleDateClick}
               />
             ) : (
               <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm flex flex-col h-full">

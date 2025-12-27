@@ -17,25 +17,41 @@ type DailyTrendChartProps = {
   days?: number; // 显示最近多少天，默认5天
   showViewDetails?: boolean;
   onViewDetails?: () => void;
+  onDateClick?: (date: string) => void; // 点击日期回调，传递 YYYY-MM-DD 格式
 };
 
 export function DailyTrendChart({
   dailyTrend,
   days = 5,
   showViewDetails = false,
-  onViewDetails
+  onViewDetails,
+  onDateClick
 }: DailyTrendChartProps) {
-  // 处理图表数据（只显示最近N天）
-  const trendData = dailyTrend.slice(-days).map((item) => ({
-    date: new Date(item.date).toLocaleDateString("zh-CN", {
-      month: "2-digit",
-      day: "2-digit"
-    }),
-    total_count: item.total_count,
-    success_count: item.success_count,
-    failed_count: item.failed_count,
-    success_rate: item.success_rate * 100 // 转换为百分比
-  }));
+  // 处理图表数据（只显示最近N天），保留原始日期用于点击事件
+  const trendData = dailyTrend.slice(-days).map((item) => {
+    const dateObj = new Date(item.date);
+    return {
+      date: dateObj.toLocaleDateString("zh-CN", {
+        month: "2-digit",
+        day: "2-digit"
+      }),
+      dateStr: item.date, // 原始日期字符串 YYYY-MM-DD，直接使用
+      total_count: item.total_count,
+      success_count: item.success_count,
+      failed_count: item.failed_count,
+      success_rate: item.success_rate * 100 // 转换为百分比
+    };
+  });
+
+  // 处理图表点击事件
+  const handleChartClick = (data: any) => {
+    if (!onDateClick || !data || !data.activePayload) return;
+    // 从第一个 payload 中获取数据（所有系列共享同一个数据点）
+    const clickedData = data.activePayload[0]?.payload;
+    if (clickedData?.dateStr) {
+      onDateClick(clickedData.dateStr);
+    }
+  };
 
   return (
     <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm flex flex-col h-full">
@@ -75,7 +91,7 @@ export function DailyTrendChart({
       </div>
       <div className="mt-4 flex-1 min-h-[224px]">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={trendData}>
+          <ComposedChart data={trendData} onClick={handleChartClick} style={{ cursor: onDateClick ? 'pointer' : 'default' }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
             <XAxis dataKey="date" stroke="#94a3b8" />
             <YAxis yAxisId="left" stroke="#94a3b8" />

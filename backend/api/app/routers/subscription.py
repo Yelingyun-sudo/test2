@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import List
@@ -47,7 +48,7 @@ def _parse_time_range(
     解析预设时间范围，返回 UTC 时区的 (开始时间, 结束时间)
 
     Args:
-        range_key: 时间范围键值（today/yesterday/3d/7d/30d）
+        range_key: 时间范围键值（today/yesterday/3d/7d/30d 或 YYYY-MM-DD 日期格式）
         tz_cn: 中国时区
 
     Returns:
@@ -59,6 +60,17 @@ def _parse_time_range(
     """
     if not range_key:
         return None, None
+
+    # 检测具体日期格式 YYYY-MM-DD
+    if re.match(r'^\d{4}-\d{2}-\d{2}$', range_key):
+        try:
+            date = datetime.strptime(range_key, '%Y-%m-%d')
+            start = date.replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=tz_cn)
+            end = date.replace(hour=23, minute=59, second=59, microsecond=999999, tzinfo=tz_cn)
+            return start.astimezone(timezone.utc), end.astimezone(timezone.utc)
+        except ValueError:
+            # 日期格式无效，继续处理预设选项
+            pass
 
     now_cn = datetime.now(tz_cn)
     today_start = now_cn.replace(hour=0, minute=0, second=0, microsecond=0)

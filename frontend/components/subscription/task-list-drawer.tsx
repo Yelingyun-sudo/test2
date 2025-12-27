@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { TimeRangeSelector } from "@/components/subscription/time-range-selector";
 import { apiFetch } from "@/lib/api";
 import { formatDateTime, formatDurationSeconds } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
@@ -245,15 +246,7 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
     return [...baseOptions, ...optionsWithCount];
   }, [failureTypeStats, failureTypes]);
 
-  const timeRangeOptions: Array<{ value: string; label: string }> = [
-    { value: "ALL", label: "全部" },
-    { value: "today", label: "今天" },
-    { value: "yesterday", label: "昨天" },
-    { value: "3d", label: "最近3天" },
-    { value: "7d", label: "最近7天" },
-    { value: "30d", label: "最近30天" }
-  ];
-  // 注意：选项顺序与页面级选择器保持一致，但抽屉中"全部"作为第一个选项更符合筛选器习惯
+  // 注意：时间范围选项现在由 TimeRangeSelector 组件统一管理
 
   const renderStatus = (value?: string) => {
     if (!value) return <span className="text-slate-400">-</span>;
@@ -439,22 +432,11 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
           {(statusFilter === "ALL" || statusFilter === "SUCCESS" || statusFilter === "FAILED") && (
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold text-slate-700">时间范围</span>
-              <Select
+              <TimeRangeSelector
                 value={timeRangeFilter}
-                onValueChange={handleTimeRangeChange}
-                disabled={loading}
-              >
-                <SelectTrigger className="w-[140px] h-10 border-slate-200 bg-white shadow-[0_6px_18px_rgba(15,23,42,0.06)]">
-                  <SelectValue placeholder="全部" />
-                </SelectTrigger>
-                <SelectContent>
-                  {timeRangeOptions.map((option) => (
-                    <SelectItem key={option.value || "all"} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                onChange={handleTimeRangeChange}
+                className="w-[140px] h-10 border-slate-200 bg-white shadow-[0_6px_18px_rgba(15,23,42,0.06)]"
+              />
             </div>
           )}
         </div>
