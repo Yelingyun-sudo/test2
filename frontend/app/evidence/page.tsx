@@ -142,7 +142,7 @@ export default function EvidencePage() {
         if (q) searchParams.set("q", q);
         if (status && status !== "ALL") searchParams.set("status", status);
         if (failureType && failureType !== "ALL") searchParams.set("failure_type", failureType);
-        if (timeRange && timeRange !== "ALL") searchParams.set("executed_within", timeRange);
+        if (timeRange && timeRange !== "ALL") searchParams.set("time_range", timeRange);
 
         const res = await apiFetch(
           `/evidence/list?${searchParams.toString()}`

@@ -97,7 +97,7 @@ def list_evidence(
     failure_type: str | None = Query(
         None, description="按失败类型过滤（通常与 status=failed 配合使用）"
     ),
-    executed_within: str | None = Query(
+    time_range: str | None = Query(
         None, description="按执行时间范围过滤（today/yesterday/3d/7d/30d）"
     ),
     db: Session = Depends(get_db),
@@ -121,8 +121,8 @@ def list_evidence(
         query = query.filter(EvidenceTask.failure_type == failure_type)
 
     tz_cn = timezone(timedelta(hours=8))
-    if executed_within:
-        start_time, end_time = _parse_time_range(executed_within, tz_cn)
+    if time_range:
+        start_time, end_time = _parse_time_range(time_range, tz_cn)
         if start_time and end_time:
             query = query.filter(
                 EvidenceTask.executed_at.isnot(None),
