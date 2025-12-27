@@ -40,4 +40,3 @@ class PaginatedListResponse(BaseModel, Generic[T]):
     total: int = Field(..., description="总记录数")
     page: int = Field(..., description="当前页码（从 1 开始）")
     page_size: int = Field(..., description="每页记录数")
-

@@ -116,13 +116,11 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
 
   const fetchFailureTypeStats = useCallback(async (timeRange?: string) => {
     try {
-      // 构建查询参数，传递时间范围
-      const params = new URLSearchParams();
-      if (timeRange && timeRange !== "ALL") {
-        params.set('time_range', timeRange);
-      }
-      const url = `/subscription/stats${params.toString() ? `?${params.toString()}` : ''}`;
-      
+      const timeRangeParam = timeRange && timeRange !== "ALL"
+        ? `?time_range=${timeRange}`
+        : "";
+      const url = `/subscription/stats/failure-types${timeRangeParam}`;
+
       const res = await apiFetch(url);
       if (!res.ok) return;
       const payload = await res.json();

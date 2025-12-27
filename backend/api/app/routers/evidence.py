@@ -261,7 +261,9 @@ def get_task_artifacts(
         if entries_detail_raw and isinstance(entries_detail_raw, list):
             try:
                 evidence_entries_detail = [
-                    EvidenceEntryDetail(**entry) for entry in entries_detail_raw if isinstance(entry, dict)
+                    EvidenceEntryDetail(**entry)
+                    for entry in entries_detail_raw
+                    if isinstance(entry, dict)
                 ]
             except Exception:
                 # 如果解析失败，返回 None（向后兼容）
@@ -300,9 +302,9 @@ def get_task_artifact(
     raw = Path(path)
     if raw.is_absolute() or ".." in raw.parts:
         raise HTTPException(status_code=400, detail="非法路径")
-    
+
     artifact_path = (task_dir_abs / raw).resolve()
-    
+
     # 安全检查：防止路径穿越
     try:
         artifact_path.relative_to(task_dir_abs.resolve())

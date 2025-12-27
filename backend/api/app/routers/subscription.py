@@ -19,14 +19,19 @@ from ..utils import resolve_task_dir
 from ..schemas.common import FailureTypeItem, FailureTypesResponse, LLMUsage
 from ..schemas.subscription import (
     DailyTrendItem,
+    DailyTrendResponse,
     FailureSummary,
     FailureTypeDistributionItem,
+    FailureTypesStatsResponse,
+    RecentTasksResponse,
     StatusDistributionItem,
+    StatusDistributionResponse,
     SubscriptionArtifactsResponse,
     SubscriptionItem,
     SubscriptionListResponse,
     SubscriptionStatsResponse,
     SubscriptionStatsSummary,
+    SummaryResponse,
 )
 from website_analytics.output_types import (
     FAILURE_TYPE_LABELS,
@@ -62,11 +67,15 @@ def _parse_time_range(
         return None, None
 
     # 检测具体日期格式 YYYY-MM-DD
-    if re.match(r'^\d{4}-\d{2}-\d{2}$', range_key):
+    if re.match(r"^\d{4}-\d{2}-\d{2}$", range_key):
         try:
-            date = datetime.strptime(range_key, '%Y-%m-%d')
-            start = date.replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=tz_cn)
-            end = date.replace(hour=23, minute=59, second=59, microsecond=999999, tzinfo=tz_cn)
+            date = datetime.strptime(range_key, "%Y-%m-%d")
+            start = date.replace(
+                hour=0, minute=0, second=0, microsecond=0, tzinfo=tz_cn
+            )
+            end = date.replace(
+                hour=23, minute=59, second=59, microsecond=999999, tzinfo=tz_cn
+            )
             return start.astimezone(timezone.utc), end.astimezone(timezone.utc)
         except ValueError:
             # 日期格式无效，继续处理预设选项
@@ -102,6 +111,51 @@ def _parse_time_range(
         return start.astimezone(timezone.utc), today_end.astimezone(timezone.utc)
     else:
         return None, None
+
+
+# ===== 订阅统计接口辅助函数 =====
+
+# 允许请求的字段列表
+ALLOWED_FIELDS = {
+    "summary",
+    "daily_trend",
+    "status_distribution",
+    "recent_tasks",
+    "failure_type_distribution",
+    "failure_summary",
+}
+
+
+def _parse_and_validate_fields(fields_param: str) -> set[str]:
+    """
+    解析和验证 fields 参数
+
+    Args:
+        fields_param: 逗号分隔的字段列表，如 "summary,daily_trend"
+
+    Returns:
+        请求的字段集合
+
+    Raises:
+        HTTPException: 如果包含无效字段
+    """
+    # 解析字段列表
+    requested = set()
+    for field in fields_param.split(","):
+        field = field.strip().lower()
+        if field:
+            requested.add(field)
+
+    # 验证字段名
+    invalid_fields = requested - ALLOWED_FIELDS
+    if invalid_fields:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid fields: {', '.join(invalid_fields)}. "
+            f"Allowed fields: {', '.join(sorted(ALLOWED_FIELDS))}",
+        )
+
+    return requested
 
 
 @router.get(
@@ -157,20 +211,24 @@ def list_subscription(
             # 如果 end_time 是今天，则包含 PENDING 和 RUNNING 任务
             # 如果 end_time 是昨天或更早，则不包含 PENDING 和 RUNNING
             now_cn = datetime.now(tz_cn)
-            today_end = now_cn.replace(hour=23, minute=59, second=59, microsecond=999999)
+            today_end = now_cn.replace(
+                hour=23, minute=59, second=59, microsecond=999999
+            )
             today_end_utc = today_end.astimezone(timezone.utc)
-            
+
             # 如果结束时间 >= 今天的结束时间（UTC），说明包含今天
             if end_time >= today_end_utc:
                 # 包含今天：显示所有任务，包括 PENDING 和 RUNNING
                 query = query.filter(
                     or_(
-                        SubscriptionTask.status.in_([TaskStatus.PENDING, TaskStatus.RUNNING]),
+                        SubscriptionTask.status.in_(
+                            [TaskStatus.PENDING, TaskStatus.RUNNING]
+                        ),
                         and_(
                             SubscriptionTask.executed_at.isnot(None),
                             SubscriptionTask.executed_at >= start_time,
                             SubscriptionTask.executed_at <= end_time,
-                        )
+                        ),
                     )
                 )
             else:
@@ -344,50 +402,14 @@ def get_task_artifact(
     return FileResponse(target, media_type=media_type)
 
 
-@router.get(
-    "/stats",
-    response_model=SubscriptionStatsResponse,
-    summary="获取订阅任务统计数据",
-)
-def get_subscription_stats(
-    time_range: str | None = Query(
-        None, description="按执行时间范围过滤统计数据（today/yesterday/3d/7d/30d）"
-    ),
-    db: Session = Depends(get_db),
-):
-    """
-    获取订阅任务的统计数据，包括：
-    - 汇总统计（总数、今日新增、成功率、平均时长等）
-    - 每日趋势（最近10天）
-    - 状态分布
-    - 最新任务列表（最近6条）
-    - 失败类型分布（支持时间范围过滤）
-    """
-    tz_cn = timezone(timedelta(hours=8))
-    cn_today = datetime.now(tz_cn).date()
-
-    # 根据 time_range 参数计算时间范围（默认今天）
-    now_cn = datetime.now(tz_cn)
-    today_start_cn = now_cn.replace(hour=0, minute=0, second=0, microsecond=0)
-    today_end_cn = now_cn.replace(hour=23, minute=59, second=59, microsecond=999999)
-    
-    if time_range:
-        range_start_utc, range_end_utc = _parse_time_range(time_range, tz_cn)
-        if range_start_utc is None or range_end_utc is None:
-            # 无效参数，使用今天
-            range_start_utc = today_start_cn.astimezone(timezone.utc)
-            range_end_utc = today_end_cn.astimezone(timezone.utc)
-    else:
-        range_start_utc = today_start_cn.astimezone(timezone.utc)
-        range_end_utc = today_end_cn.astimezone(timezone.utc)
-
-    # 调试日志：排查统计数据异常
-    logger.info(f"[统计查询] cn_today={cn_today}")
-    logger.info(f"[统计查询] time_range={time_range}")
-    logger.info(f"[统计查询] 时间范围(UTC): {range_start_utc} ~ {range_end_utc}")
-    logger.info(f"[统计查询] 系统时区={datetime.now().astimezone().tzinfo}")
-
-    # 1. 汇总统计
+def _compute_summary(
+    db: Session,
+    cn_today: datetime.date,
+    range_start_utc: datetime,
+    range_end_utc: datetime,
+    time_range: str | None,
+) -> SubscriptionStatsSummary:
+    """计算汇总统计"""
     summary_result = db.query(
         func.count(SubscriptionTask.id).label("total_tasks"),
         func.sum(case((SubscriptionTask.created_date == cn_today, 1), else_=0)).label(
@@ -562,13 +584,13 @@ def get_subscription_stats(
     failed_count = summary_result.failed_count or 0
     pending_count = summary_result.pending_count or 0
     running_count = summary_result.running_count or 0
-    
+
     # 如果指定了历史时间范围，待执行和执行中应该为0
     # 因为这些是当前状态，不应该出现在历史时间范围内
     if time_range and time_range != "today":
         pending_count = 0
         running_count = 0
-    
+
     avg_success_duration = summary_result.avg_success_duration or 0.0
     avg_failed_duration = summary_result.avg_failed_duration or 0.0
     total_tokens = summary_result.total_tokens or 0
@@ -599,7 +621,7 @@ def get_subscription_stats(
         (today_success_count / today_completed) if today_completed > 0 else 0.0
     )
 
-    summary = SubscriptionStatsSummary(
+    return SubscriptionStatsSummary(
         total_tasks=total_tasks,
         today_tasks=today_tasks,
         success_count=success_count,
@@ -622,9 +644,10 @@ def get_subscription_stats(
         today_avg_failed_tokens=today_avg_failed_tokens,
     )
 
-    # 2. 每日趋势（最近10天）
-    today = cn_today
-    ten_days_ago = today - timedelta(days=10)
+
+def _compute_daily_trend(db: Session, cn_today: datetime.date) -> list[DailyTrendItem]:
+    """计算每日趋势（最近10天）"""
+    ten_days_ago = cn_today - timedelta(days=10)
 
     daily_trend_results = (
         db.query(
@@ -663,12 +686,21 @@ def get_subscription_stats(
             )
         )
 
-    # 3. 状态分布（根据时间范围过滤）
+    return daily_trend
+
+
+def _compute_status_distribution(
+    db: Session,
+    time_range: str | None,
+    range_start_utc: datetime,
+    range_end_utc: datetime,
+) -> list[StatusDistributionItem]:
+    """计算状态分布（根据时间范围过滤）"""
     status_query = db.query(
         SubscriptionTask.status.label("status"),
         func.count(SubscriptionTask.id).label("count"),
     )
-    
+
     # 应用时间范围过滤（如果指定）
     if time_range:
         status_query = status_query.filter(
@@ -676,7 +708,7 @@ def get_subscription_stats(
             SubscriptionTask.executed_at >= range_start_utc,
             SubscriptionTask.executed_at <= range_end_utc,
         )
-    
+
     status_results = status_query.group_by(SubscriptionTask.status).all()
 
     status_distribution = []
@@ -686,7 +718,18 @@ def get_subscription_stats(
             StatusDistributionItem(status=status_value or "", count=row.count or 0)
         )
 
-    # 4. 最新任务列表（最近6条）
+    return status_distribution
+
+
+def _compute_recent_tasks(
+    db: Session,
+    time_range: str | None,
+    range_start_utc: datetime,
+    range_end_utc: datetime,
+    tz_cn: timezone,
+) -> list[SubscriptionItem]:
+    """获取最新任务列表（最近6条）"""
+
     def _format_dt(dt):
         if not dt:
             return None
@@ -702,7 +745,7 @@ def get_subscription_stats(
     )
 
     recent_task_query = db.query(SubscriptionTask)
-    
+
     # 应用时间范围过滤（如果指定）
     if time_range:
         recent_task_query = recent_task_query.filter(
@@ -710,10 +753,9 @@ def get_subscription_stats(
             SubscriptionTask.executed_at >= range_start_utc,
             SubscriptionTask.executed_at <= range_end_utc,
         )
-    
+
     recent_task_records = (
-        recent_task_query
-        .order_by(
+        recent_task_query.order_by(
             recent_status_priority,
             SubscriptionTask.executed_at.desc().nulls_last(),
             SubscriptionTask.id.asc(),
@@ -755,7 +797,15 @@ def get_subscription_stats(
             )
         )
 
-    # 5. 失败类型分布统计（支持时间范围过滤）
+    return recent_tasks
+
+
+def _compute_failure_stats(
+    db: Session,
+    time_range: str | None,
+    tz_cn: timezone,
+) -> tuple[list[FailureTypeDistributionItem], FailureSummary]:
+    """计算失败类型分布统计和失败总览（支持时间范围过滤）"""
     failure_type_query = db.query(
         SubscriptionTask.failure_type,
         func.count(SubscriptionTask.id).label("count"),
@@ -791,7 +841,9 @@ def get_subscription_stats(
     for row in top_5_types:
         count = row.count or 0
         # 使用时间范围内的失败数计算百分比
-        percentage = (count / range_failed_count * 100) if range_failed_count > 0 else 0.0
+        percentage = (
+            (count / range_failed_count * 100) if range_failed_count > 0 else 0.0
+        )
         failure_type_distribution.append(
             FailureTypeDistributionItem(
                 type=row.failure_type or "",
@@ -822,11 +874,240 @@ def get_subscription_stats(
         unique_types=len(failure_type_results),
     )
 
+    return failure_type_distribution, failure_summary
+
+
+@router.get(
+    "/stats",
+    response_model=SubscriptionStatsResponse,
+    summary="获取订阅任务统计数据",
+)
+def get_subscription_stats(
+    fields: str = Query(..., description="指定返回的字段（逗号分隔），必填"),
+    time_range: str | None = Query(
+        None, description="按执行时间范围过滤统计数据（today/yesterday/3d/7d/30d）"
+    ),
+    db: Session = Depends(get_db),
+):
+    """
+    获取订阅任务的统计数据，支持按需返回字段。
+
+    【推荐使用专用端点】：
+    - /subscription/stats/summary - 汇总统计
+    - /subscription/stats/daily-trend - 每日趋势
+    - /subscription/stats/status-distribution - 状态分布
+    - /subscription/stats/recent-tasks - 最新任务
+    - /subscription/stats/failure-types - 失败类型统计
+
+    参数：
+    - fields: 指定返回字段（summary, daily_trend, status_distribution,
+              recent_tasks, failure_type_distribution, failure_summary）
+              多个字段用逗号分隔，必填
+    - time_range: 时间范围过滤（today/yesterday/3d/7d/30d）
+    """
+    # 解析和验证 fields 参数
+    requested_fields = _parse_and_validate_fields(fields)
+
+    # 初始化时间范围
+    tz_cn = timezone(timedelta(hours=8))
+    cn_today = datetime.now(tz_cn).date()
+    now_cn = datetime.now(tz_cn)
+    today_start_cn = now_cn.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end_cn = now_cn.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+    if time_range:
+        range_start_utc, range_end_utc = _parse_time_range(time_range, tz_cn)
+        if range_start_utc is None or range_end_utc is None:
+            range_start_utc = today_start_cn.astimezone(timezone.utc)
+            range_end_utc = today_end_cn.astimezone(timezone.utc)
+    else:
+        range_start_utc = today_start_cn.astimezone(timezone.utc)
+        range_end_utc = today_end_cn.astimezone(timezone.utc)
+
+    # 调试日志：排查统计数据异常
+    logger.info(f"[统计查询] cn_today={cn_today}")
+    logger.info(f"[统计查询] time_range={time_range}")
+    logger.info(f"[统计查询] fields={fields}")
+    logger.info(f"[统计查询] requested_fields={requested_fields}")
+    logger.info(f"[统计查询] 时间范围(UTC): {range_start_utc} ~ {range_end_utc}")
+    logger.info(f"[统计查询] 系统时区={datetime.now().astimezone().tzinfo}")
+
+    # 根据请求字段条件性执行查询
+    result = {}
+
+    if "summary" in requested_fields:
+        result["summary"] = _compute_summary(
+            db, cn_today, range_start_utc, range_end_utc, time_range
+        )
+
+    if "daily_trend" in requested_fields:
+        result["daily_trend"] = _compute_daily_trend(db, cn_today)
+
+    if "status_distribution" in requested_fields:
+        result["status_distribution"] = _compute_status_distribution(
+            db, time_range, range_start_utc, range_end_utc
+        )
+
+    if "recent_tasks" in requested_fields:
+        result["recent_tasks"] = _compute_recent_tasks(
+            db, time_range, range_start_utc, range_end_utc, tz_cn
+        )
+
+    # failure_type_distribution 和 failure_summary 在同一个查询中计算
+    if (
+        "failure_type_distribution" in requested_fields
+        or "failure_summary" in requested_fields
+    ):
+        failure_dist, failure_sum = _compute_failure_stats(db, time_range, tz_cn)
+        if "failure_type_distribution" in requested_fields:
+            result["failure_type_distribution"] = failure_dist
+        if "failure_summary" in requested_fields:
+            result["failure_summary"] = failure_sum
+
+    # 构建响应（只返回请求的字段，未请求的字段为 None）
     return SubscriptionStatsResponse(
-        summary=summary,
-        daily_trend=daily_trend,
-        status_distribution=status_distribution,
-        recent_tasks=recent_tasks,
+        summary=result.get("summary"),
+        daily_trend=result.get("daily_trend"),
+        status_distribution=result.get("status_distribution"),
+        recent_tasks=result.get("recent_tasks"),
+        failure_type_distribution=result.get("failure_type_distribution"),
+        failure_summary=result.get("failure_summary"),
+    )
+
+
+# ===== 专用统计端点 =====
+
+
+@router.get(
+    "/stats/summary",
+    response_model=SummaryResponse,
+    summary="获取订阅任务汇总统计",
+)
+def get_subscription_stats_summary(
+    time_range: str | None = Query(
+        "today", description="时间范围（today/yesterday/3d/7d/30d/YYYY-MM-DD）"
+    ),
+    db: Session = Depends(get_db),
+):
+    """获取订阅任务的汇总统计数据"""
+    tz_cn = timezone(timedelta(hours=8))
+    cn_today = datetime.now(tz_cn).date()
+    now_cn = datetime.now(tz_cn)
+    today_start_cn = now_cn.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end_cn = now_cn.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+    if time_range:
+        range_start_utc, range_end_utc = _parse_time_range(time_range, tz_cn)
+        if range_start_utc is None or range_end_utc is None:
+            range_start_utc = today_start_cn.astimezone(timezone.utc)
+            range_end_utc = today_end_cn.astimezone(timezone.utc)
+    else:
+        range_start_utc = today_start_cn.astimezone(timezone.utc)
+        range_end_utc = today_end_cn.astimezone(timezone.utc)
+
+    summary = _compute_summary(db, cn_today, range_start_utc, range_end_utc, time_range)
+    return SummaryResponse(summary=summary)
+
+
+@router.get(
+    "/stats/daily-trend",
+    response_model=DailyTrendResponse,
+    summary="获取订阅任务每日趋势",
+)
+def get_subscription_stats_daily_trend(
+    db: Session = Depends(get_db),
+):
+    """获取订阅任务的每日趋势数据（最近10天）"""
+    tz_cn = timezone(timedelta(hours=8))
+    cn_today = datetime.now(tz_cn).date()
+
+    daily_trend = _compute_daily_trend(db, cn_today)
+    return DailyTrendResponse(daily_trend=daily_trend)
+
+
+@router.get(
+    "/stats/status-distribution",
+    response_model=StatusDistributionResponse,
+    summary="获取订阅任务状态分布",
+)
+def get_subscription_stats_status_distribution(
+    time_range: str | None = Query(
+        None, description="时间范围（today/yesterday/3d/7d/30d/YYYY-MM-DD）"
+    ),
+    db: Session = Depends(get_db),
+):
+    """获取订阅任务的状态分布数据"""
+    tz_cn = timezone(timedelta(hours=8))
+    now_cn = datetime.now(tz_cn)
+    today_start_cn = now_cn.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end_cn = now_cn.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+    if time_range:
+        range_start_utc, range_end_utc = _parse_time_range(time_range, tz_cn)
+        if range_start_utc is None or range_end_utc is None:
+            range_start_utc = today_start_cn.astimezone(timezone.utc)
+            range_end_utc = today_end_cn.astimezone(timezone.utc)
+    else:
+        range_start_utc = today_start_cn.astimezone(timezone.utc)
+        range_end_utc = today_end_cn.astimezone(timezone.utc)
+
+    status_distribution = _compute_status_distribution(
+        db, time_range, range_start_utc, range_end_utc
+    )
+    return StatusDistributionResponse(status_distribution=status_distribution)
+
+
+@router.get(
+    "/stats/recent-tasks",
+    response_model=RecentTasksResponse,
+    summary="获取最新任务列表",
+)
+def get_subscription_stats_recent_tasks(
+    time_range: str | None = Query(
+        None, description="时间范围（today/yesterday/3d/7d/30d/YYYY-MM-DD）"
+    ),
+    db: Session = Depends(get_db),
+):
+    """获取最新任务列表（最近5条）"""
+    tz_cn = timezone(timedelta(hours=8))
+    now_cn = datetime.now(tz_cn)
+    today_start_cn = now_cn.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end_cn = now_cn.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+    if time_range:
+        range_start_utc, range_end_utc = _parse_time_range(time_range, tz_cn)
+        if range_start_utc is None or range_end_utc is None:
+            range_start_utc = today_start_cn.astimezone(timezone.utc)
+            range_end_utc = today_end_cn.astimezone(timezone.utc)
+    else:
+        range_start_utc = today_start_cn.astimezone(timezone.utc)
+        range_end_utc = today_end_cn.astimezone(timezone.utc)
+
+    recent_tasks = _compute_recent_tasks(
+        db, time_range, range_start_utc, range_end_utc, tz_cn
+    )
+    return RecentTasksResponse(recent_tasks=recent_tasks)
+
+
+@router.get(
+    "/stats/failure-types",
+    response_model=FailureTypesStatsResponse,
+    summary="获取失败类型统计",
+)
+def get_subscription_stats_failure_types(
+    time_range: str | None = Query(
+        None, description="时间范围（today/yesterday/3d/7d/30d/YYYY-MM-DD）"
+    ),
+    db: Session = Depends(get_db),
+):
+    """获取失败类型分布统计和失败总览"""
+    tz_cn = timezone(timedelta(hours=8))
+
+    failure_type_distribution, failure_summary = _compute_failure_stats(
+        db, time_range, tz_cn
+    )
+
+    return FailureTypesStatsResponse(
         failure_type_distribution=failure_type_distribution,
         failure_summary=failure_summary,
     )

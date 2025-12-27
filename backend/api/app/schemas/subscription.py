@@ -99,14 +99,58 @@ class FailureSummary(BaseModel):
 
 
 class SubscriptionStatsResponse(BaseModel):
-    summary: SubscriptionStatsSummary = Field(..., description="汇总统计")
-    daily_trend: list[DailyTrendItem] = Field(..., description="每日趋势（最近10天）")
+    summary: Optional[SubscriptionStatsSummary] = Field(None, description="汇总统计")
+    daily_trend: Optional[list[DailyTrendItem]] = Field(
+        None, description="每日趋势（最近10天）"
+    )
+    status_distribution: Optional[list[StatusDistributionItem]] = Field(
+        None, description="状态分布"
+    )
+    recent_tasks: Optional[list[SubscriptionItem]] = Field(
+        None, description="最新任务列表（最近6条，完整数据）"
+    )
+    failure_type_distribution: Optional[list[FailureTypeDistributionItem]] = Field(
+        None, description="失败类型分布（Top 5 + 其他）"
+    )
+    failure_summary: Optional[FailureSummary] = Field(None, description="失败总览")
+
+
+# ===== 专用端点响应模型 =====
+
+
+class SummaryResponse(BaseModel):
+    """汇总统计响应"""
+
+    summary: SubscriptionStatsSummary = Field(..., description="汇总统计数据")
+
+
+class DailyTrendResponse(BaseModel):
+    """每日趋势响应"""
+
+    daily_trend: list[DailyTrendItem] = Field(
+        ..., description="每日趋势数据（最近10天）"
+    )
+
+
+class StatusDistributionResponse(BaseModel):
+    """状态分布响应"""
+
     status_distribution: list[StatusDistributionItem] = Field(
-        ..., description="状态分布"
+        ..., description="状态分布数据"
     )
+
+
+class RecentTasksResponse(BaseModel):
+    """最新任务响应"""
+
     recent_tasks: list[SubscriptionItem] = Field(
-        ..., description="最新任务列表（最近6条，完整数据）"
+        ..., description="最新任务列表（最近5条）"
     )
+
+
+class FailureTypesStatsResponse(BaseModel):
+    """失败类型统计响应"""
+
     failure_type_distribution: list[FailureTypeDistributionItem] = Field(
         ..., description="失败类型分布（Top 5 + 其他）"
     )

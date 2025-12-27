@@ -30,9 +30,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { DashboardShell } from "@/components/dashboard/shell";
 import { cn, formatTokenCount } from "@/lib/utils";
+import { formatDurationSeconds } from "@/lib/datetime";
 import { toast } from "sonner";
 import { clearLocalAuth, isJwtExpired, apiFetch } from "@/lib/api";
-import type { StatsResponse } from "@/lib/types";
+import type { StatsResponse, SummaryResponse, DailyTrendResponse } from "@/lib/types";
 
 const schema = z.object({
   username: z.string().min(1, "请输入用户名"),
@@ -43,23 +44,6 @@ const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api";
 
 type FormValues = z.infer<typeof schema>;
-
-// 格式化时长
-function formatDurationSeconds(value?: number | null): string {
-  if (value == null || isNaN(value)) return "-";
-  const totalSeconds = Math.max(0, Math.floor(value));
-  if (totalSeconds < 60) return `${totalSeconds}秒`;
-
-  const days = Math.floor(totalSeconds / 86_400);
-  const hours = Math.floor((totalSeconds % 86_400) / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-
-  if (totalSeconds < 3600) return `${minutes}分${seconds}秒`;
-  if (totalSeconds < 86_400)
-    return `${hours}小时${minutes}分${seconds}秒`;
-  return `${days}天${hours}小时${minutes}分${seconds}秒`;
-}
 
 export default function Page() {
   const router = useRouter();
@@ -96,13 +80,30 @@ export default function Page() {
   // 获取统计数据
   useEffect(() => {
     if (!isAuthed) return;
-    
+
     async function fetchStats() {
       setLoading(true);
       try {
-        const statsRes = await apiFetch("/subscription/stats");
-        const statsData = await statsRes.json();
-        setStats(statsData);
+        // 并发调用两个专用端点
+        const [summaryRes, dailyTrendRes] = await Promise.all([
+          apiFetch("/subscription/stats/summary?time_range=today"),
+          apiFetch("/subscription/stats/daily-trend"),
+        ]);
+
+        const [summaryData, dailyTrendData] = await Promise.all([
+          summaryRes.json() as Promise<SummaryResponse>,
+          dailyTrendRes.json() as Promise<DailyTrendResponse>,
+        ]);
+
+        // 组合数据
+        setStats({
+          summary: summaryData.summary,
+          daily_trend: dailyTrendData.daily_trend,
+          status_distribution: [],
+          recent_tasks: [],
+          failure_type_distribution: [],
+          failure_summary: { total_failed: 0, unique_types: 0 },
+        });
       } catch (error) {
         toast.error("加载统计数据失败");
         console.error(error);

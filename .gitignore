@@ -53,3 +53,6 @@ backend/db/wa.db
 
 # OS/editor
 .DS_Store
+
+# Temporary files
+tmp/

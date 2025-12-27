@@ -57,3 +57,26 @@ export interface StatsResponse {
   failure_type_distribution: FailureTypeDistributionItem[];
   failure_summary: FailureSummary;
 }
+
+// ===== 专用端点响应类型 =====
+
+export interface SummaryResponse {
+  summary: StatsSummary;
+}
+
+export interface DailyTrendResponse {
+  daily_trend: DailyTrendItem[];
+}
+
+export interface StatusDistributionResponse {
+  status_distribution: StatusDistributionItem[];
+}
+
+export interface RecentTasksResponse {
+  recent_tasks: SubscriptionItem[];
+}
+
+export interface FailureTypesStatsResponse {
+  failure_type_distribution: FailureTypeDistributionItem[];
+  failure_summary: FailureSummary;
+}

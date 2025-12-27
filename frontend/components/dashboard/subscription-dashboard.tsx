@@ -28,7 +28,14 @@ import { apiFetch } from "@/lib/api";
 import { formatDurationSeconds } from "@/lib/datetime";
 import { formatTokenCount } from "@/lib/utils";
 import { toast } from "sonner";
-import type { StatsResponse } from "@/lib/types";
+import type {
+  StatsResponse,
+  SummaryResponse,
+  DailyTrendResponse,
+  StatusDistributionResponse,
+  RecentTasksResponse,
+  FailureTypesStatsResponse
+} from "@/lib/types";
 import { STATUS_LABELS, STATUS_COLORS_ENHANCED, type TaskStatus, type FailureTypeItem, type FailureTypesResponse } from "@/types/common";
 import type { SubscriptionItem } from "@/types/subscription";
 
@@ -80,15 +87,40 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
   useEffect(() => {
     async function fetchStats() {
       try {
-        const params = new URLSearchParams();
-        if (statsTimeRange && statsTimeRange !== "ALL") {
-          params.set("time_range", statsTimeRange);
-        }
-        const url = `/subscription/stats${params.toString() ? `?${params.toString()}` : ""}`;
-        
-        const statsRes = await apiFetch(url);
-        const statsData = await statsRes.json();
-        setStats(statsData);
+        // 构建查询参数
+        const timeRangeParam = statsTimeRange && statsTimeRange !== "ALL"
+          ? `?time_range=${statsTimeRange}`
+          : "";
+
+        // 并发调用专用端点
+        const [summaryRes, dailyTrendRes, statusDistRes, recentTasksRes, failureTypesRes] =
+          await Promise.all([
+            apiFetch(`/subscription/stats/summary${timeRangeParam || "?time_range=today"}`),
+            apiFetch(`/subscription/stats/daily-trend`),
+            apiFetch(`/subscription/stats/status-distribution${timeRangeParam}`),
+            apiFetch(`/subscription/stats/recent-tasks${timeRangeParam}`),
+            apiFetch(`/subscription/stats/failure-types${timeRangeParam}`),
+          ]);
+
+        // 解析响应
+        const [summaryData, dailyTrendData, statusDistData, recentTasksData, failureTypesData] =
+          await Promise.all([
+            summaryRes.json() as Promise<SummaryResponse>,
+            dailyTrendRes.json() as Promise<DailyTrendResponse>,
+            statusDistRes.json() as Promise<StatusDistributionResponse>,
+            recentTasksRes.json() as Promise<RecentTasksResponse>,
+            failureTypesRes.json() as Promise<FailureTypesStatsResponse>,
+          ]);
+
+        // 组合数据
+        setStats({
+          summary: summaryData.summary,
+          daily_trend: dailyTrendData.daily_trend,
+          status_distribution: statusDistData.status_distribution,
+          recent_tasks: recentTasksData.recent_tasks,
+          failure_type_distribution: failureTypesData.failure_type_distribution,
+          failure_summary: failureTypesData.failure_summary,
+        });
       } catch (error) {
         toast.error("加载统计数据失败");
         console.error(error);
@@ -96,15 +128,15 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
         setLoading(false);
       }
     }
-    
+
     // 立即执行一次
     fetchStats();
-    
+
     // 每 30 秒轮询一次
     const interval = setInterval(() => {
       fetchStats();
     }, 30000);
-    
+
     return () => clearInterval(interval);
   }, [statsTimeRange]);
 

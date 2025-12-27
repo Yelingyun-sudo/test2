@@ -17,4 +17,3 @@ def resolve_task_dir(task_dir: str) -> Path:
     except Exception as exc:
         raise HTTPException(status_code=400, detail="非法 task_dir") from exc
     return resolved
-

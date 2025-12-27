@@ -518,9 +518,7 @@ def build_programmatic_evidence_entry_tool(
         for _ in range(max_wait_seconds):
             await playwright_server.call_tool("browser_wait_for", {"time": 1})
 
-            check_snapshot = await playwright_server.call_tool(
-                "browser_snapshot", {}
-            )
+            check_snapshot = await playwright_server.call_tool("browser_snapshot", {})
             snapshot_text = check_snapshot.content[0].text
 
             # 条件1: 目标菜单项是否存在（导航栏已加载）
@@ -568,9 +566,7 @@ def build_programmatic_evidence_entry_tool(
         """
         try:
             # 1. 直接获取当前页面快照（不再导航回首页）
-            snapshot_result = await playwright_server.call_tool(
-                "browser_snapshot", {}
-            )
+            snapshot_result = await playwright_server.call_tool("browser_snapshot", {})
 
             # 2. 解析快照，匹配 entry_label
             snapshot_text = snapshot_result.content[0].text
