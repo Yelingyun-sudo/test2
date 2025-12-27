@@ -22,7 +22,7 @@ import { TaskDetailModal } from "@/components/subscription/task-detail-modal";
 import { TaskQueueCard } from "@/components/subscription/task-queue-card";
 import { TaskListRecent } from "@/components/subscription/task-list-recent";
 import { TimeRangeSelector } from "@/components/subscription/time-range-selector";
-import { DailyTrendChart } from "./daily-trend-chart";
+import { DailyTrendChart } from "@/components/subscription/daily-trend-chart";
 import { DashboardShell } from "./shell";
 import { apiFetch } from "@/lib/api";
 import { formatDurationSeconds } from "@/lib/datetime";
