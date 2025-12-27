@@ -1,16 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { format } from "date-fns";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectSeparator,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { format, subDays, startOfToday, startOfYesterday, isSameDay } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
@@ -18,36 +9,137 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { DateRange as ReactDayPickerRange } from "react-day-picker";
 
-const TIME_RANGE_OPTIONS = [
-  { label: "今天", value: "today" },
-  { label: "昨天", value: "yesterday" },
-  { label: "最近3天", value: "3d" },
-  { label: "最近7天", value: "7d" },
-  { label: "最近30天", value: "30d" },
-  { label: "全部", value: "ALL" },
-  { label: "自定义日期", value: "custom" },
-];
-
-// 检测是否为日期格式 YYYY-MM-DD
-function isDateFormat(value: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value);
-}
-
-// 格式化日期显示标签
-function formatDateLabel(dateStr: string): string {
-  const date = new Date(dateStr);
-  return `${date.getMonth() + 1}月${date.getDate()}日`;
-}
+export type DateRange = {
+  from: Date | undefined;
+  to: Date | undefined;
+};
 
 type TimeRangeSelectorProps = {
-  value: string;
-  onChange: (value: string) => void;
+  value: DateRange;
+  onChange: (range: DateRange) => void;
   className?: string;
   variant?: "tabs" | "select";
 };
+
+// 格式化日期显示标签
+function formatDateLabel(date: Date): string {
+  return `${date.getMonth() + 1}月${date.getDate()}日`;
+}
+
+// 格式化日期范围显示文本
+function formatDateRange(range: DateRange): string {
+  if (!range.from && !range.to) {
+    return "全部时间";
+  }
+  if (range.from && range.to) {
+    if (isSameDay(range.from, range.to)) {
+      return formatDateLabel(range.from);
+    }
+    return `${formatDateLabel(range.from)} ~ ${formatDateLabel(range.to)}`;
+  }
+  if (range.from) {
+    return `${formatDateLabel(range.from)} ~`;
+  }
+  if (range.to) {
+    return `~ ${formatDateLabel(range.to)}`;
+  }
+  return "选择日期";
+}
+
+// 获取预设日期范围
+function getPresetRange(preset: string): DateRange {
+  const today = startOfToday();
+  const yesterday = startOfYesterday();
+
+  switch (preset) {
+    case "today":
+      return { from: today, to: today };
+    case "yesterday":
+      return { from: yesterday, to: yesterday };
+    case "3d":
+      return { from: subDays(today, 2), to: today };
+    case "7d":
+      return { from: subDays(today, 6), to: today };
+    case "30d":
+      return { from: subDays(today, 29), to: today };
+    case "ALL":
+      return { from: undefined, to: undefined };
+    default:
+      return { from: today, to: today };
+  }
+}
+
+// 比较两个日期是否在同一天（只比较日期部分，忽略时间）
+function isSameDate(d1: Date, d2: Date): boolean {
+  return (
+    d1.getFullYear() === d2.getFullYear() &&
+    d1.getMonth() === d2.getMonth() &&
+    d1.getDate() === d2.getDate()
+  );
+}
+
+// 将 DateRange 转换为后端 time_range 参数（向后兼容）
+function dateRangeToTimeRange(range: DateRange): string {
+  if (!range.from && !range.to) {
+    return "ALL";
+  }
+  
+  if (!range.from || !range.to) {
+    // 如果只有开始或结束日期，返回 today
+    return "today";
+  }
+  
+  // 检查是否为单日
+  if (isSameDate(range.from, range.to)) {
+    // 检查是否为预设的单日（今天或昨天）
+    const today = startOfToday();
+    const yesterday = startOfYesterday();
+    
+    if (isSameDate(range.from, today)) {
+      return "today";
+    }
+    if (isSameDate(range.from, yesterday)) {
+      return "yesterday";
+    }
+    // 其他单日，返回日期格式
+    return format(range.from, "yyyy-MM-dd");
+  }
+  
+  // 检查是否为预设的日期范围
+  const today = startOfToday();
+  const presetRanges = [
+    { preset: "3d", from: subDays(today, 2), to: today },
+    { preset: "7d", from: subDays(today, 6), to: today },
+    { preset: "30d", from: subDays(today, 29), to: today },
+  ];
+  
+  for (const preset of presetRanges) {
+    if (isSameDate(range.from, preset.from) && isSameDate(range.to, preset.to)) {
+      return preset.preset;
+    }
+  }
+  
+  // 如果是自定义日期范围，暂时返回 today（后续需要后端支持 start_date/end_date）
+  return "today";
+}
+
+// 将后端 time_range 参数转换为 DateRange（向后兼容）
+function timeRangeToDateRange(timeRange: string): DateRange {
+  if (!timeRange || timeRange === "ALL") {
+    return { from: undefined, to: undefined };
+  }
+  // 检测是否为日期格式 YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(timeRange)) {
+    const date = new Date(timeRange);
+    return { from: date, to: date };
+  }
+  // 预设值
+  return getPresetRange(timeRange);
+}
 
 export function TimeRangeSelector({ 
   value, 
@@ -55,91 +147,89 @@ export function TimeRangeSelector({
   className,
   variant = "select"
 }: TimeRangeSelectorProps) {
-  const [calendarOpen, setCalendarOpen] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(
-    isDateFormat(value) ? new Date(value) : undefined
+  const [open, setOpen] = useState(false);
+  const [selectedRange, setSelectedRange] = useState<ReactDayPickerRange | undefined>(
+    value.from || value.to ? { from: value.from, to: value.to } : undefined
   );
-  const [selectDisplayValue, setSelectDisplayValue] = useState<string>(value);
 
-  // 同步 selectedDate 与 value
+  // 同步 selectedRange 与 value
   useEffect(() => {
-    if (isDateFormat(value)) {
-      setSelectedDate(new Date(value));
-      setSelectDisplayValue(value);
-    } else if (value !== "custom") {
-      setSelectDisplayValue(value);
+    if (value.from || value.to) {
+      setSelectedRange({ from: value.from, to: value.to });
+    } else {
+      setSelectedRange(undefined);
     }
   }, [value]);
 
-  // Tabs 模式下，如果值是日期格式，回退到 "ALL"
-  const tabsValue = variant === "tabs" && isDateFormat(value) ? "ALL" : value;
+  // 快捷选择预设
+  const presets = [
+    { label: "今天", preset: "today" },
+    { label: "昨天", preset: "yesterday" },
+    { label: "最近3天", preset: "3d" },
+    { label: "最近7天", preset: "7d" },
+    { label: "最近30天", preset: "30d" },
+    { label: "全部", preset: "ALL" },
+  ];
 
-  // Select 模式下的显示文本
-  const displayLabel = isDateFormat(value)
-    ? `📅 ${formatDateLabel(value)}`
-    : TIME_RANGE_OPTIONS.find((o) => o.value === value)?.label || "选择时间";
+  const handlePresetClick = (preset: string) => {
+    const range = getPresetRange(preset);
+    onChange(range);
+    setOpen(false);
+  };
 
-  // 处理 Select 值变化
-  const handleValueChange = (val: string) => {
-    if (val === "custom") {
-      // 选择自定义日期时，打开日历弹窗，但不改变 value
-      setCalendarOpen(true);
-      // 保持当前的显示值不变
-    } else {
-      onChange(val);
-      setSelectDisplayValue(val);
+  const handleDateRangeSelect = (range: ReactDayPickerRange | undefined) => {
+    setSelectedRange(range);
+    if (range?.from && range?.to) {
+      // 只有选择了完整范围才更新
+      onChange({ from: range.from, to: range.to });
+      setOpen(false);
+    } else if (range?.from) {
+      // 只选择了开始日期，先更新开始日期
+      onChange({ from: range.from, to: undefined });
     }
   };
 
-  // 处理日期选择
-  const handleDateSelect = (date: Date | undefined) => {
-    setSelectedDate(date);
-    if (date) {
-      onChange(format(date, "yyyy-MM-dd"));
-      setCalendarOpen(false);
-    }
-  };
+  const displayText = formatDateRange(value);
 
   if (variant === "tabs") {
+    // Tabs 模式：只显示日期范围选择器
     return (
-      <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-        <div className={cn("flex items-center gap-2", className)}>
-          <Tabs
-            value={tabsValue}
-            onValueChange={onChange}
-            className="flex-1"
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            className={cn(
+              "h-10 min-w-[200px] justify-start text-left font-normal",
+              !value.from && !value.to && "text-slate-500",
+              className
+            )}
           >
-            <TabsList className="inline-flex h-10 w-full items-center justify-start rounded-lg bg-slate-100 p-1 text-slate-600">
-              {TIME_RANGE_OPTIONS.filter((option) => option.value !== "custom").map((option) => (
-                <TabsTrigger
-                  key={option.value}
-                  value={option.value}
-                  className="data-[state=active]:bg-white data-[state=active]:text-sky-600 data-[state=active]:shadow-sm data-[state=active]:font-semibold"
-                >
-                  {option.label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              size="icon"
-              className={cn(
-                "h-10 w-10 rounded-lg border-slate-200 bg-white shadow-sm",
-                isDateFormat(value) && "bg-sky-50 border-sky-200 text-sky-600"
-              )}
-            >
-              <CalendarIcon className="h-4 w-4" />
-            <span className="sr-only">选择自定义日期</span>
-            </Button>
-          </PopoverTrigger>
-        </div>
+            <CalendarIcon className="mr-2 h-4 w-4 flex-shrink-0" />
+            <span className="truncate">{displayText}</span>
+            <ChevronDown className="ml-auto h-4 w-4 opacity-50 flex-shrink-0" />
+          </Button>
+        </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="end">
+          <div className="p-3 border-b">
+            <div className="flex flex-wrap gap-2">
+              {presets.map((preset) => (
+                <Button
+                  key={preset.preset}
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-3 text-sm"
+                  onClick={() => handlePresetClick(preset.preset)}
+                >
+                  {preset.label}
+                </Button>
+              ))}
+            </div>
+          </div>
           <Calendar
-            mode="single"
-            selected={selectedDate}
-            onSelect={handleDateSelect}
+            mode="range"
+            selected={selectedRange}
+            onSelect={handleDateRangeSelect}
+            numberOfMonths={2}
             initialFocus
           />
         </PopoverContent>
@@ -147,43 +237,50 @@ export function TimeRangeSelector({
     );
   }
 
-  // Select 模式（默认）
+  // Select 模式（默认）：日期范围输入框样式
   return (
-    <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-      <div className="relative">
-        <Select value={selectDisplayValue} onValueChange={handleValueChange}>
-          <SelectTrigger className={cn("w-full", className)}>
-            <SelectValue placeholder={displayLabel} />
-          </SelectTrigger>
-          <SelectContent>
-            {TIME_RANGE_OPTIONS.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-            {isDateFormat(value) && (
-              <>
-                <SelectSeparator />
-                <SelectItem value={value}>
-                  📅 {formatDateLabel(value)}
-                </SelectItem>
-              </>
-            )}
-          </SelectContent>
-        </Select>
-        {/* 隐藏的 PopoverTrigger 作为日历弹窗的定位锚点 */}
-        <PopoverTrigger asChild>
-          <span className="absolute inset-0 pointer-events-none" aria-hidden="true" />
-        </PopoverTrigger>
-      </div>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          className={cn(
+            "h-10 min-w-[200px] justify-start text-left font-normal",
+            !value.from && !value.to && "text-slate-500",
+            className
+          )}
+        >
+          <CalendarIcon className="mr-2 h-4 w-4 flex-shrink-0" />
+          <span className="truncate">{displayText}</span>
+          <ChevronDown className="ml-auto h-4 w-4 opacity-50 flex-shrink-0" />
+        </Button>
+      </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
+        <div className="p-3 border-b">
+          <div className="flex flex-wrap gap-2">
+            {presets.map((preset) => (
+              <Button
+                key={preset.preset}
+                variant="ghost"
+                size="sm"
+                className="h-8 px-3 text-sm"
+                onClick={() => handlePresetClick(preset.preset)}
+              >
+                {preset.label}
+              </Button>
+            ))}
+          </div>
+        </div>
         <Calendar
-          mode="single"
-          selected={selectedDate}
-          onSelect={handleDateSelect}
+          mode="range"
+          selected={selectedRange}
+          onSelect={handleDateRangeSelect}
+          numberOfMonths={2}
           initialFocus
         />
       </PopoverContent>
     </Popover>
   );
 }
+
+// 导出辅助函数供外部使用
+export { dateRangeToTimeRange, timeRangeToDateRange, getPresetRange };

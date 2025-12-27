@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { TimeRangeSelector } from "@/components/subscription/time-range-selector";
+import { TimeRangeSelector, type DateRange, dateRangeToTimeRange, timeRangeToDateRange } from "@/components/subscription/time-range-selector";
 import { apiFetch } from "@/lib/api";
 import { formatDateTime, formatDurationSeconds } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
@@ -49,7 +49,7 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [failureTypeFilter, setFailureTypeFilter] = useState("ALL");
-  const [timeRangeFilter, setTimeRangeFilter] = useState("ALL");
+  const [timeRangeFilter, setTimeRangeFilter] = useState<DateRange>({ from: undefined, to: undefined });
   const [loading, setLoading] = useState(false);
   const [selectedItem, setSelectedItem] = useState<SubscriptionItem | null>(null);
   const [failureTypeStats, setFailureTypeStats] = useState<
@@ -83,7 +83,7 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
   const pageItems = useMemo(() => getPageItems(page, totalPages), [page, totalPages]);
 
   const fetchData = useCallback(
-    async (params: { page: number; q: string; status: string; failureType: string; timeRange: string }) => {
+    async (params: { page: number; q: string; status: string; failureType: string; timeRange: DateRange }) => {
       setLoading(true);
       try {
         const searchParams = new URLSearchParams({
@@ -93,7 +93,8 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
         if (params.q) searchParams.set("q", params.q);
         if (params.status && params.status !== "ALL") searchParams.set("status", params.status);
         if (params.failureType && params.failureType !== "ALL") searchParams.set("failure_type", params.failureType);
-        if (params.timeRange && params.timeRange !== "ALL") searchParams.set("time_range", params.timeRange);
+        const timeRangeStr = dateRangeToTimeRange(params.timeRange);
+        if (timeRangeStr && timeRangeStr !== "ALL") searchParams.set("time_range", timeRangeStr);
 
         const res = await apiFetch(
           `/subscription/list?${searchParams.toString()}`
@@ -114,10 +115,11 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
     []
   );
 
-  const fetchFailureTypeStats = useCallback(async (timeRange?: string) => {
+  const fetchFailureTypeStats = useCallback(async (timeRange?: DateRange) => {
     try {
-      const timeRangeParam = timeRange && timeRange !== "ALL"
-        ? `?time_range=${timeRange}`
+      const timeRangeStr = timeRange ? dateRangeToTimeRange(timeRange) : undefined;
+      const timeRangeParam = timeRangeStr && timeRangeStr !== "ALL"
+        ? `?time_range=${timeRangeStr}`
         : "";
       const url = `/subscription/stats/failure-types${timeRangeParam}`;
 
@@ -159,13 +161,16 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
       }
     }
 
+    // 将 time_range 字符串转换为 DateRange
+    const dateRange = timeRangeToDateRange(urlTimeRange);
+
     // 无条件更新所有状态（确保与 URL 完全同步）
     setPage(pageNum);
     setPageInput(String(pageNum));
     setQuery(urlQuery); // 即使是空字符串也设置
     setStatusFilter(urlStatus);
     setFailureTypeFilter(urlFailureType);
-    setTimeRangeFilter(urlTimeRange);
+    setTimeRangeFilter(dateRange);
 
     // 使用 URL 参数获取数据
     fetchData({
@@ -308,7 +313,9 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
     const newFailureType = value !== "FAILED" ? "ALL" : failureTypeFilter;
 
     // 如果切换到 PENDING 或 RUNNING，清空时间范围
-    const newTimeRange = (value === "PENDING" || value === "RUNNING") ? "ALL" : timeRangeFilter;
+    const newTimeRange = (value === "PENDING" || value === "RUNNING") 
+      ? { from: undefined, to: undefined } 
+      : timeRangeFilter;
 
     // 更新状态
     setStatusFilter(value);
@@ -316,7 +323,7 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
       setFailureTypeFilter("ALL");
     }
     if (value === "PENDING" || value === "RUNNING") {
-      setTimeRangeFilter("ALL");
+      setTimeRangeFilter({ from: undefined, to: undefined });
     }
     setPage(1);
     setPageInput("1");
@@ -346,18 +353,19 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
     });
   };
 
-  const handleTimeRangeChange = (value: string) => {
+  const handleTimeRangeChange = (value: DateRange) => {
     setTimeRangeFilter(value);
     setPage(1);
     setPageInput("1");
 
     // 同步更新 URL 参数，使用 time_range 参数名（与页面级选择器保持一致）
     const params = new URLSearchParams(searchParams.toString());
-    if (value === "ALL") {
+    const timeRangeStr = dateRangeToTimeRange(value);
+    if (timeRangeStr === "ALL" || !timeRangeStr) {
       // 如果选择"全部"，移除时间范围参数
       params.delete("time_range");
     } else {
-      params.set("time_range", value);
+      params.set("time_range", timeRangeStr);
     }
     router.push(`/subscription?${params.toString()}`);
 
@@ -433,7 +441,7 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
               <TimeRangeSelector
                 value={timeRangeFilter}
                 onChange={handleTimeRangeChange}
-                className="w-[140px] h-10 border-slate-200 bg-white shadow-[0_6px_18px_rgba(15,23,42,0.06)]"
+                className="min-w-[200px] h-10 border-slate-200 bg-white shadow-[0_6px_18px_rgba(15,23,42,0.06)]"
               />
             </div>
           )}

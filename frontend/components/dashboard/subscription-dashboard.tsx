@@ -21,12 +21,13 @@ import { TaskListDrawer } from "@/components/subscription/task-list-drawer";
 import { TaskDetailModal } from "@/components/subscription/task-detail-modal";
 import { TaskQueueCard } from "@/components/subscription/task-queue-card";
 import { TaskListRecent } from "@/components/subscription/task-list-recent";
-import { TimeRangeSelector } from "@/components/subscription/time-range-selector";
+import { type DateRange, dateRangeToTimeRange, getPresetRange } from "@/components/subscription/time-range-selector";
 import { DailyTrendChart } from "@/components/subscription/daily-trend-chart";
 import { DashboardShell } from "./shell";
 import { apiFetch } from "@/lib/api";
 import { formatDurationSeconds } from "@/lib/datetime";
 import { formatTokenCount } from "@/lib/utils";
+import { useTimeRange } from "@/lib/time-range-context";
 import { toast } from "sonner";
 import type {
   StatsResponse,
@@ -48,8 +49,8 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   
-  // 下半部分独立的时间范围状态
-  const [statsTimeRange, setStatsTimeRange] = useState("today");
+  // 使用全局时间范围状态
+  const { dateRange: statsTimeRange } = useTimeRange();
   
   // 统计数据状态
   const [stats, setStats] = useState<StatsResponse | null>(null);
@@ -87,9 +88,10 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
   useEffect(() => {
     async function fetchStats() {
       try {
-        // 构建查询参数
-        const timeRangeParam = statsTimeRange && statsTimeRange !== "ALL"
-          ? `?time_range=${statsTimeRange}`
+        // 将 DateRange 转换为后端 time_range 参数
+        const timeRangeStr = dateRangeToTimeRange(statsTimeRange);
+        const timeRangeParam = timeRangeStr && timeRangeStr !== "ALL"
+          ? `?time_range=${timeRangeStr}`
           : "";
 
         // 并发调用专用端点
@@ -168,23 +170,51 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
   }, [failureTypes]);
 
   // 根据时间范围生成 KPI 卡片标题前缀
-  const getTimeRangeLabel = (range: string): string => {
-    switch (range) {
-      case "today":
-        return "今日";
-      case "yesterday":
-        return "昨日";
-      case "3d":
-        return "近3天";
-      case "7d":
-        return "近7天";
-      case "30d":
-        return "近30天";
-      case "ALL":
-        return "总计";
-      default:
-        return "今日";
+  const getTimeRangeLabel = (range: DateRange): string => {
+    if (!range.from && !range.to) {
+      return "总计";
     }
+    // 检查是否为预设值
+    const todayRange = getPresetRange("today");
+    const yesterdayRange = getPresetRange("yesterday");
+    const threeDaysRange = getPresetRange("3d");
+    const sevenDaysRange = getPresetRange("7d");
+    const thirtyDaysRange = getPresetRange("30d");
+    
+    if (range.from && range.to) {
+      // 比较日期范围（只比较日期，忽略时间）
+      const isSameDay = (d1: Date, d2: Date) => 
+        d1.getFullYear() === d2.getFullYear() &&
+        d1.getMonth() === d2.getMonth() &&
+        d1.getDate() === d2.getDate();
+      
+      if (todayRange.from && todayRange.to && 
+          isSameDay(range.from, todayRange.from) && 
+          isSameDay(range.to, todayRange.to)) {
+        return "今日";
+      }
+      if (yesterdayRange.from && yesterdayRange.to &&
+          isSameDay(range.from, yesterdayRange.from) &&
+          isSameDay(range.to, yesterdayRange.to)) {
+        return "昨日";
+      }
+      if (threeDaysRange.from && threeDaysRange.to &&
+          isSameDay(range.from, threeDaysRange.from) &&
+          isSameDay(range.to, threeDaysRange.to)) {
+        return "近3天";
+      }
+      if (sevenDaysRange.from && sevenDaysRange.to &&
+          isSameDay(range.from, sevenDaysRange.from) &&
+          isSameDay(range.to, sevenDaysRange.to)) {
+        return "近7天";
+      }
+      if (thirtyDaysRange.from && thirtyDaysRange.to &&
+          isSameDay(range.from, thirtyDaysRange.from) &&
+          isSameDay(range.to, thirtyDaysRange.to)) {
+        return "近30天";
+      }
+    }
+    return "选定时间";
   };
 
   const timeRangeLabel = getTimeRangeLabel(statsTimeRange);
@@ -256,13 +286,6 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
     >
       {/* 上半部分：数据统计区域 */}
       <section className="space-y-4">
-        {/* 时间选择器 */}
-        <TimeRangeSelector 
-          value={statsTimeRange}
-          onChange={setStatsTimeRange}
-          variant="tabs"
-        />
-        
         {/* KPI 卡片 */}
         <div className="grid gap-4 md:grid-cols-5">
           {/* 已执行 */}
@@ -410,8 +433,9 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
                           if (status) {
                             const params = new URLSearchParams();
                             params.set("status", status.toLowerCase());
-                            if (statsTimeRange && statsTimeRange !== "ALL") {
-                              params.set("time_range", statsTimeRange);
+                            const timeRangeStr = dateRangeToTimeRange(statsTimeRange);
+                            if (timeRangeStr && timeRangeStr !== "ALL") {
+                              params.set("time_range", timeRangeStr);
                             }
                             router.push(`/subscription?${params.toString()}`);
                           }
@@ -506,8 +530,9 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
                   onClick={() => {
                     const params = new URLSearchParams();
                     params.set("status", "failed");
-                    if (statsTimeRange && statsTimeRange !== "ALL") {
-                      params.set("time_range", statsTimeRange);
+                    const timeRangeStr = dateRangeToTimeRange(statsTimeRange);
+                    if (timeRangeStr && timeRangeStr !== "ALL") {
+                      params.set("time_range", timeRangeStr);
                     }
                     router.push(`/subscription?${params.toString()}`);
                     setIsTaskListDrawerOpen(true);
@@ -560,8 +585,9 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
                           if (failureType && failureType !== 'others') {
                             params.set("failure_type", failureType);
                           }
-                          if (statsTimeRange && statsTimeRange !== "ALL") {
-                            params.set("time_range", statsTimeRange);
+                          const timeRangeStr = dateRangeToTimeRange(statsTimeRange);
+                          if (timeRangeStr && timeRangeStr !== "ALL") {
+                            params.set("time_range", timeRangeStr);
                           }
                           router.push(`/subscription?${params.toString()}`);
                         }}
