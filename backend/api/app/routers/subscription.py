@@ -108,7 +108,7 @@ def list_subscription(
     failure_type: str | None = Query(
         None, description="按失败类型过滤（通常与 status=failed 配合使用）"
     ),
-    executed_within: str | None = Query(
+    time_range: str | None = Query(
         None, description="按执行时间范围过滤（today/yesterday/3d/7d/30d）"
     ),
     db: Session = Depends(get_db),
@@ -139,8 +139,8 @@ def list_subscription(
         query = query.filter(SubscriptionTask.failure_type == failure_type)
 
     tz_cn = timezone(timedelta(hours=8))
-    if executed_within:
-        start_time, end_time = _parse_time_range(executed_within, tz_cn)
+    if time_range:
+        start_time, end_time = _parse_time_range(time_range, tz_cn)
         if start_time and end_time:
             # 判断时间范围是否包含今天
             # 如果 end_time 是今天，则包含 PENDING 和 RUNNING 任务
@@ -169,7 +169,7 @@ def list_subscription(
                     SubscriptionTask.executed_at >= start_time,
                     SubscriptionTask.executed_at <= end_time,
                 )
-    # 如果 executed_within 是 "ALL" 或 None，不应用时间过滤，显示所有任务
+    # 如果 time_range 是 "ALL" 或 None，不应用时间过滤，显示所有任务
 
     total = query.count()
     status_priority = case(
@@ -339,7 +339,7 @@ def get_task_artifact(
     summary="获取订阅任务统计数据",
 )
 def get_subscription_stats(
-    executed_within: str | None = Query(
+    time_range: str | None = Query(
         None, description="按执行时间范围过滤统计数据（today/yesterday/3d/7d/30d）"
     ),
     db: Session = Depends(get_db),
@@ -355,13 +355,13 @@ def get_subscription_stats(
     tz_cn = timezone(timedelta(hours=8))
     cn_today = datetime.now(tz_cn).date()
 
-    # 根据 executed_within 参数计算时间范围（默认今天）
+    # 根据 time_range 参数计算时间范围（默认今天）
     now_cn = datetime.now(tz_cn)
     today_start_cn = now_cn.replace(hour=0, minute=0, second=0, microsecond=0)
     today_end_cn = now_cn.replace(hour=23, minute=59, second=59, microsecond=999999)
     
-    if executed_within:
-        range_start_utc, range_end_utc = _parse_time_range(executed_within, tz_cn)
+    if time_range:
+        range_start_utc, range_end_utc = _parse_time_range(time_range, tz_cn)
         if range_start_utc is None or range_end_utc is None:
             # 无效参数，使用今天
             range_start_utc = today_start_cn.astimezone(timezone.utc)
@@ -372,7 +372,7 @@ def get_subscription_stats(
 
     # 调试日志：排查统计数据异常
     logger.info(f"[统计查询] cn_today={cn_today}")
-    logger.info(f"[统计查询] executed_within={executed_within}")
+    logger.info(f"[统计查询] time_range={time_range}")
     logger.info(f"[统计查询] 时间范围(UTC): {range_start_utc} ~ {range_end_utc}")
     logger.info(f"[统计查询] 系统时区={datetime.now().astimezone().tzinfo}")
 
@@ -554,7 +554,7 @@ def get_subscription_stats(
     
     # 如果指定了历史时间范围，待执行和执行中应该为0
     # 因为这些是当前状态，不应该出现在历史时间范围内
-    if executed_within and executed_within != "today":
+    if time_range and time_range != "today":
         pending_count = 0
         running_count = 0
     
@@ -659,7 +659,7 @@ def get_subscription_stats(
     )
     
     # 应用时间范围过滤（如果指定）
-    if executed_within:
+    if time_range:
         status_query = status_query.filter(
             SubscriptionTask.executed_at.isnot(None),
             SubscriptionTask.executed_at >= range_start_utc,
@@ -693,7 +693,7 @@ def get_subscription_stats(
     recent_task_query = db.query(SubscriptionTask)
     
     # 应用时间范围过滤（如果指定）
-    if executed_within:
+    if time_range:
         recent_task_query = recent_task_query.filter(
             SubscriptionTask.executed_at.isnot(None),
             SubscriptionTask.executed_at >= range_start_utc,
@@ -735,8 +735,8 @@ def get_subscription_stats(
     )
 
     # 应用时间范围过滤（如果指定）
-    if executed_within:
-        start_time, end_time = _parse_time_range(executed_within, tz_cn)
+    if time_range:
+        start_time, end_time = _parse_time_range(time_range, tz_cn)
         if start_time and end_time:
             failure_type_query = failure_type_query.filter(
                 SubscriptionTask.executed_at.isnot(None),

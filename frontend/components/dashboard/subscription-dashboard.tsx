@@ -64,7 +64,6 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
     const hasQueryParams = 
       searchParams.get("page") ||
       searchParams.get("status") ||
-      searchParams.get("executed_within") ||
       searchParams.get("failure_type") ||
       searchParams.get("q");
     
@@ -79,7 +78,7 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
       try {
         const params = new URLSearchParams();
         if (statsTimeRange && statsTimeRange !== "ALL") {
-          params.set("executed_within", statsTimeRange);
+          params.set("time_range", statsTimeRange);
         }
         const url = `/subscription/stats${params.toString() ? `?${params.toString()}` : ""}`;
         
@@ -388,7 +387,7 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
                             const params = new URLSearchParams();
                             params.set("status", status.toLowerCase());
                             if (statsTimeRange && statsTimeRange !== "ALL") {
-                              params.set("executed_within", statsTimeRange);
+                              params.set("time_range", statsTimeRange);
                             }
                             router.push(`/subscription?${params.toString()}`);
                           }
@@ -484,7 +483,7 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
                     const params = new URLSearchParams();
                     params.set("status", "failed");
                     if (statsTimeRange && statsTimeRange !== "ALL") {
-                      params.set("executed_within", statsTimeRange);
+                      params.set("time_range", statsTimeRange);
                     }
                     router.push(`/subscription?${params.toString()}`);
                     setIsTasksDrawerOpen(true);
@@ -538,7 +537,7 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
                             params.set("failure_type", failureType);
                           }
                           if (statsTimeRange && statsTimeRange !== "ALL") {
-                            params.set("executed_within", statsTimeRange);
+                            params.set("time_range", statsTimeRange);
                           }
                           router.push(`/subscription?${params.toString()}`);
                         }}
@@ -605,7 +604,7 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
             // 清理抽屉筛选参数
             params.delete("page");
             params.delete("status");
-            params.delete("executed_within");
+            params.delete("time_range");
             params.delete("failure_type");
             params.delete("q");
             // 保留 time_range（页面级时间范围选择器）

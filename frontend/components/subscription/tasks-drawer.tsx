@@ -147,7 +147,7 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
         if (params.q) searchParams.set("q", params.q);
         if (params.status && params.status !== "ALL") searchParams.set("status", params.status);
         if (params.failureType && params.failureType !== "ALL") searchParams.set("failure_type", params.failureType);
-        if (params.timeRange && params.timeRange !== "ALL") searchParams.set("executed_within", params.timeRange);
+        if (params.timeRange && params.timeRange !== "ALL") searchParams.set("time_range", params.timeRange);
 
         const res = await apiFetch(
           `/subscription/list?${searchParams.toString()}`
@@ -173,7 +173,7 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
       // 构建查询参数，传递时间范围
       const params = new URLSearchParams();
       if (timeRange && timeRange !== "ALL") {
-        params.set('executed_within', timeRange);
+        params.set('time_range', timeRange);
       }
       const url = `/subscription/stats${params.toString() ? `?${params.toString()}` : ''}`;
       
@@ -192,8 +192,8 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
     const urlQuery = searchParams.get("q") || ""; // 默认空字符串
     let urlStatus = searchParams.get("status") || "ALL";
     let urlFailureType = searchParams.get("failure_type") || "ALL";
-    // 优先读取页面级时间范围参数 time_range，如果没有则读取 executed_within（向后兼容）
-    const urlTimeRange = searchParams.get("time_range") || searchParams.get("executed_within") || "ALL";
+    // 读取时间范围参数
+    const urlTimeRange = searchParams.get("time_range") || "ALL";
 
     // 将状态参数转换为大写，以匹配 statusOptions 中的值
     // 支持大小写不敏感的 URL 参数（如 ?status=failed 或 ?status=FAILED）
@@ -758,11 +758,8 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
     if (value === "ALL") {
       // 如果选择"全部"，移除时间范围参数
       params.delete("time_range");
-      params.delete("executed_within");
     } else {
       params.set("time_range", value);
-      // 同时移除旧的 executed_within 参数（如果存在）
-      params.delete("executed_within");
     }
     router.push(`/subscription?${params.toString()}`);
 
