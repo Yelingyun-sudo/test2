@@ -10,7 +10,6 @@ import { STATUS_LABELS, STATUS_STYLES, type TaskStatus } from "@/types/common";
 type ExecutedTasksListProps = {
   tasks: SubscriptionItem[];
   total: number;
-  isDesktop: boolean;
   failureTypeLabel: Record<string, string>;
   onTaskClick: (task: SubscriptionItem) => void;
   onViewAll: () => void;
@@ -19,7 +18,6 @@ type ExecutedTasksListProps = {
 export function ExecutedTasksList({
   tasks,
   total,
-  isDesktop,
   failureTypeLabel,
   onTaskClick,
   onViewAll,

@@ -750,14 +750,18 @@ def get_subscription_stats(
         .all()
     )
 
+    # 计算时间范围内的实际失败总数（用于百分比计算）
+    range_failed_count = sum(row.count or 0 for row in failure_type_results)
+
     # Top 5 + "其他"
     top_5_types = failure_type_results[:5]
-    others_count = sum(row.count for row in failure_type_results[5:])
+    others_count = sum(row.count or 0 for row in failure_type_results[5:])
 
     failure_type_distribution = []
     for row in top_5_types:
         count = row.count or 0
-        percentage = (count / failed_count * 100) if failed_count > 0 else 0.0
+        # 使用时间范围内的失败数计算百分比
+        percentage = (count / range_failed_count * 100) if range_failed_count > 0 else 0.0
         failure_type_distribution.append(
             FailureTypeDistributionItem(
                 type=row.failure_type or "",
@@ -772,7 +776,7 @@ def get_subscription_stats(
     # 添加"其他"类别
     if others_count > 0:
         others_percentage = (
-            (others_count / failed_count * 100) if failed_count > 0 else 0.0
+            (others_count / range_failed_count * 100) if range_failed_count > 0 else 0.0
         )
         failure_type_distribution.append(
             FailureTypeDistributionItem(
@@ -784,7 +788,7 @@ def get_subscription_stats(
         )
 
     failure_summary = FailureSummary(
-        total_failed=failed_count,
+        total_failed=range_failed_count,  # 使用时间范围内的数量
         unique_types=len(failure_type_results),
     )
 

@@ -159,7 +159,8 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
         setPage(payload.page);
         setPageInput(String(payload.page));
       } catch (error) {
-        console.error(error);
+        console.error("加载任务列表失败:", error);
+        toast.error("加载任务列表失败");
       } finally {
         setLoading(false);
       }

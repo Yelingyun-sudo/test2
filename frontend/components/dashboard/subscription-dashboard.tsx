@@ -57,7 +57,6 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
   const [isTasksDrawerOpen, setIsTasksDrawerOpen] = useState(false);
   const [isTaskQueueModalOpen, setIsTaskQueueModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<SubscriptionItem | null>(null);
-  const [isDesktop, setIsDesktop] = useState(true);
   const [failureTypes, setFailureTypes] = useState<FailureTypeItem[]>([]);
 
   // 检查 URL 参数，如果有任务查询相关参数，自动打开抽屉
@@ -73,17 +72,6 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
       setIsTasksDrawerOpen(true);
     }
   }, [searchParams]);
-
-  // 响应式检测：桌面端 vs 移动端
-  useEffect(() => {
-    const checkIsDesktop = () => {
-      setIsDesktop(window.innerWidth >= 1024); // lg breakpoint
-    };
-    
-    checkIsDesktop();
-    window.addEventListener("resize", checkIsDesktop);
-    return () => window.removeEventListener("resize", checkIsDesktop);
-  }, []);
 
   // 下半部分统计数据获取（受 statsTimeRange 控制）
   useEffect(() => {
@@ -463,7 +451,6 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
             <ExecutedTasksList
               tasks={recentTasks}
               total={totalExecutedTasks}
-              isDesktop={isDesktop}
               failureTypeLabel={failureTypeLabel}
               onTaskClick={setSelectedTask}
               onViewAll={() => {

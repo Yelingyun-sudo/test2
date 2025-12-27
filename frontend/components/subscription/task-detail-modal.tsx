@@ -15,31 +15,12 @@ import {
 import { apiFetch } from "@/lib/api";
 import { formatDateTime, formatDurationSeconds, parseDateTime } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
-import type { SubscriptionItem } from "@/types/subscription";
+import type { SubscriptionItem, TaskArtifacts, ArtifactUrls, MediaFlags } from "@/types/subscription";
 import {
   STATUS_LABELS,
   STATUS_STYLES,
   type TaskStatus,
 } from "@/types/common";
-
-interface TaskArtifacts {
-  status?: string;
-  login_image_path: string | null;
-  extract_image_path: string | null;
-  video_path: string | null;
-  video_seek_seconds: number | null;
-}
-
-interface ArtifactUrls {
-  loginImageUrl: string | null;
-  extractImageUrl: string | null;
-  videoUrl: string | null;
-}
-
-interface MediaFlags {
-  login: boolean;
-  extract: boolean;
-}
 
 type TaskDetailModalProps = {
   task: SubscriptionItem;
