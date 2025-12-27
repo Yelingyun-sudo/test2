@@ -68,8 +68,8 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
 
   // 处理图表日期点击
   const handleDateClick = (date: string) => {
-    setStatsTimeRange(date); // 设置为 YYYY-MM-DD 格式
-    // 将日期参数设置到 URL，让 TaskListDrawer 能够读取
+    // 注意：Dashboard 使用 Tabs 样式，无法显示日期格式
+    // 所以不更新 statsTimeRange，只更新 URL 参数让抽屉框使用日期筛选
     const params = new URLSearchParams();
     params.set("time_range", date);
     router.push(`/subscription?${params.toString()}`);
@@ -228,6 +228,7 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
         <TimeRangeSelector 
           value={statsTimeRange}
           onChange={setStatsTimeRange}
+          variant="tabs"
         />
         
         {/* KPI 卡片 */}
