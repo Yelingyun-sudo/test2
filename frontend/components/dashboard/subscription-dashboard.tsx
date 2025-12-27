@@ -17,10 +17,10 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { TasksDrawer } from "@/components/subscription/tasks-drawer";
+import { TaskListDrawer } from "@/components/subscription/task-list-drawer";
 import { TaskDetailModal } from "@/components/subscription/task-detail-modal";
-import { TaskQueueList } from "@/components/subscription/task-queue-list";
-import { ExecutedTasksList } from "@/components/subscription/executed-tasks-list";
+import { TaskQueueCard } from "@/components/subscription/task-queue-card";
+import { TaskListRecent } from "@/components/subscription/task-list-recent";
 import { TimeRangeSelector } from "@/components/subscription/time-range-selector";
 import { DailyTrendChart } from "./daily-trend-chart";
 import { DashboardShell } from "./shell";
@@ -48,12 +48,12 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
   const [stats, setStats] = useState<StatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   
-  // 已执行任务列表状态（不受时间筛选影响）
+  // 最新任务列表状态（不受时间筛选影响）
   const [recentTasks, setRecentTasks] = useState<SubscriptionItem[]>([]);
-  const [totalExecutedTasks, setTotalExecutedTasks] = useState<number>(0);
+  const [totalRecentTasks, setTotalRecentTasks] = useState<number>(0);
   
   // UI 状态
-  const [isTasksDrawerOpen, setIsTasksDrawerOpen] = useState(false);
+  const [isTaskListDrawerOpen, setIsTaskListDrawerOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<SubscriptionItem | null>(null);
   const [failureTypes, setFailureTypes] = useState<FailureTypeItem[]>([]);
 
@@ -66,7 +66,7 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
       searchParams.get("q");
     
     if (hasQueryParams) {
-      setIsTasksDrawerOpen(true);
+      setIsTaskListDrawerOpen(true);
     }
   }, [searchParams]);
 
@@ -111,12 +111,12 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
     fetchFailureTypes();
   }, []);
 
-  // 获取最新任务列表（与 TasksDrawer 第 1 页前 5 条保持一致）
+  // 获取最新任务列表（与 TaskListDrawer 第 1 页前 5 条保持一致）
   useEffect(() => {
     async function fetchRecentTasks() {
       try {
         // 获取所有任务（不筛选状态和时间），第 1 页，取 5 条
-        // 与 TasksDrawer 默认行为一致：status=ALL, timeRange=ALL, page=1
+        // 与 TaskListDrawer 默认行为一致：status=ALL, timeRange=ALL, page=1
         const params = new URLSearchParams({
           page: "1",
           page_size: "5"
@@ -128,7 +128,7 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
         }
         const recentData = (await recentRes.json()) as SubscriptionListResponse;
         setRecentTasks(recentData.items || []);
-        setTotalExecutedTasks(recentData.total ?? 0);
+        setTotalRecentTasks(recentData.total ?? 0);
       } catch (error) {
         console.error("加载最新任务失败", error);
       }
@@ -326,13 +326,13 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
             </div>
           </div>
 
-          {/* 执行队列 */}
-          <TaskQueueList 
+          {/* 执行队列卡片 */}
+          <TaskQueueCard 
             onStatusClick={(status) => {
               const params = new URLSearchParams();
               params.set("status", status);
               router.push(`/subscription?${params.toString()}`);
-              setIsTasksDrawerOpen(true);
+              setIsTaskListDrawerOpen(true);
             }}
           />
         </div>
@@ -445,16 +445,16 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
 
           {/* 右侧3/4：最新任务列表 */}
           <div className="lg:col-span-3 flex flex-col">
-            <ExecutedTasksList
+            <TaskListRecent
               tasks={recentTasks}
-              total={totalExecutedTasks}
+              total={totalRecentTasks}
               failureTypeLabel={failureTypeLabel}
               onTaskClick={setSelectedTask}
               onViewAll={() => {
                 const params = new URLSearchParams();
                 const queryString = params.toString();
                 router.push(`/subscription${queryString ? `?${queryString}` : ""}`);
-                setIsTasksDrawerOpen(true);
+                setIsTaskListDrawerOpen(true);
               }}
             />
           </div>
@@ -484,7 +484,7 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
                       params.set("time_range", statsTimeRange);
                     }
                     router.push(`/subscription?${params.toString()}`);
-                    setIsTasksDrawerOpen(true);
+                    setIsTaskListDrawerOpen(true);
                   }}
                 >
                   查看全部
@@ -593,9 +593,9 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
 
       {/* 任务列表抽屉 */}
       <Sheet 
-        open={isTasksDrawerOpen} 
+        open={isTaskListDrawerOpen} 
         onOpenChange={(open) => {
-          setIsTasksDrawerOpen(open);
+          setIsTaskListDrawerOpen(open);
           // 当抽屉关闭时，清理筛选相关的 URL 参数
           if (!open) {
             const params = new URLSearchParams(searchParams.toString());
@@ -621,7 +621,7 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
               订阅链接任务列表，支持筛选与检索
             </SheetDescription>
           </SheetHeader>
-          <TasksDrawer failureTypes={failureTypes} failureTypeLabel={failureTypeLabel} />
+          <TaskListDrawer failureTypes={failureTypes} failureTypeLabel={failureTypeLabel} />
         </SheetContent>
       </Sheet>
 

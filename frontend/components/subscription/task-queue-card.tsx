@@ -7,12 +7,12 @@ import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 import type { SubscriptionListResponse } from "@/types/subscription";
 
-type TaskQueueListProps = {
+type TaskQueueCardProps = {
   onClick?: () => void;
   onStatusClick?: (status: "running" | "pending") => void;
 };
 
-export function TaskQueueList({ onClick, onStatusClick }: TaskQueueListProps) {
+export function TaskQueueCard({ onClick, onStatusClick }: TaskQueueCardProps) {
   const [tasks, setTasks] = useState<Array<{ status: string }>>([]);
   const [loading, setLoading] = useState(false);
 

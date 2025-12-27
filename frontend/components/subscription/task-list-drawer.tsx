@@ -620,12 +620,12 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
 }
 
 // Export the main component wrapped in Suspense
-type TasksDrawerProps = {
+type TaskListDrawerProps = {
   failureTypes: FailureTypeItem[];
   failureTypeLabel: Record<string, string>;
 };
 
-export function TasksDrawer({ failureTypes, failureTypeLabel }: TasksDrawerProps) {
+export function TaskListDrawer({ failureTypes, failureTypeLabel }: TaskListDrawerProps) {
   return (
     <Suspense fallback={
       <div className="flex items-center justify-center gap-2 px-4 py-12 text-sm text-slate-500">

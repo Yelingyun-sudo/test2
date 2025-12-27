@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import type { SubscriptionItem } from "@/types/subscription";
 import { STATUS_LABELS, STATUS_STYLES, type TaskStatus } from "@/types/common";
 
-type ExecutedTasksListProps = {
+type TaskListRecentProps = {
   tasks: SubscriptionItem[];
   total: number;
   failureTypeLabel: Record<string, string>;
@@ -15,13 +15,13 @@ type ExecutedTasksListProps = {
   onViewAll: () => void;
 };
 
-export function ExecutedTasksList({
+export function TaskListRecent({
   tasks,
   total,
   failureTypeLabel,
   onTaskClick,
   onViewAll,
-}: ExecutedTasksListProps) {
+}: TaskListRecentProps) {
   return (
     <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm h-[350px] flex flex-col">
       <div className="flex items-start justify-between">
