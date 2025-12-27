@@ -1,4 +1,5 @@
 import type { TaskStatus } from "@/types/common";
+import type { SubscriptionItem } from "@/types/subscription";
 
 export interface StatsSummary {
   total_tasks: number;
@@ -36,15 +37,6 @@ export interface StatusDistributionItem {
   count: number;
 }
 
-export interface RecentTaskItem {
-  id: number;
-  url: string;
-  status: TaskStatus;
-  executed_at: string | null;
-  duration_seconds: number | null;
-  result: string | null;
-}
-
 export interface FailureTypeDistributionItem {
   type: string;
   label: string;
@@ -61,7 +53,7 @@ export interface StatsResponse {
   summary: StatsSummary;
   daily_trend: DailyTrendItem[];
   status_distribution: StatusDistributionItem[];
-  recent_tasks: RecentTaskItem[];
+  recent_tasks: SubscriptionItem[];
   failure_type_distribution: FailureTypeDistributionItem[];
   failure_summary: FailureSummary;
 }

@@ -20,7 +20,6 @@ from ..schemas.subscription import (
     DailyTrendItem,
     FailureSummary,
     FailureTypeDistributionItem,
-    RecentTaskItem,
     StatusDistributionItem,
     SubscriptionArtifactsResponse,
     SubscriptionItem,
@@ -707,21 +706,40 @@ def get_subscription_stats(
             SubscriptionTask.executed_at.desc().nulls_last(),
             SubscriptionTask.id.asc(),
         )
-        .limit(6)
+        .limit(5)
         .all()
     )
 
     recent_tasks = []
     for rec in recent_task_records:
         status_value = rec.status.value if hasattr(rec.status, "value") else rec.status
+
+        # 安全地转换 llm_usage
+        llm_usage_value = None
+        if rec.llm_usage is not None:
+            try:
+                llm_usage_value = LLMUsage(**rec.llm_usage)
+            except (ValidationError, TypeError) as exc:
+                logger.error(
+                    "任务 ID=%s 的 llm_usage 数据格式错误，已跳过: %s",
+                    rec.id,
+                    exc,
+                )
+
         recent_tasks.append(
-            RecentTaskItem(
+            SubscriptionItem(
                 id=int(rec.id) if rec.id is not None else 0,
                 url=rec.url,
+                account=rec.account,
+                password=rec.password,
                 status=status_value or "",
+                created_at=_format_dt(rec.created_at),
+                duration_seconds=rec.duration_seconds or 0,
                 executed_at=_format_dt(rec.executed_at),
-                duration_seconds=rec.duration_seconds,
+                task_dir=rec.task_dir,
                 result=rec.result,
+                failure_type=rec.failure_type,
+                llm_usage=llm_usage_value,
             )
         )
 

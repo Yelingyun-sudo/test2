@@ -30,7 +30,7 @@ import { formatTokenCount } from "@/lib/utils";
 import { toast } from "sonner";
 import type { StatsResponse } from "@/lib/types";
 import { STATUS_LABELS, STATUS_COLORS_ENHANCED, type TaskStatus, type FailureTypeItem, type FailureTypesResponse } from "@/types/common";
-import type { SubscriptionItem, SubscriptionListResponse } from "@/types/subscription";
+import type { SubscriptionItem } from "@/types/subscription";
 
 type DashboardProps = {
   onLogout: () => void;
@@ -47,10 +47,6 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
   // 统计数据状态
   const [stats, setStats] = useState<StatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  
-  // 最新任务列表状态（不受时间筛选影响）
-  const [recentTasks, setRecentTasks] = useState<SubscriptionItem[]>([]);
-  const [totalRecentTasks, setTotalRecentTasks] = useState<number>(0);
   
   // UI 状态
   const [isTaskListDrawerOpen, setIsTaskListDrawerOpen] = useState(false);
@@ -70,7 +66,7 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
     }
   }, [searchParams]);
 
-  // 下半部分统计数据获取（受 statsTimeRange 控制）
+  // 下半部分统计数据获取（受 statsTimeRange 控制，包含轮询）
   useEffect(() => {
     async function fetchStats() {
       try {
@@ -90,7 +86,16 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
         setLoading(false);
       }
     }
+    
+    // 立即执行一次
     fetchStats();
+    
+    // 每 30 秒轮询一次
+    const interval = setInterval(() => {
+      fetchStats();
+    }, 30000);
+    
+    return () => clearInterval(interval);
   }, [statsTimeRange]);
 
   // 获取失败类型列表
@@ -111,30 +116,6 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
     fetchFailureTypes();
   }, []);
 
-  // 获取最新任务列表（与 TaskListDrawer 第 1 页前 5 条保持一致）
-  useEffect(() => {
-    async function fetchRecentTasks() {
-      try {
-        // 获取所有任务（不筛选状态和时间），第 1 页，取 5 条
-        // 与 TaskListDrawer 默认行为一致：status=ALL, timeRange=ALL, page=1
-        const params = new URLSearchParams({
-          page: "1",
-          page_size: "5"
-        });
-        const url = `/subscription/list?${params.toString()}`;
-        const recentRes = await apiFetch(url);
-        if (!recentRes.ok) {
-          throw new Error("获取任务列表失败");
-        }
-        const recentData = (await recentRes.json()) as SubscriptionListResponse;
-        setRecentTasks(recentData.items || []);
-        setTotalRecentTasks(recentData.total ?? 0);
-      } catch (error) {
-        console.error("加载最新任务失败", error);
-      }
-    }
-    fetchRecentTasks();
-  }, []);
 
   // 从 API 获取的失败类型构建标签映射（必须在所有条件返回之前）
   const failureTypeLabel: Record<string, string> = useMemo(() => {
@@ -328,6 +309,8 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
 
           {/* 执行队列卡片 */}
           <TaskQueueCard 
+            pendingCount={stats?.summary.pending_count ?? 0}
+            runningCount={stats?.summary.running_count ?? 0}
             onStatusClick={(status) => {
               const params = new URLSearchParams();
               params.set("status", status);
@@ -446,8 +429,8 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
           {/* 右侧3/4：最新任务列表 */}
           <div className="lg:col-span-3 flex flex-col">
             <TaskListRecent
-              tasks={recentTasks}
-              total={totalRecentTasks}
+              tasks={stats?.recent_tasks || []}
+              total={stats?.summary.total_tasks || 0}
               failureTypeLabel={failureTypeLabel}
               onTaskClick={setSelectedTask}
               onViewAll={() => {
