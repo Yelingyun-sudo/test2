@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import List
@@ -46,14 +45,17 @@ router = APIRouter(
 )
 
 
-def _parse_time_range(
-    range_key: str | None, tz_cn: timezone
+def parse_date_range(
+    start_date: str | None,
+    end_date: str | None,
+    tz_cn: timezone
 ) -> tuple[datetime | None, datetime | None]:
     """
-    解析预设时间范围，返回 UTC 时区的 (开始时间, 结束时间)
+    解析日期范围，返回 UTC 时区的 (开始时间, 结束时间)
 
     Args:
-        range_key: 时间范围键值（today/yesterday/3d/7d/30d 或 YYYY-MM-DD 日期格式）
+        start_date: 开始日期 YYYY-MM-DD 格式
+        end_date: 结束日期 YYYY-MM-DD 格式
         tz_cn: 中国时区
 
     Returns:
@@ -63,53 +65,21 @@ def _parse_time_range(
         内部先计算东八区的时间范围，然后转换为 UTC 返回。
         这样可以确保与数据库中存储的 UTC 时间正确比较。
     """
-    if not range_key:
+    if not start_date or not end_date:
         return None, None
 
-    # 检测具体日期格式 YYYY-MM-DD
-    if re.match(r"^\d{4}-\d{2}-\d{2}$", range_key):
-        try:
-            date = datetime.strptime(range_key, "%Y-%m-%d")
-            start = date.replace(
-                hour=0, minute=0, second=0, microsecond=0, tzinfo=tz_cn
-            )
-            end = date.replace(
-                hour=23, minute=59, second=59, microsecond=999999, tzinfo=tz_cn
-            )
-            return start.astimezone(timezone.utc), end.astimezone(timezone.utc)
-        except ValueError:
-            # 日期格式无效，继续处理预设选项
-            pass
-
-    now_cn = datetime.now(tz_cn)
-    today_start = now_cn.replace(hour=0, minute=0, second=0, microsecond=0)
-    today_end = now_cn.replace(hour=23, minute=59, second=59, microsecond=999999)
-
-    if range_key == "today":
-        # 转换为 UTC 时间返回
-        return today_start.astimezone(timezone.utc), today_end.astimezone(timezone.utc)
-    elif range_key == "yesterday":
-        yesterday_start = today_start - timedelta(days=1)
-        yesterday_end = yesterday_start.replace(
-            hour=23, minute=59, second=59, microsecond=999999
+    try:
+        start = datetime.strptime(start_date, "%Y-%m-%d")
+        start = start.replace(
+            hour=0, minute=0, second=0, microsecond=0, tzinfo=tz_cn
         )
-        # 转换为 UTC 时间返回
-        return yesterday_start.astimezone(timezone.utc), yesterday_end.astimezone(
-            timezone.utc
+        end = datetime.strptime(end_date, "%Y-%m-%d")
+        end = end.replace(
+            hour=23, minute=59, second=59, microsecond=999999, tzinfo=tz_cn
         )
-    elif range_key == "3d":
-        start = today_start - timedelta(days=2)
-        # 转换为 UTC 时间返回
-        return start.astimezone(timezone.utc), today_end.astimezone(timezone.utc)
-    elif range_key == "7d":
-        start = today_start - timedelta(days=6)
-        # 转换为 UTC 时间返回
-        return start.astimezone(timezone.utc), today_end.astimezone(timezone.utc)
-    elif range_key == "30d":
-        start = today_start - timedelta(days=29)
-        # 转换为 UTC 时间返回
-        return start.astimezone(timezone.utc), today_end.astimezone(timezone.utc)
-    else:
+        return start.astimezone(timezone.utc), end.astimezone(timezone.utc)
+    except ValueError:
+        # 日期格式无效
         return None, None
 
 
@@ -173,8 +143,11 @@ def list_subscription(
     failure_type: str | None = Query(
         None, description="按失败类型过滤（通常与 status=failed 配合使用）"
     ),
-    time_range: str | None = Query(
-        None, description="按执行时间范围过滤（today/yesterday/3d/7d/30d）"
+    start_date: str | None = Query(
+        None, description="开始日期 YYYY-MM-DD 格式"
+    ),
+    end_date: str | None = Query(
+        None, description="结束日期 YYYY-MM-DD 格式"
     ),
     db: Session = Depends(get_db),
 ):
@@ -204,8 +177,8 @@ def list_subscription(
         query = query.filter(SubscriptionTask.failure_type == failure_type)
 
     tz_cn = timezone(timedelta(hours=8))
-    if time_range:
-        start_time, end_time = _parse_time_range(time_range, tz_cn)
+    if start_date and end_date:
+        start_time, end_time = parse_date_range(start_date, end_date, tz_cn)
         if start_time and end_time:
             # 判断时间范围是否包含今天
             # 如果 end_time 是今天，则包含 PENDING 和 RUNNING 任务
@@ -238,7 +211,7 @@ def list_subscription(
                     SubscriptionTask.executed_at >= start_time,
                     SubscriptionTask.executed_at <= end_time,
                 )
-    # 如果 time_range 是 "ALL" 或 None，不应用时间过滤，显示所有任务
+    # 如果没有提供日期范围，不应用时间过滤，显示所有任务
 
     total = query.count()
     status_priority = case(
@@ -407,7 +380,9 @@ def _compute_summary(
     cn_today: datetime.date,
     range_start_utc: datetime,
     range_end_utc: datetime,
-    time_range: str | None,
+    start_date: str | None,
+    end_date: str | None,
+    tz_cn: timezone,
 ) -> SubscriptionStatsSummary:
     """计算汇总统计"""
     summary_result = db.query(
@@ -587,7 +562,12 @@ def _compute_summary(
 
     # 如果指定了历史时间范围，待执行和执行中应该为0
     # 因为这些是当前状态，不应该出现在历史时间范围内
-    if time_range and time_range != "today":
+    # 判断是否包含今天：如果结束日期是今天，则包含今天
+    now_cn = datetime.now(tz_cn)
+    today_end_cn = now_cn.replace(hour=23, minute=59, second=59, microsecond=999999)
+    today_end_utc = today_end_cn.astimezone(timezone.utc)
+    if range_end_utc < today_end_utc:
+        # 结束日期早于今天，说明是历史时间范围
         pending_count = 0
         running_count = 0
 
@@ -691,7 +671,8 @@ def _compute_daily_trend(db: Session, cn_today: datetime.date) -> list[DailyTren
 
 def _compute_status_distribution(
     db: Session,
-    time_range: str | None,
+    start_date: str | None,
+    end_date: str | None,
     range_start_utc: datetime,
     range_end_utc: datetime,
 ) -> list[StatusDistributionItem]:
@@ -702,7 +683,7 @@ def _compute_status_distribution(
     )
 
     # 应用时间范围过滤（如果指定）
-    if time_range:
+    if start_date and end_date:
         status_query = status_query.filter(
             SubscriptionTask.executed_at.isnot(None),
             SubscriptionTask.executed_at >= range_start_utc,
@@ -723,7 +704,8 @@ def _compute_status_distribution(
 
 def _compute_recent_tasks(
     db: Session,
-    time_range: str | None,
+    start_date: str | None,
+    end_date: str | None,
     range_start_utc: datetime,
     range_end_utc: datetime,
     tz_cn: timezone,
@@ -747,7 +729,7 @@ def _compute_recent_tasks(
     recent_task_query = db.query(SubscriptionTask)
 
     # 应用时间范围过滤（如果指定）
-    if time_range:
+    if start_date and end_date:
         recent_task_query = recent_task_query.filter(
             SubscriptionTask.executed_at.isnot(None),
             SubscriptionTask.executed_at >= range_start_utc,
@@ -802,7 +784,8 @@ def _compute_recent_tasks(
 
 def _compute_failure_stats(
     db: Session,
-    time_range: str | None,
+    start_date: str | None,
+    end_date: str | None,
     tz_cn: timezone,
 ) -> tuple[list[FailureTypeDistributionItem], FailureSummary]:
     """计算失败类型分布统计和失败总览（支持时间范围过滤）"""
@@ -815,8 +798,8 @@ def _compute_failure_stats(
     )
 
     # 应用时间范围过滤（如果指定）
-    if time_range:
-        start_time, end_time = _parse_time_range(time_range, tz_cn)
+    if start_date and end_date:
+        start_time, end_time = parse_date_range(start_date, end_date, tz_cn)
         if start_time and end_time:
             failure_type_query = failure_type_query.filter(
                 SubscriptionTask.executed_at.isnot(None),
@@ -884,8 +867,11 @@ def _compute_failure_stats(
 )
 def get_subscription_stats(
     fields: str = Query(..., description="指定返回的字段（逗号分隔），必填"),
-    time_range: str | None = Query(
-        None, description="按执行时间范围过滤统计数据（today/yesterday/3d/7d/30d）"
+    start_date: str | None = Query(
+        None, description="开始日期 YYYY-MM-DD 格式"
+    ),
+    end_date: str | None = Query(
+        None, description="结束日期 YYYY-MM-DD 格式"
     ),
     db: Session = Depends(get_db),
 ):
@@ -903,7 +889,8 @@ def get_subscription_stats(
     - fields: 指定返回字段（summary, daily_trend, status_distribution,
               recent_tasks, failure_type_distribution, failure_summary）
               多个字段用逗号分隔，必填
-    - time_range: 时间范围过滤（today/yesterday/3d/7d/30d）
+    - start_date: 开始日期 YYYY-MM-DD 格式
+    - end_date: 结束日期 YYYY-MM-DD 格式
     """
     # 解析和验证 fields 参数
     requested_fields = _parse_and_validate_fields(fields)
@@ -915,8 +902,8 @@ def get_subscription_stats(
     today_start_cn = now_cn.replace(hour=0, minute=0, second=0, microsecond=0)
     today_end_cn = now_cn.replace(hour=23, minute=59, second=59, microsecond=999999)
 
-    if time_range:
-        range_start_utc, range_end_utc = _parse_time_range(time_range, tz_cn)
+    if start_date and end_date:
+        range_start_utc, range_end_utc = parse_date_range(start_date, end_date, tz_cn)
         if range_start_utc is None or range_end_utc is None:
             range_start_utc = today_start_cn.astimezone(timezone.utc)
             range_end_utc = today_end_cn.astimezone(timezone.utc)
@@ -926,7 +913,7 @@ def get_subscription_stats(
 
     # 调试日志：排查统计数据异常
     logger.info(f"[统计查询] cn_today={cn_today}")
-    logger.info(f"[统计查询] time_range={time_range}")
+    logger.info(f"[统计查询] start_date={start_date}, end_date={end_date}")
     logger.info(f"[统计查询] fields={fields}")
     logger.info(f"[统计查询] requested_fields={requested_fields}")
     logger.info(f"[统计查询] 时间范围(UTC): {range_start_utc} ~ {range_end_utc}")
@@ -937,7 +924,7 @@ def get_subscription_stats(
 
     if "summary" in requested_fields:
         result["summary"] = _compute_summary(
-            db, cn_today, range_start_utc, range_end_utc, time_range
+            db, cn_today, range_start_utc, range_end_utc, start_date, end_date, tz_cn
         )
 
     if "daily_trend" in requested_fields:
@@ -945,12 +932,12 @@ def get_subscription_stats(
 
     if "status_distribution" in requested_fields:
         result["status_distribution"] = _compute_status_distribution(
-            db, time_range, range_start_utc, range_end_utc
+            db, start_date, end_date, range_start_utc, range_end_utc
         )
 
     if "recent_tasks" in requested_fields:
         result["recent_tasks"] = _compute_recent_tasks(
-            db, time_range, range_start_utc, range_end_utc, tz_cn
+            db, start_date, end_date, range_start_utc, range_end_utc, tz_cn
         )
 
     # failure_type_distribution 和 failure_summary 在同一个查询中计算
@@ -958,7 +945,7 @@ def get_subscription_stats(
         "failure_type_distribution" in requested_fields
         or "failure_summary" in requested_fields
     ):
-        failure_dist, failure_sum = _compute_failure_stats(db, time_range, tz_cn)
+        failure_dist, failure_sum = _compute_failure_stats(db, start_date, end_date, tz_cn)
         if "failure_type_distribution" in requested_fields:
             result["failure_type_distribution"] = failure_dist
         if "failure_summary" in requested_fields:
@@ -984,8 +971,11 @@ def get_subscription_stats(
     summary="获取订阅任务汇总统计",
 )
 def get_subscription_stats_summary(
-    time_range: str | None = Query(
-        "today", description="时间范围（today/yesterday/3d/7d/30d/YYYY-MM-DD）"
+    start_date: str | None = Query(
+        None, description="开始日期 YYYY-MM-DD 格式"
+    ),
+    end_date: str | None = Query(
+        None, description="结束日期 YYYY-MM-DD 格式"
     ),
     db: Session = Depends(get_db),
 ):
@@ -996,8 +986,8 @@ def get_subscription_stats_summary(
     today_start_cn = now_cn.replace(hour=0, minute=0, second=0, microsecond=0)
     today_end_cn = now_cn.replace(hour=23, minute=59, second=59, microsecond=999999)
 
-    if time_range:
-        range_start_utc, range_end_utc = _parse_time_range(time_range, tz_cn)
+    if start_date and end_date:
+        range_start_utc, range_end_utc = parse_date_range(start_date, end_date, tz_cn)
         if range_start_utc is None or range_end_utc is None:
             range_start_utc = today_start_cn.astimezone(timezone.utc)
             range_end_utc = today_end_cn.astimezone(timezone.utc)
@@ -1005,7 +995,7 @@ def get_subscription_stats_summary(
         range_start_utc = today_start_cn.astimezone(timezone.utc)
         range_end_utc = today_end_cn.astimezone(timezone.utc)
 
-    summary = _compute_summary(db, cn_today, range_start_utc, range_end_utc, time_range)
+    summary = _compute_summary(db, cn_today, range_start_utc, range_end_utc, start_date, end_date, tz_cn)
     return SummaryResponse(summary=summary)
 
 
@@ -1031,8 +1021,11 @@ def get_subscription_stats_daily_trend(
     summary="获取订阅任务状态分布",
 )
 def get_subscription_stats_status_distribution(
-    time_range: str | None = Query(
-        None, description="时间范围（today/yesterday/3d/7d/30d/YYYY-MM-DD）"
+    start_date: str | None = Query(
+        None, description="开始日期 YYYY-MM-DD 格式"
+    ),
+    end_date: str | None = Query(
+        None, description="结束日期 YYYY-MM-DD 格式"
     ),
     db: Session = Depends(get_db),
 ):
@@ -1042,8 +1035,8 @@ def get_subscription_stats_status_distribution(
     today_start_cn = now_cn.replace(hour=0, minute=0, second=0, microsecond=0)
     today_end_cn = now_cn.replace(hour=23, minute=59, second=59, microsecond=999999)
 
-    if time_range:
-        range_start_utc, range_end_utc = _parse_time_range(time_range, tz_cn)
+    if start_date and end_date:
+        range_start_utc, range_end_utc = parse_date_range(start_date, end_date, tz_cn)
         if range_start_utc is None or range_end_utc is None:
             range_start_utc = today_start_cn.astimezone(timezone.utc)
             range_end_utc = today_end_cn.astimezone(timezone.utc)
@@ -1052,7 +1045,7 @@ def get_subscription_stats_status_distribution(
         range_end_utc = today_end_cn.astimezone(timezone.utc)
 
     status_distribution = _compute_status_distribution(
-        db, time_range, range_start_utc, range_end_utc
+        db, start_date, end_date, range_start_utc, range_end_utc
     )
     return StatusDistributionResponse(status_distribution=status_distribution)
 
@@ -1063,8 +1056,11 @@ def get_subscription_stats_status_distribution(
     summary="获取最新任务列表",
 )
 def get_subscription_stats_recent_tasks(
-    time_range: str | None = Query(
-        None, description="时间范围（today/yesterday/3d/7d/30d/YYYY-MM-DD）"
+    start_date: str | None = Query(
+        None, description="开始日期 YYYY-MM-DD 格式"
+    ),
+    end_date: str | None = Query(
+        None, description="结束日期 YYYY-MM-DD 格式"
     ),
     db: Session = Depends(get_db),
 ):
@@ -1074,8 +1070,8 @@ def get_subscription_stats_recent_tasks(
     today_start_cn = now_cn.replace(hour=0, minute=0, second=0, microsecond=0)
     today_end_cn = now_cn.replace(hour=23, minute=59, second=59, microsecond=999999)
 
-    if time_range:
-        range_start_utc, range_end_utc = _parse_time_range(time_range, tz_cn)
+    if start_date and end_date:
+        range_start_utc, range_end_utc = parse_date_range(start_date, end_date, tz_cn)
         if range_start_utc is None or range_end_utc is None:
             range_start_utc = today_start_cn.astimezone(timezone.utc)
             range_end_utc = today_end_cn.astimezone(timezone.utc)
@@ -1084,7 +1080,7 @@ def get_subscription_stats_recent_tasks(
         range_end_utc = today_end_cn.astimezone(timezone.utc)
 
     recent_tasks = _compute_recent_tasks(
-        db, time_range, range_start_utc, range_end_utc, tz_cn
+        db, start_date, end_date, range_start_utc, range_end_utc, tz_cn
     )
     return RecentTasksResponse(recent_tasks=recent_tasks)
 
@@ -1095,8 +1091,11 @@ def get_subscription_stats_recent_tasks(
     summary="获取失败类型统计",
 )
 def get_subscription_stats_failure_types(
-    time_range: str | None = Query(
-        None, description="时间范围（today/yesterday/3d/7d/30d/YYYY-MM-DD）"
+    start_date: str | None = Query(
+        None, description="开始日期 YYYY-MM-DD 格式"
+    ),
+    end_date: str | None = Query(
+        None, description="结束日期 YYYY-MM-DD 格式"
     ),
     db: Session = Depends(get_db),
 ):
@@ -1104,7 +1103,7 @@ def get_subscription_stats_failure_types(
     tz_cn = timezone(timedelta(hours=8))
 
     failure_type_distribution, failure_summary = _compute_failure_stats(
-        db, time_range, tz_cn
+        db, start_date, end_date, tz_cn
     )
 
     return FailureTypesStatsResponse(

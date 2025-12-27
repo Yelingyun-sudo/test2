@@ -73,73 +73,6 @@ function getPresetRange(preset: string): DateRange {
   }
 }
 
-// 比较两个日期是否在同一天（只比较日期部分，忽略时间）
-function isSameDate(d1: Date, d2: Date): boolean {
-  return (
-    d1.getFullYear() === d2.getFullYear() &&
-    d1.getMonth() === d2.getMonth() &&
-    d1.getDate() === d2.getDate()
-  );
-}
-
-// 将 DateRange 转换为后端 time_range 参数（向后兼容）
-function dateRangeToTimeRange(range: DateRange): string {
-  if (!range.from && !range.to) {
-    return "ALL";
-  }
-  
-  if (!range.from || !range.to) {
-    // 如果只有开始或结束日期，返回 today
-    return "today";
-  }
-  
-  // 检查是否为单日
-  if (isSameDate(range.from, range.to)) {
-    // 检查是否为预设的单日（今天或昨天）
-    const today = startOfToday();
-    const yesterday = startOfYesterday();
-    
-    if (isSameDate(range.from, today)) {
-      return "today";
-    }
-    if (isSameDate(range.from, yesterday)) {
-      return "yesterday";
-    }
-    // 其他单日，返回日期格式
-    return format(range.from, "yyyy-MM-dd");
-  }
-  
-  // 检查是否为预设的日期范围
-  const today = startOfToday();
-  const presetRanges = [
-    { preset: "3d", from: subDays(today, 2), to: today },
-    { preset: "7d", from: subDays(today, 6), to: today },
-    { preset: "30d", from: subDays(today, 29), to: today },
-  ];
-  
-  for (const preset of presetRanges) {
-    if (isSameDate(range.from, preset.from) && isSameDate(range.to, preset.to)) {
-      return preset.preset;
-    }
-  }
-  
-  // 如果是自定义日期范围，暂时返回 today（后续需要后端支持 start_date/end_date）
-  return "today";
-}
-
-// 将后端 time_range 参数转换为 DateRange（向后兼容）
-function timeRangeToDateRange(timeRange: string): DateRange {
-  if (!timeRange || timeRange === "ALL") {
-    return { from: undefined, to: undefined };
-  }
-  // 检测是否为日期格式 YYYY-MM-DD
-  if (/^\d{4}-\d{2}-\d{2}$/.test(timeRange)) {
-    const date = new Date(timeRange);
-    return { from: date, to: date };
-  }
-  // 预设值
-  return getPresetRange(timeRange);
-}
 
 export function TimeRangeSelector({ 
   value, 
@@ -283,4 +216,4 @@ export function TimeRangeSelector({
 }
 
 // 导出辅助函数供外部使用
-export { dateRangeToTimeRange, timeRangeToDateRange, getPresetRange };
+export { getPresetRange };

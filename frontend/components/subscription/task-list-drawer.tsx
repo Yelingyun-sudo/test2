@@ -15,7 +15,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { TimeRangeSelector, type DateRange, dateRangeToTimeRange, timeRangeToDateRange } from "@/components/subscription/time-range-selector";
+import { TimeRangeSelector, type DateRange } from "@/components/subscription/time-range-selector";
+import { format } from "date-fns";
 import { apiFetch } from "@/lib/api";
 import { formatDateTime, formatDurationSeconds } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
@@ -93,8 +94,10 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
         if (params.q) searchParams.set("q", params.q);
         if (params.status && params.status !== "ALL") searchParams.set("status", params.status);
         if (params.failureType && params.failureType !== "ALL") searchParams.set("failure_type", params.failureType);
-        const timeRangeStr = dateRangeToTimeRange(params.timeRange);
-        if (timeRangeStr && timeRangeStr !== "ALL") searchParams.set("time_range", timeRangeStr);
+        if (params.timeRange.from && params.timeRange.to) {
+          searchParams.set("start_date", format(params.timeRange.from, "yyyy-MM-dd"));
+          searchParams.set("end_date", format(params.timeRange.to, "yyyy-MM-dd"));
+        }
 
         const res = await apiFetch(
           `/subscription/list?${searchParams.toString()}`
@@ -117,11 +120,13 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
 
   const fetchFailureTypeStats = useCallback(async (timeRange?: DateRange) => {
     try {
-      const timeRangeStr = timeRange ? dateRangeToTimeRange(timeRange) : undefined;
-      const timeRangeParam = timeRangeStr && timeRangeStr !== "ALL"
-        ? `?time_range=${timeRangeStr}`
-        : "";
-      const url = `/subscription/stats/failure-types${timeRangeParam}`;
+      const params = new URLSearchParams();
+      if (timeRange?.from && timeRange?.to) {
+        params.set("start_date", format(timeRange.from, "yyyy-MM-dd"));
+        params.set("end_date", format(timeRange.to, "yyyy-MM-dd"));
+      }
+      const dateRangeParam = params.toString() ? `?${params.toString()}` : "";
+      const url = `/subscription/stats/failure-types${dateRangeParam}`;
 
       const res = await apiFetch(url);
       if (!res.ok) return;
@@ -139,7 +144,8 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
     let urlStatus = searchParams.get("status") || "ALL";
     let urlFailureType = searchParams.get("failure_type") || "ALL";
     // 读取时间范围参数
-    const urlTimeRange = searchParams.get("time_range") || "ALL";
+    const urlStartDate = searchParams.get("start_date");
+    const urlEndDate = searchParams.get("end_date");
 
     // 将状态参数转换为大写，以匹配 statusOptions 中的值
     // 支持大小写不敏感的 URL 参数（如 ?status=failed 或 ?status=FAILED）
@@ -161,8 +167,10 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
       }
     }
 
-    // 将 time_range 字符串转换为 DateRange
-    const dateRange = timeRangeToDateRange(urlTimeRange);
+    // 将 URL 参数转换为 DateRange
+    const dateRange: DateRange = urlStartDate && urlEndDate
+      ? { from: new Date(urlStartDate), to: new Date(urlEndDate) }
+      : { from: undefined, to: undefined };
 
     // 无条件更新所有状态（确保与 URL 完全同步）
     setPage(pageNum);
@@ -178,11 +186,11 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
       status: urlStatus,
       failureType: urlFailureType,
       q: urlQuery,
-      timeRange: urlTimeRange
+      timeRange: dateRange
     });
     
     // 获取失败类型统计，传递时间范围参数
-    fetchFailureTypeStats(urlTimeRange);
+    fetchFailureTypeStats(dateRange);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
@@ -358,14 +366,15 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
     setPage(1);
     setPageInput("1");
 
-    // 同步更新 URL 参数，使用 time_range 参数名（与页面级选择器保持一致）
+    // 同步更新 URL 参数
     const params = new URLSearchParams(searchParams.toString());
-    const timeRangeStr = dateRangeToTimeRange(value);
-    if (timeRangeStr === "ALL" || !timeRangeStr) {
-      // 如果选择"全部"，移除时间范围参数
-      params.delete("time_range");
+    if (value.from && value.to) {
+      params.set("start_date", format(value.from, "yyyy-MM-dd"));
+      params.set("end_date", format(value.to, "yyyy-MM-dd"));
     } else {
-      params.set("time_range", timeRangeStr);
+      // 如果选择"全部"，移除时间范围参数
+      params.delete("start_date");
+      params.delete("end_date");
     }
     router.push(`/subscription?${params.toString()}`);
 

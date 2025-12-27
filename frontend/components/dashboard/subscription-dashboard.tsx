@@ -21,7 +21,8 @@ import { TaskListDrawer } from "@/components/subscription/task-list-drawer";
 import { TaskDetailModal } from "@/components/subscription/task-detail-modal";
 import { TaskQueueCard } from "@/components/subscription/task-queue-card";
 import { TaskListRecent } from "@/components/subscription/task-list-recent";
-import { type DateRange, dateRangeToTimeRange, getPresetRange } from "@/components/subscription/time-range-selector";
+import { type DateRange, getPresetRange } from "@/components/subscription/time-range-selector";
+import { format } from "date-fns";
 import { DailyTrendChart } from "@/components/subscription/daily-trend-chart";
 import { DashboardShell } from "./shell";
 import { apiFetch } from "@/lib/api";
@@ -50,7 +51,7 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
   const searchParams = useSearchParams();
   
   // 使用全局时间范围状态
-  const { dateRange: statsTimeRange } = useTimeRange();
+  const { dateRange: statsTimeRange, setDateRange } = useTimeRange();
   
   // 统计数据状态
   const [stats, setStats] = useState<StatsResponse | null>(null);
@@ -76,11 +77,9 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
 
   // 处理图表日期点击
   const handleDateClick = (date: string) => {
-    // 注意：Dashboard 使用 Tabs 样式，无法显示日期格式
-    // 所以不更新 statsTimeRange，只更新 URL 参数让抽屉框使用日期筛选
-    const params = new URLSearchParams();
-    params.set("time_range", date);
-    router.push(`/subscription?${params.toString()}`);
+    // 点击日期时，设置全局时间范围为该日期
+    const selectedDate = new Date(date);
+    setDateRange({ from: selectedDate, to: selectedDate });
     setIsTaskListDrawerOpen(true); // 打开抽屉框
   };
 
@@ -88,20 +87,23 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
   useEffect(() => {
     async function fetchStats() {
       try {
-        // 将 DateRange 转换为后端 time_range 参数
-        const timeRangeStr = dateRangeToTimeRange(statsTimeRange);
-        const timeRangeParam = timeRangeStr && timeRangeStr !== "ALL"
-          ? `?time_range=${timeRangeStr}`
-          : "";
+        // 构建日期范围查询参数
+        const params = new URLSearchParams();
+        if (statsTimeRange.from && statsTimeRange.to) {
+          params.set("start_date", format(statsTimeRange.from, "yyyy-MM-dd"));
+          params.set("end_date", format(statsTimeRange.to, "yyyy-MM-dd"));
+        }
+        const dateRangeParam = params.toString() ? `?${params.toString()}` : "";
 
         // 并发调用专用端点
+        // recent-tasks 不传递日期参数，始终返回最新任务
         const [summaryRes, dailyTrendRes, statusDistRes, recentTasksRes, failureTypesRes] =
           await Promise.all([
-            apiFetch(`/subscription/stats/summary${timeRangeParam || "?time_range=today"}`),
+            apiFetch(`/subscription/stats/summary${dateRangeParam}`),
             apiFetch(`/subscription/stats/daily-trend`),
-            apiFetch(`/subscription/stats/status-distribution${timeRangeParam}`),
-            apiFetch(`/subscription/stats/recent-tasks${timeRangeParam}`),
-            apiFetch(`/subscription/stats/failure-types${timeRangeParam}`),
+            apiFetch(`/subscription/stats/status-distribution${dateRangeParam}`),
+            apiFetch(`/subscription/stats/recent-tasks`),
+            apiFetch(`/subscription/stats/failure-types${dateRangeParam}`),
           ]);
 
         // 解析响应
@@ -433,9 +435,9 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
                           if (status) {
                             const params = new URLSearchParams();
                             params.set("status", status.toLowerCase());
-                            const timeRangeStr = dateRangeToTimeRange(statsTimeRange);
-                            if (timeRangeStr && timeRangeStr !== "ALL") {
-                              params.set("time_range", timeRangeStr);
+                            if (statsTimeRange.from && statsTimeRange.to) {
+                              params.set("start_date", format(statsTimeRange.from, "yyyy-MM-dd"));
+                              params.set("end_date", format(statsTimeRange.to, "yyyy-MM-dd"));
                             }
                             router.push(`/subscription?${params.toString()}`);
                           }
@@ -530,9 +532,9 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
                   onClick={() => {
                     const params = new URLSearchParams();
                     params.set("status", "failed");
-                    const timeRangeStr = dateRangeToTimeRange(statsTimeRange);
-                    if (timeRangeStr && timeRangeStr !== "ALL") {
-                      params.set("time_range", timeRangeStr);
+                    if (statsTimeRange.from && statsTimeRange.to) {
+                      params.set("start_date", format(statsTimeRange.from, "yyyy-MM-dd"));
+                      params.set("end_date", format(statsTimeRange.to, "yyyy-MM-dd"));
                     }
                     router.push(`/subscription?${params.toString()}`);
                     setIsTaskListDrawerOpen(true);
@@ -585,9 +587,9 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
                           if (failureType && failureType !== 'others') {
                             params.set("failure_type", failureType);
                           }
-                          const timeRangeStr = dateRangeToTimeRange(statsTimeRange);
-                          if (timeRangeStr && timeRangeStr !== "ALL") {
-                            params.set("time_range", timeRangeStr);
+                          if (statsTimeRange.from && statsTimeRange.to) {
+                            params.set("start_date", format(statsTimeRange.from, "yyyy-MM-dd"));
+                            params.set("end_date", format(statsTimeRange.to, "yyyy-MM-dd"));
                           }
                           router.push(`/subscription?${params.toString()}`);
                         }}
