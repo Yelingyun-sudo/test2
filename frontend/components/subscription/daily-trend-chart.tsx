@@ -126,6 +126,11 @@ export function DailyTrendChart({
                         </div>
                       ))}
                     </div>
+                    {onDateClick && (
+                      <p className="mt-2 text-xs text-sky-600">
+                        点击查看详情 →
+                      </p>
+                    )}
                   </div>
                 );
               }}
