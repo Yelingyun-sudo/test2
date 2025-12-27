@@ -1,8 +1,8 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Loader2, Pause, Play, RotateCcw, Search } from "lucide-react";
+import { Loader2, Search } from "lucide-react";
 import { toast } from "sonner";
 
 // DashboardShell removed - this component is used inside a Sheet
@@ -16,14 +16,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { apiFetch } from "@/lib/api";
-import { formatDateTime, formatDurationSeconds, parseDateTime } from "@/lib/datetime";
+import { formatDateTime, formatDurationSeconds } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
 import { TaskDetailModal } from "./task-detail-modal";
 import type {
   SubscriptionItem,
-  TaskArtifacts,
-  ArtifactUrls,
-  MediaFlags,
   SubscriptionListResponse,
 } from "@/types/subscription";
 import {
@@ -34,15 +31,6 @@ import {
 } from "@/types/common";
 
 const PAGE_SIZE = 15;
-
-function MediaLoadingOverlay({ label }: { label: string }) {
-  return (
-    <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white/75 backdrop-blur-sm">
-      <Loader2 className="h-5 w-5 animate-spin text-slate-500" />
-      <div className="text-xs text-slate-500">{label}</div>
-    </div>
-  );
-}
 
 type SubscriptionContentProps = {
   failureTypes: FailureTypeItem[];
@@ -63,52 +51,9 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
   const [timeRangeFilter, setTimeRangeFilter] = useState("ALL");
   const [loading, setLoading] = useState(false);
   const [selectedItem, setSelectedItem] = useState<SubscriptionItem | null>(null);
-  const [artifacts, setArtifacts] = useState<TaskArtifacts | null>(null);
-  const [artifactUrls, setArtifactUrls] = useState<ArtifactUrls>({
-    loginImageUrl: null,
-    extractImageUrl: null,
-    videoUrl: null
-  });
-  const [viewer, setViewer] = useState<{
-    type: "image" | "video";
-    title: string;
-    src: string | null;
-    seekSeconds?: number | null;
-  } | null>(null);
-  const [viewerVideoState, setViewerVideoState] = useState({
-    paused: true,
-    ended: false
-  });
-  const [viewerPlayback, setViewerPlayback] = useState({
-    duration: 0,
-    currentTime: 0,
-    dragging: false,
-    dragValue: 0
-  });
-  const [artifactsLoading, setArtifactsLoading] = useState(false);
-  const [mediaReady, setMediaReady] = useState<MediaFlags>({
-    login: false,
-    extract: false
-  });
-  const [mediaError, setMediaError] = useState<MediaFlags>({
-    login: false,
-    extract: false
-  });
   const [failureTypeStats, setFailureTypeStats] = useState<
     Array<{ type: string; label: string; count: number }>
   >([]);
-
-  const artifactUrlsRef = useRef<ArtifactUrls>({
-    loginImageUrl: null,
-    extractImageUrl: null,
-    videoUrl: null
-  });
-  const viewerVideoRef = useRef<HTMLVideoElement | null>(null);
-  const artifactsControllerRef = useRef<AbortController | null>(null);
-  const selectedItemIdRef = useRef<number | null>(null);
-  const videoBlobPromiseRef = useRef<Promise<string | null> | null>(null);
-  const [videoBlobStatus, setVideoBlobStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
-  const [viewerVideoFetch, setViewerVideoFetch] = useState({ loading: false, error: false, ready: false });
 
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(total / PAGE_SIZE)),
@@ -351,344 +296,6 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
     });
   };
 
-  const revokeArtifactUrls = useCallback((urls: ArtifactUrls) => {
-    for (const value of Object.values(urls)) {
-      if (value) URL.revokeObjectURL(value);
-    }
-  }, []);
-
-  const fetchArtifactBlobUrl = useCallback(
-    async (taskId: number, path: string | null, signal?: AbortSignal): Promise<string | null> => {
-      if (!path) return null;
-      const res = await apiFetch(
-        `/subscription/${taskId}/artifact?path=${encodeURIComponent(path)}`,
-        signal ? { signal } : undefined
-      );
-      if (!res.ok) return null;
-      const blob = await res.blob();
-      return URL.createObjectURL(blob);
-    },
-    []
-  );
-
-  const ensureVideoBlobUrl = useCallback(
-    async (taskId: number, videoPath: string | null, signal?: AbortSignal): Promise<string | null> => {
-      if (!videoPath) return null;
-      const existing = artifactUrlsRef.current.videoUrl;
-      if (existing) {
-        setVideoBlobStatus("ready");
-        return existing;
-      }
-
-      if (videoBlobPromiseRef.current) return videoBlobPromiseRef.current;
-      setVideoBlobStatus("loading");
-
-      const promise = fetchArtifactBlobUrl(taskId, videoPath, signal)
-        .then((videoUrl) => {
-          if (!videoUrl) {
-            if (!signal?.aborted && selectedItemIdRef.current === taskId) setVideoBlobStatus("error");
-            return null;
-          }
-
-          if (signal?.aborted || selectedItemIdRef.current !== taskId) {
-            URL.revokeObjectURL(videoUrl);
-            return null;
-          }
-
-          const nextUrls: ArtifactUrls = { ...artifactUrlsRef.current, videoUrl };
-          artifactUrlsRef.current = nextUrls;
-          setArtifactUrls(nextUrls);
-          setVideoBlobStatus("ready");
-          return videoUrl;
-        })
-        .catch((error) => {
-          const err = error as { name?: string };
-          if (err?.name === "AbortError") return null;
-          console.error(error);
-          if (!signal?.aborted && selectedItemIdRef.current === taskId) setVideoBlobStatus("error");
-          return null;
-        })
-        .finally(() => {
-          if (videoBlobPromiseRef.current === promise) videoBlobPromiseRef.current = null;
-        });
-
-      videoBlobPromiseRef.current = promise;
-      return promise;
-    },
-    [fetchArtifactBlobUrl]
-  );
-
-  useEffect(() => {
-    selectedItemIdRef.current = selectedItem?.id ?? null;
-  }, [selectedItem]);
-
-  useEffect(() => {
-    if (!selectedItem) {
-      revokeArtifactUrls(artifactUrlsRef.current);
-      artifactUrlsRef.current = {
-        loginImageUrl: null,
-        extractImageUrl: null,
-        videoUrl: null
-      };
-      setArtifactUrls(artifactUrlsRef.current);
-      setArtifacts(null);
-      setArtifactsLoading(false);
-      setVideoBlobStatus("idle");
-      videoBlobPromiseRef.current = null;
-      artifactsControllerRef.current?.abort();
-      artifactsControllerRef.current = null;
-      return;
-    }
-
-    revokeArtifactUrls(artifactUrlsRef.current);
-    artifactUrlsRef.current = {
-      loginImageUrl: null,
-      extractImageUrl: null,
-      videoUrl: null
-    };
-    setArtifactUrls(artifactUrlsRef.current);
-    setArtifacts(null);
-    setVideoBlobStatus("idle");
-    videoBlobPromiseRef.current = null;
-
-    if (selectedItem.status === "PENDING" || selectedItem.status === "RUNNING") {
-      setArtifacts({
-        status: selectedItem.status,
-        login_image_path: null,
-        extract_image_path: null,
-        video_path: null,
-        video_seek_seconds: null
-      });
-      return;
-    }
-
-    const controller = new AbortController();
-    artifactsControllerRef.current?.abort();
-    artifactsControllerRef.current = controller;
-    let cancelled = false;
-    let prefetchIdleId: number | null = null;
-    let prefetchTimeoutId: number | null = null;
-
-    const load = async () => {
-      setArtifactsLoading(true);
-      try {
-        const res = await apiFetch(`/subscription/${selectedItem.id}/artifacts`, {
-          signal: controller.signal
-        });
-        if (!res.ok) throw new Error("加载任务产物失败");
-        const payload = (await res.json()) as TaskArtifacts;
-        if (cancelled) return;
-        setArtifacts(payload);
-
-        const [loginImageUrl, extractImageUrl] = await Promise.all([
-          fetchArtifactBlobUrl(selectedItem.id, payload.login_image_path, controller.signal),
-          fetchArtifactBlobUrl(selectedItem.id, payload.extract_image_path, controller.signal)
-        ]);
-
-        if (cancelled) {
-          revokeArtifactUrls({ loginImageUrl, extractImageUrl, videoUrl: null });
-          return;
-        }
-
-        setMediaReady({ login: false, extract: false });
-        setMediaError({ login: false, extract: false });
-        artifactUrlsRef.current = { loginImageUrl, extractImageUrl, videoUrl: null };
-        setArtifactUrls(artifactUrlsRef.current);
-
-        if (payload.video_path) {
-          const schedulePrefetch = () => {
-            if (cancelled) return;
-            void ensureVideoBlobUrl(selectedItem.id, payload.video_path, controller.signal);
-          };
-
-          if (typeof window !== "undefined") {
-            const win = window as unknown as {
-              requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
-              cancelIdleCallback?: (id: number) => void;
-            };
-
-            if (win.requestIdleCallback) {
-              prefetchIdleId = win.requestIdleCallback(schedulePrefetch, { timeout: 1500 });
-            } else {
-              prefetchTimeoutId = window.setTimeout(schedulePrefetch, 500);
-            }
-          }
-        }
-      } finally {
-        if (!cancelled) setArtifactsLoading(false);
-      }
-    };
-
-    load().catch((error) => {
-      console.error(error);
-      if (!cancelled) setArtifactsLoading(false);
-    });
-
-    return () => {
-      cancelled = true;
-      controller.abort();
-      if (typeof window !== "undefined") {
-        const win = window as unknown as { cancelIdleCallback?: (id: number) => void };
-        if (prefetchIdleId !== null && win.cancelIdleCallback) win.cancelIdleCallback(prefetchIdleId);
-        if (prefetchTimeoutId !== null) window.clearTimeout(prefetchTimeoutId);
-      }
-      revokeArtifactUrls(artifactUrlsRef.current);
-      artifactUrlsRef.current = {
-        loginImageUrl: null,
-        extractImageUrl: null,
-        videoUrl: null
-      };
-      artifactsControllerRef.current = null;
-    };
-  }, [ensureVideoBlobUrl, fetchArtifactBlobUrl, revokeArtifactUrls, selectedItem]);
-
-  useEffect(() => {
-    if (!selectedItem) return;
-    setMediaReady({ login: false, extract: false });
-    setMediaError({ login: false, extract: false });
-  }, [selectedItem]);
-
-  useEffect(() => {
-    if (!viewer) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setViewer(null);
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [viewer]);
-
-  useEffect(() => {
-    if (!viewer || viewer.type !== "video") return;
-    setViewerVideoFetch({ loading: false, error: false, ready: false });
-    setViewerVideoState({ paused: true, ended: false });
-    setViewerPlayback({
-      duration: 0,
-      currentTime: 0,
-      dragging: false,
-      dragValue: 0
-    });
-  }, [viewer]);
-
-  const getViewerBaselineSeconds = () => {
-    const raw = viewer?.seekSeconds;
-    if (typeof raw !== "number" || Number.isNaN(raw) || raw <= 0) return 0;
-    return raw;
-  };
-
-  const handleViewerVideoLoadedMetadata = () => {
-    const seekSeconds = viewer?.seekSeconds;
-    if (!viewerVideoRef.current) return;
-
-    const duration = viewerVideoRef.current.duration;
-    const hasDuration = typeof duration === "number" && Number.isFinite(duration) && duration > 0;
-    const baseline = getViewerBaselineSeconds();
-    const safeBaseline = hasDuration ? Math.min(baseline, Math.max(0, duration - 0.1)) : baseline;
-    const safeSeek = safeBaseline;
-    if (safeSeek > 0) viewerVideoRef.current.currentTime = safeSeek;
-    viewerVideoRef.current.defaultPlaybackRate = 3;
-    viewerVideoRef.current.playbackRate = 3;
-
-    setViewerPlayback((prev) => ({
-      ...prev,
-      duration: hasDuration ? duration : 0,
-      currentTime: viewerVideoRef.current?.currentTime ?? 0,
-      dragValue: 0
-    }));
-  };
-
-  const handleViewerPlayOverlayClick = async () => {
-    if (!viewerVideoRef.current) return;
-    const baseline = getViewerBaselineSeconds();
-    if (baseline > 0 && viewerVideoRef.current.currentTime < baseline) {
-      viewerVideoRef.current.currentTime = baseline;
-    }
-    if (viewerVideoState.ended) {
-      const seekSeconds = viewer?.seekSeconds;
-      const duration = viewerVideoRef.current.duration;
-      const hasDuration = typeof duration === "number" && Number.isFinite(duration) && duration > 0;
-      const canSeek =
-        typeof seekSeconds === "number" && !Number.isNaN(seekSeconds) && seekSeconds > 0;
-      const target = canSeek
-        ? hasDuration
-          ? Math.min(seekSeconds, Math.max(0, duration - 0.1))
-          : seekSeconds
-        : 0;
-      viewerVideoRef.current.currentTime = target;
-    }
-    viewerVideoRef.current.defaultPlaybackRate = 3;
-    viewerVideoRef.current.playbackRate = 3;
-    try {
-      await viewerVideoRef.current.play();
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  const handleViewerTimeUpdate = () => {
-    if (!viewerVideoRef.current) return;
-    setViewerPlayback((prev) => {
-      if (prev.dragging) return prev;
-      return { ...prev, currentTime: viewerVideoRef.current?.currentTime ?? 0 };
-    });
-  };
-
-  const handleViewerTogglePlay = async () => {
-    if (!viewerVideoRef.current) return;
-    const baseline = getViewerBaselineSeconds();
-    if (baseline > 0 && viewerVideoRef.current.currentTime < baseline) {
-      viewerVideoRef.current.currentTime = baseline;
-    }
-    if (viewerVideoState.ended) {
-      viewerVideoRef.current.currentTime = baseline;
-    }
-    viewerVideoRef.current.defaultPlaybackRate = 3;
-    viewerVideoRef.current.playbackRate = 3;
-    if (viewerVideoState.paused || viewerVideoState.ended) {
-      try {
-        await viewerVideoRef.current.play();
-      } catch (error) {
-        console.error(error);
-      }
-    } else {
-      viewerVideoRef.current.pause();
-    }
-  };
-
-  const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
-
-  const handleViewerSeekStart = () => {
-    const baseline = getViewerBaselineSeconds();
-    setViewerPlayback((prev) => {
-      const visibleDuration = Math.max(prev.duration - baseline, 0);
-      const currentDisplay = clamp(prev.currentTime - baseline, 0, visibleDuration);
-      return { ...prev, dragging: true, dragValue: currentDisplay };
-    });
-  };
-
-  const handleViewerSeekChange = (value: number) => {
-    setViewerPlayback((prev) => ({ ...prev, dragValue: value }));
-  };
-
-  const handleViewerSeekEnd = () => {
-    const baseline = getViewerBaselineSeconds();
-    if (!viewerVideoRef.current) return;
-    setViewerPlayback((prev) => {
-      const visibleDuration = Math.max(prev.duration - baseline, 0);
-      const displayValue = clamp(prev.dragValue, 0, visibleDuration);
-      const target = baseline + displayValue;
-      viewerVideoRef.current!.currentTime = target;
-      return { ...prev, dragging: false, currentTime: target, dragValue: displayValue };
-    });
-  };
-
-  const formatClock = (seconds: number) => {
-    const safe = Number.isFinite(seconds) && seconds > 0 ? seconds : 0;
-    const whole = Math.floor(safe);
-    const minutes = Math.floor(whole / 60);
-    const remainder = whole % 60;
-    return `${String(minutes).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`;
-  };
-
   const handlePageJump = () => {
     const value = parseInt(pageInput, 10);
     if (Number.isNaN(value)) return;
@@ -776,12 +383,10 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
   };
 
   const handleRowClick = (item: SubscriptionItem) => {
-    setViewer(null);
     setSelectedItem(item);
   };
 
   const handleCloseModal = () => {
-    setViewer(null);
     setSelectedItem(null);
   };
 
@@ -1008,145 +613,6 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
           onClose={handleCloseModal}
           failureTypeLabel={failureTypeLabel}
         />
-      )}
-
-      {viewer && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-white/90 p-4 backdrop-blur-sm"
-          onClick={() => setViewer(null)}
-          role="dialog"
-          aria-modal="true"
-          aria-label={`${viewer.title}预览`}
-        >
-          <div
-            className="w-full max-w-6xl rounded-2xl bg-white shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-              <div className="text-sm font-semibold text-slate-900">{viewer.title}</div>
-              <Button variant="outline" size="sm" onClick={() => setViewer(null)}>
-                关闭
-              </Button>
-            </div>
-            <div className="p-4">
-              {viewer.type === "image" ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={viewer.src ?? ""}
-                  alt={viewer.title}
-                  className="max-h-[80vh] w-full rounded-xl bg-white object-contain"
-                />
-	              ) : (
-	                  <div className="relative">
-	                  <div className="relative w-full aspect-[16/10] max-h-[80vh] overflow-hidden rounded-xl bg-black">
-	                    {viewerVideoFetch.loading || (!viewerVideoFetch.ready && !viewerVideoFetch.error) ? (
-	                      <div className="absolute inset-0 z-20">
-	                        <MediaLoadingOverlay label={videoBlobStatus === "loading" ? "加载视频中..." : "加载中..."} />
-	                      </div>
-	                    ) : null}
-                    {viewerVideoFetch.error ? (
-                      <div className="absolute inset-0 z-20 flex items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400">
-                        加载失败
-                      </div>
-                    ) : null}
-	                    {viewer.src ? (
-	                      <video
-	                        ref={viewerVideoRef}
-	                        className="h-full w-full bg-black object-contain"
-	                        controls={false}
-	                        autoPlay
-	                        preload="metadata"
-	                        src={viewer.src}
-                        onLoadedMetadata={handleViewerVideoLoadedMetadata}
-                        onLoadedData={() =>
-                          setViewerVideoFetch((prev) => ({ ...prev, loading: false, error: false, ready: true }))
-                        }
-                        onError={() => setViewerVideoFetch({ loading: false, error: true, ready: false })}
-                        onPlay={() => {
-                          if (viewerVideoRef.current) {
-                            viewerVideoRef.current.defaultPlaybackRate = 3;
-                            viewerVideoRef.current.playbackRate = 3;
-                          }
-                          setViewerVideoState({ paused: false, ended: false });
-                        }}
-                        onPause={() => setViewerVideoState((prev) => ({ ...prev, paused: true }))}
-	                        onEnded={() => setViewerVideoState({ paused: true, ended: true })}
-	                        onTimeUpdate={handleViewerTimeUpdate}
-	                      />
-	                    ) : (
-	                      <div className="h-full w-full" />
-	                    )}
-	                  </div>
-                  {(viewerVideoState.paused || viewerVideoState.ended) &&
-                    viewerVideoFetch.ready &&
-                    !viewerVideoFetch.error && (
-                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                      <button
-                        type="button"
-                        className="pointer-events-auto flex h-16 w-16 items-center justify-center rounded-full border border-white/60 bg-black/40 backdrop-blur-sm transition hover:scale-105 hover:bg-black/55"
-                        onClick={handleViewerPlayOverlayClick}
-                        aria-label={viewerVideoState.ended ? "重播视频" : "播放视频"}
-                      >
-                        {viewerVideoState.ended ? (
-                          <RotateCcw className="h-7 w-7 text-white" />
-                        ) : (
-                          <Play className="h-8 w-8 translate-x-[1px] text-white" fill="currentColor" />
-                        )}
-                      </button>
-                    </div>
-                  )}
-
-                  {(() => {
-                    const baseline = getViewerBaselineSeconds();
-                    const visibleDuration = Math.max(viewerPlayback.duration - baseline, 0);
-                    const displayCurrent = viewerPlayback.dragging
-                      ? viewerPlayback.dragValue
-                      : clamp(viewerPlayback.currentTime - baseline, 0, visibleDuration);
-                    const disabled = !Number.isFinite(visibleDuration) || visibleDuration <= 0;
-
-                    return (
-                      <div className="mt-3 flex items-center gap-3 rounded-xl border border-slate-200 bg-white/90 px-3 py-2">
-                        <button
-                          type="button"
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                          onClick={handleViewerTogglePlay}
-                          aria-label={viewerVideoState.ended ? "重播" : viewerVideoState.paused ? "播放" : "暂停"}
-                        >
-                          {viewerVideoState.ended ? (
-                            <RotateCcw className="h-4 w-4" />
-                          ) : viewerVideoState.paused ? (
-                            <Play className="h-4 w-4 translate-x-[1px]" />
-                          ) : (
-                            <Pause className="h-4 w-4" />
-                          )}
-                        </button>
-
-                        <input
-                          type="range"
-                          min={0}
-                          max={visibleDuration}
-                          step={0.1}
-                          value={disabled ? 0 : displayCurrent}
-                          disabled={disabled}
-                          className="flex-1"
-                          onPointerDown={handleViewerSeekStart}
-                          onPointerUp={handleViewerSeekEnd}
-                          onPointerCancel={handleViewerSeekEnd}
-                          onChange={(e) => handleViewerSeekChange(Number(e.target.value))}
-                        />
-
-                        <div className="whitespace-nowrap text-xs tabular-nums text-slate-600">
-                          {formatClock(displayCurrent)} / {formatClock(visibleDuration)}
-                          <span className="ml-2 text-slate-500">3x</span>
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
       )}
       </div>
     </div>

@@ -19,7 +19,6 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { TasksDrawer } from "@/components/subscription/tasks-drawer";
 import { TaskDetailModal } from "@/components/subscription/task-detail-modal";
-import { TaskQueueModal } from "@/components/subscription/task-queue-modal";
 import { TaskQueueList } from "@/components/subscription/task-queue-list";
 import { ExecutedTasksList } from "@/components/subscription/executed-tasks-list";
 import { TimeRangeSelector } from "@/components/subscription/time-range-selector";
@@ -55,7 +54,6 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
   
   // UI 状态
   const [isTasksDrawerOpen, setIsTasksDrawerOpen] = useState(false);
-  const [isTaskQueueModalOpen, setIsTaskQueueModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<SubscriptionItem | null>(null);
   const [failureTypes, setFailureTypes] = useState<FailureTypeItem[]>([]);
 
@@ -635,12 +633,6 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
           failureTypeLabel={failureTypeLabel}
         />
       )}
-
-      {/* 执行队列模态框 */}
-      <TaskQueueModal
-        open={isTaskQueueModalOpen}
-        onClose={() => setIsTaskQueueModalOpen(false)}
-      />
     </DashboardShell>
   );
 }
