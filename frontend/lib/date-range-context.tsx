@@ -2,32 +2,32 @@
 
 import { createContext, useContext, useState, ReactNode } from "react";
 import { startOfToday } from "date-fns";
-import type { DateRange } from "@/components/subscription/time-range-selector";
+import type { DateRange } from "@/components/ui/date-range-picker";
 
-type TimeRangeContextType = {
+type DateRangeContextType = {
   dateRange: DateRange;
   setDateRange: (range: DateRange) => void;
 };
 
-const TimeRangeContext = createContext<TimeRangeContextType | undefined>(undefined);
+const DateRangeContext = createContext<DateRangeContextType | undefined>(undefined);
 
-export function TimeRangeProvider({ children }: { children: ReactNode }) {
+export function DateRangeProvider({ children }: { children: ReactNode }) {
   const [dateRange, setDateRange] = useState<DateRange>(() => {
     const today = startOfToday();
     return { from: today, to: today };
   });
 
   return (
-    <TimeRangeContext.Provider value={{ dateRange, setDateRange }}>
+    <DateRangeContext.Provider value={{ dateRange, setDateRange }}>
       {children}
-    </TimeRangeContext.Provider>
+    </DateRangeContext.Provider>
   );
 }
 
-export function useTimeRange() {
-  const context = useContext(TimeRangeContext);
+export function useDateRange() {
+  const context = useContext(DateRangeContext);
   if (!context) {
-    throw new Error("useTimeRange must be used within TimeRangeProvider");
+    throw new Error("useDateRange must be used within DateRangeProvider");
   }
   return context;
 }

@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { TimeRangeSelector, type DateRange } from "@/components/subscription/time-range-selector";
+import { DateRangePicker, type DateRange } from "@/components/ui/date-range-picker";
 import { format } from "date-fns";
 import { apiFetch } from "@/lib/api";
 import { formatDateTime, formatDurationSeconds } from "@/lib/datetime";
@@ -257,7 +257,7 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
     return [...baseOptions, ...optionsWithCount];
   }, [failureTypeStats, failureTypes]);
 
-  // 注意：时间范围选项现在由 TimeRangeSelector 组件统一管理
+  // 注意：时间范围选项现在由 DateRangePicker 组件统一管理
 
   const renderStatus = (value?: string) => {
     if (!value) return <span className="text-slate-400">-</span>;
@@ -447,7 +447,7 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
           {(statusFilter === "ALL" || statusFilter === "SUCCESS" || statusFilter === "FAILED") && (
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold text-slate-700">时间范围</span>
-              <TimeRangeSelector
+              <DateRangePicker
                 value={timeRangeFilter}
                 onChange={handleTimeRangeChange}
                 className="min-w-[200px] h-10 border-slate-200 bg-white shadow-[0_6px_18px_rgba(15,23,42,0.06)]"

@@ -21,14 +21,14 @@ import { TaskQueueCard } from "@/components/evidence/task-queue-card";
 import { TaskListRecent } from "@/components/evidence/task-list-recent";
 import { TaskListDrawer } from "@/components/evidence/task-list-drawer";
 import { TaskDetailModal } from "@/components/evidence/task-detail-modal";
-import { type DateRange, getPresetRange } from "@/components/subscription/time-range-selector";
+import { type DateRange, getPresetRange } from "@/components/ui/date-range-picker";
 import { format } from "date-fns";
 import { DailyTrendChart } from "@/components/evidence/daily-trend-chart";
 import { DashboardShell } from "./shell";
 import { apiFetch } from "@/lib/api";
 import { formatDurationSeconds } from "@/lib/datetime";
 import { formatTokenCount } from "@/lib/utils";
-import { useTimeRange } from "@/lib/time-range-context";
+import { useDateRange } from "@/lib/date-range-context";
 import { toast } from "sonner";
 import type {
   EvidenceStatsResponse,
@@ -50,7 +50,7 @@ export function EvidenceDashboard({ onLogout, account }: DashboardProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const { dateRange: statsTimeRange, setDateRange } = useTimeRange();
+  const { dateRange: statsTimeRange, setDateRange } = useDateRange();
 
   const [stats, setStats] = useState<EvidenceStatsResponse | null>(null);
   const [loading, setLoading] = useState(true);

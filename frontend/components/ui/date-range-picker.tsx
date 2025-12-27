@@ -18,7 +18,7 @@ export type DateRange = {
   to: Date | undefined;
 };
 
-type TimeRangeSelectorProps = {
+type DateRangePickerProps = {
   value: DateRange;
   onChange: (range: DateRange) => void;
   className?: string;
@@ -74,12 +74,12 @@ function getPresetRange(preset: string): DateRange {
 }
 
 
-export function TimeRangeSelector({ 
-  value, 
-  onChange, 
+export function DateRangePicker({
+  value,
+  onChange,
   className,
   variant = "select"
-}: TimeRangeSelectorProps) {
+}: DateRangePickerProps) {
   const [open, setOpen] = useState(false);
   const [selectedRange, setSelectedRange] = useState<ReactDayPickerRange | undefined>(
     value.from || value.to ? { from: value.from, to: value.to } : undefined

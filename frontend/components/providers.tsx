@@ -5,7 +5,7 @@ import { Toaster, toast } from "sonner";
 import { useEffect } from "react";
 
 import { popAuthExpiredToast } from "@/lib/api";
-import { TimeRangeProvider } from "@/lib/time-range-context";
+import { DateRangeProvider } from "@/lib/date-range-context";
 
 type ProvidersProps = {
   children: React.ReactNode;
@@ -24,10 +24,10 @@ export function Providers({ children }: ProvidersProps) {
       enableSystem={false}
       disableTransitionOnChange
     >
-      <TimeRangeProvider>
+      <DateRangeProvider>
         {children}
         <Toaster richColors position="top-center" />
-      </TimeRangeProvider>
+      </DateRangeProvider>
     </ThemeProvider>
   );
 }

@@ -12,9 +12,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { TimeRangeSelector } from "@/components/subscription/time-range-selector";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { clearLocalAuth, isJwtExpired, queueAuthExpiredToast } from "@/lib/api";
-import { useTimeRange } from "@/lib/time-range-context";
+import { useDateRange } from "@/lib/date-range-context";
 import { cn } from "@/lib/utils";
 
 import { dashboardNavItems } from "./nav";
@@ -32,7 +32,7 @@ export function DashboardShell({ title, description, actions, children, account,
   const pathname = usePathname();
   const router = useRouter();
   const [accountName, setAccountName] = useState<string | null>(account ?? null);
-  const { dateRange, setDateRange } = useTimeRange();
+  const { dateRange, setDateRange } = useDateRange();
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -104,7 +104,7 @@ export function DashboardShell({ title, description, actions, children, account,
           </nav>
 
           <div className="ml-auto flex items-center gap-3">
-            <TimeRangeSelector
+            <DateRangePicker
               value={dateRange}
               onChange={setDateRange}
               variant="select"

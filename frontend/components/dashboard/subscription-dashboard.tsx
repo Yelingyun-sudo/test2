@@ -21,14 +21,14 @@ import { TaskListDrawer } from "@/components/subscription/task-list-drawer";
 import { TaskDetailModal } from "@/components/subscription/task-detail-modal";
 import { TaskQueueCard } from "@/components/subscription/task-queue-card";
 import { TaskListRecent } from "@/components/subscription/task-list-recent";
-import { type DateRange, getPresetRange } from "@/components/subscription/time-range-selector";
+import { type DateRange, getPresetRange } from "@/components/ui/date-range-picker";
 import { format } from "date-fns";
 import { DailyTrendChart } from "@/components/subscription/daily-trend-chart";
 import { DashboardShell } from "./shell";
 import { apiFetch } from "@/lib/api";
 import { formatDurationSeconds } from "@/lib/datetime";
 import { formatTokenCount } from "@/lib/utils";
-import { useTimeRange } from "@/lib/time-range-context";
+import { useDateRange } from "@/lib/date-range-context";
 import { toast } from "sonner";
 import type {
   StatsResponse,
@@ -51,7 +51,7 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
   const searchParams = useSearchParams();
   
   // 使用全局时间范围状态
-  const { dateRange: statsTimeRange, setDateRange } = useTimeRange();
+  const { dateRange: statsTimeRange, setDateRange } = useDateRange();
   
   // 统计数据状态
   const [stats, setStats] = useState<StatsResponse | null>(null);
