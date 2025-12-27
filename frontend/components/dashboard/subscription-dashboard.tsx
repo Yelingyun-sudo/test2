@@ -26,6 +26,7 @@ import { TimeRangeSelector } from "@/components/subscription/time-range-selector
 import { DailyTrendChart } from "./daily-trend-chart";
 import { DashboardShell } from "./shell";
 import { apiFetch } from "@/lib/api";
+import { formatDurationSeconds } from "@/lib/datetime";
 import { formatTokenCount } from "@/lib/utils";
 import { toast } from "sonner";
 import type { StatsResponse } from "@/lib/types";
@@ -36,24 +37,6 @@ type DashboardProps = {
   onLogout: () => void;
   account?: string;
 };
-
-// 格式化时长
-function formatDurationSeconds(value?: number | null): string {
-  if (value == null || isNaN(value)) return "-";
-  const totalSeconds = Math.max(0, Math.floor(value));
-  if (totalSeconds < 60) return `${totalSeconds}秒`;
-
-  const days = Math.floor(totalSeconds / 86_400);
-  const hours = Math.floor((totalSeconds % 86_400) / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-
-  if (totalSeconds < 3600) return `${minutes}分${seconds}秒`;
-  if (totalSeconds < 86_400)
-    return `${hours}小时${minutes}分${seconds}秒`;
-  return `${days}天${hours}小时${minutes}分${seconds}秒`;
-}
-
 
 export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
   const router = useRouter();
@@ -654,7 +637,7 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
               订阅链接任务列表，支持筛选与检索
             </SheetDescription>
           </SheetHeader>
-          <TasksDrawer />
+          <TasksDrawer failureTypes={failureTypes} failureTypeLabel={failureTypeLabel} />
         </SheetContent>
       </Sheet>
 
@@ -663,6 +646,7 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
         <TaskDetailModal
           task={selectedTask}
           onClose={() => setSelectedTask(null)}
+          failureTypeLabel={failureTypeLabel}
         />
       )}
 

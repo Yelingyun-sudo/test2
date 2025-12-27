@@ -36,3 +36,24 @@ export function parseDateTime(value?: string | null): Date | null {
   return d;
 }
 
+/**
+ * 格式化时长（秒）为可读字符串
+ * @param value 时长（秒），可为 null 或 undefined
+ * @returns 格式化后的字符串，如 "2分30秒"、"1小时5分10秒"
+ */
+export function formatDurationSeconds(value?: number | null): string {
+  if (value == null || isNaN(value)) return "-";
+  const totalSeconds = Math.max(0, Math.floor(value));
+  if (totalSeconds < 60) return `${totalSeconds}秒`;
+
+  const days = Math.floor(totalSeconds / 86_400);
+  const hours = Math.floor((totalSeconds % 86_400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (totalSeconds < 3600) return `${minutes}分${seconds}秒`;
+  if (totalSeconds < 86_400)
+    return `${hours}小时${minutes}分${seconds}秒`;
+  return `${days}天${hours}小时${minutes}分${seconds}秒`;
+}
+

@@ -13,15 +13,13 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { apiFetch } from "@/lib/api";
-import { formatDateTime, parseDateTime } from "@/lib/datetime";
+import { formatDateTime, formatDurationSeconds, parseDateTime } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
 import type { SubscriptionItem } from "@/types/subscription";
 import {
   STATUS_LABELS,
   STATUS_STYLES,
   type TaskStatus,
-  type FailureTypeItem,
-  type FailureTypesResponse,
 } from "@/types/common";
 
 interface TaskArtifacts {
@@ -46,6 +44,7 @@ interface MediaFlags {
 type TaskDetailModalProps = {
   task: SubscriptionItem;
   onClose: () => void;
+  failureTypeLabel: Record<string, string>;
 };
 
 function MediaLoadingOverlay({ label }: { label: string }) {
@@ -79,23 +78,7 @@ function formatNumber(num: number | undefined): string {
   return num.toLocaleString("zh-CN");
 }
 
-function formatDurationSeconds(value?: number | null): string {
-  if (value == null || isNaN(value)) return "-";
-  const totalSeconds = Math.max(0, Math.floor(value));
-  if (totalSeconds < 60) return `${totalSeconds}秒`;
-
-  const days = Math.floor(totalSeconds / 86_400);
-  const hours = Math.floor((totalSeconds % 86_400) / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-
-  if (totalSeconds < 3600) return `${minutes}分${seconds}秒`;
-  if (totalSeconds < 86_400)
-    return `${hours}小时${minutes}分${seconds}秒`;
-  return `${days}天${hours}小时${minutes}分${seconds}秒`;
-}
-
-export function TaskDetailModal({ task, onClose }: TaskDetailModalProps) {
+export function TaskDetailModal({ task, onClose, failureTypeLabel }: TaskDetailModalProps) {
   const [artifacts, setArtifacts] = useState<TaskArtifacts | null>(null);
   const [artifactUrls, setArtifactUrls] = useState<ArtifactUrls>({
     loginImageUrl: null,
@@ -140,9 +123,6 @@ export function TaskDetailModal({ task, onClose }: TaskDetailModalProps) {
     error: false,
     ready: false
   });
-
-  // 失败类型列表
-  const [failureTypes, setFailureTypes] = useState<FailureTypeItem[]>([]);
 
   const artifactUrlsRef = useRef<ArtifactUrls>({
     loginImageUrl: null,
@@ -374,32 +354,6 @@ export function TaskDetailModal({ task, onClose }: TaskDetailModalProps) {
       return { ...prev, dragging: false, currentTime: target, dragValue: displayValue };
     });
   };
-
-  // 获取失败类型列表
-  useEffect(() => {
-    const fetchFailureTypes = async () => {
-      try {
-        const res = await apiFetch("/subscription/failure-types");
-        if (!res.ok) {
-          throw new Error("获取失败类型列表失败");
-        }
-        const data = (await res.json()) as FailureTypesResponse;
-        setFailureTypes(data.items);
-      } catch (error) {
-        console.error("获取失败类型列表失败:", error);
-        toast.error("获取失败类型列表失败");
-      }
-    };
-    fetchFailureTypes();
-  }, []);
-
-  // 从 API 获取的失败类型构建标签映射（必须在所有条件返回之前）
-  const failureTypeLabel: Record<string, string> = useMemo(() => {
-    return failureTypes.reduce((acc, item) => {
-      acc[item.value] = item.label;
-      return acc;
-    }, {} as Record<string, string>);
-  }, [failureTypes]);
 
   useEffect(() => {
     if (!task) {

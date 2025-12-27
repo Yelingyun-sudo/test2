@@ -2,27 +2,10 @@
 
 import { ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { formatDateTime } from "@/lib/datetime";
+import { formatDateTime, formatDurationSeconds } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
 import type { SubscriptionItem } from "@/types/subscription";
 import { STATUS_LABELS, STATUS_STYLES, type TaskStatus } from "@/types/common";
-
-// 格式化时长
-function formatDurationSeconds(value?: number | null): string {
-  if (value == null || isNaN(value)) return "-";
-  const totalSeconds = Math.max(0, Math.floor(value));
-  if (totalSeconds < 60) return `${totalSeconds}秒`;
-
-  const days = Math.floor(totalSeconds / 86_400);
-  const hours = Math.floor((totalSeconds % 86_400) / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-
-  if (totalSeconds < 3600) return `${minutes}分${seconds}秒`;
-  if (totalSeconds < 86_400)
-    return `${hours}小时${minutes}分${seconds}秒`;
-  return `${days}天${hours}小时${minutes}分${seconds}秒`;
-}
 
 type ExecutedTasksListProps = {
   tasks: SubscriptionItem[];
