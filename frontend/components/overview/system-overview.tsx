@@ -8,6 +8,10 @@ import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 import { useDateRange } from "@/lib/date-range-context";
 import { ModuleKPICard } from "@/components/overview/module-kpi-card";
+import { RecentTasksList } from "@/components/overview/recent-tasks-list";
+import type { EvidenceItem } from "@/types/evidence";
+import type { SubscriptionItem } from "@/types/subscription";
+import type { FailureTypeItem, FailureTypesResponse } from "@/types/common";
 
 interface SummaryData {
   total_tasks: number;
@@ -28,9 +32,34 @@ export function SystemOverview() {
 
   // Evidence 数据
   const [evidenceSummary, setEvidenceSummary] = useState<SummaryData | null>(null);
+  const [evidenceRecentTasks, setEvidenceRecentTasks] = useState<EvidenceItem[]>([]);
+  const [evidenceFailureTypes, setEvidenceFailureTypes] = useState<FailureTypeItem[]>([]);
 
   // Subscription 数据
   const [subscriptionSummary, setSubscriptionSummary] = useState<SummaryData | null>(null);
+  const [subscriptionRecentTasks, setSubscriptionRecentTasks] = useState<SubscriptionItem[]>([]);
+  const [subscriptionFailureTypes, setSubscriptionFailureTypes] = useState<FailureTypeItem[]>([]);
+
+  // 获取失败类型列表（只需获取一次）
+  useEffect(() => {
+    const fetchFailureTypes = async () => {
+      try {
+        const [evidenceRes, subscriptionRes] = await Promise.all([
+          apiFetch("/evidence/failure-types"),
+          apiFetch("/subscription/failure-types")
+        ]);
+        const [evidenceData, subscriptionData] = await Promise.all([
+          evidenceRes.json() as Promise<FailureTypesResponse>,
+          subscriptionRes.json() as Promise<FailureTypesResponse>
+        ]);
+        setEvidenceFailureTypes(evidenceData.items);
+        setSubscriptionFailureTypes(subscriptionData.items);
+      } catch (error) {
+        console.error("获取失败类型列表失败:", error);
+      }
+    };
+    fetchFailureTypes();
+  }, []);
 
   // 获取数据（受 dateRange 影响，包含轮询）
   useEffect(() => {
@@ -46,21 +75,37 @@ export function SystemOverview() {
 
         const queryString = params.toString() ? `?${params}` : "";
 
-        // 并发调用 summary API
-        const [evidenceSummaryRes, subscriptionSummaryRes] = await Promise.all([
+        // 并发调用所有 API
+        const [
+          evidenceSummaryRes,
+          evidenceRecentTasksRes,
+          subscriptionSummaryRes,
+          subscriptionRecentTasksRes
+        ] = await Promise.all([
           apiFetch(`/evidence/stats/summary${queryString}`),
-          apiFetch(`/subscription/stats/summary${queryString}`)
+          apiFetch(`/evidence/stats/recent-tasks`),
+          apiFetch(`/subscription/stats/summary${queryString}`),
+          apiFetch(`/subscription/stats/recent-tasks`)
         ]);
 
         // 解析响应
-        const [evidenceSummaryData, subscriptionSummaryData] = await Promise.all([
+        const [
+          evidenceSummaryData,
+          evidenceRecentTasksData,
+          subscriptionSummaryData,
+          subscriptionRecentTasksData
+        ] = await Promise.all([
           evidenceSummaryRes.json(),
-          subscriptionSummaryRes.json()
+          evidenceRecentTasksRes.json() as Promise<{ recent_tasks: EvidenceItem[] }>,
+          subscriptionSummaryRes.json(),
+          subscriptionRecentTasksRes.json() as Promise<{ recent_tasks: SubscriptionItem[] }>
         ]);
 
         // 设置数据
         setEvidenceSummary(evidenceSummaryData.summary);
+        setEvidenceRecentTasks(evidenceRecentTasksData.recent_tasks);
         setSubscriptionSummary(subscriptionSummaryData.summary);
+        setSubscriptionRecentTasks(subscriptionRecentTasksData.recent_tasks);
       } catch (error) {
         console.error("Failed to fetch overview data:", error);
         toast.error("加载概览数据失败");
@@ -84,8 +129,25 @@ export function SystemOverview() {
     );
   }
 
+  // 构建失败类型标签映射
+  const evidenceFailureTypeLabel = evidenceFailureTypes.reduce((acc, item) => {
+    acc[item.value] = item.label;
+    return acc;
+  }, {} as Record<string, string>);
+
+  const subscriptionFailureTypeLabel = subscriptionFailureTypes.reduce((acc, item) => {
+    acc[item.value] = item.label;
+    return acc;
+  }, {} as Record<string, string>);
+
+  // 合并失败类型标签
+  const allFailureTypeLabel = {
+    ...evidenceFailureTypeLabel,
+    ...subscriptionFailureTypeLabel
+  };
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* 业务场景 KPI 概览区 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <ModuleKPICard
@@ -112,6 +174,13 @@ export function SystemOverview() {
           detailUrl="/payment"
         />
       </div>
+
+      {/* 最近任务列表区域 */}
+      <RecentTasksList
+        evidenceTasks={evidenceRecentTasks}
+        subscriptionTasks={subscriptionRecentTasks}
+        failureTypeLabel={allFailureTypeLabel}
+      />
     </div>
   );
 }
