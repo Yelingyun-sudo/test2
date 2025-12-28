@@ -8,12 +8,10 @@ import { toast } from "sonner";
 
 import { apiFetch } from "@/lib/api";
 import { useDateRange } from "@/lib/date-range-context";
-import { cn } from "@/lib/utils";
-import { GlobalKPICard } from "@/components/overview/global-kpi-card";
 import { ModuleSection } from "@/components/overview/module-section";
-import { DailyTrendChart as EvidenceDailyTrendChart } from "@/components/evidence/daily-trend-chart";
+import { DailyTrendStackedBarChart as EvidenceDailyTrendChart } from "@/components/overview/daily-trend-stacked-bar-chart";
 import { TaskListRecent as EvidenceTaskListRecent } from "@/components/evidence/task-list-recent";
-import { DailyTrendChart as SubscriptionDailyTrendChart } from "@/components/subscription/daily-trend-chart";
+import { DailyTrendStackedBarChart as SubscriptionDailyTrendChart } from "@/components/overview/daily-trend-stacked-bar-chart";
 import { TaskListRecent as SubscriptionTaskListRecent } from "@/components/subscription/task-list-recent";
 import type { DailyTrendItem, DailyTrendResponse, RecentTasksResponse } from "@/lib/types";
 import type { EvidenceItem } from "@/types/evidence";
@@ -141,34 +139,6 @@ export function SystemOverview() {
     return () => clearInterval(interval);
   }, [dateRange]);
 
-  // 计算全局指标
-  const globalTotalTasks =
-    (evidenceSummary?.total_tasks || 0) +
-    (subscriptionSummary?.total_tasks || 0);
-
-  const globalSuccessCount =
-    (evidenceSummary?.today_success_count || 0) +
-    (subscriptionSummary?.today_success_count || 0);
-
-  const globalFailedCount =
-    (evidenceSummary?.today_failed_count || 0) +
-    (subscriptionSummary?.today_failed_count || 0);
-
-  const globalSuccessRate =
-    globalSuccessCount + globalFailedCount > 0
-      ? ((globalSuccessCount / (globalSuccessCount + globalFailedCount)) * 100).toFixed(1)
-      : "--";
-
-  const globalRunningCount =
-    (evidenceSummary?.running_count || 0) +
-    (subscriptionSummary?.running_count || 0);
-
-  const globalPendingCount =
-    (evidenceSummary?.pending_count || 0) +
-    (subscriptionSummary?.pending_count || 0);
-
-  const globalActiveQueue = globalRunningCount + globalPendingCount;
-
   // 构建失败类型标签映射
   const evidenceFailureTypeLabel = useMemo(() => {
     return evidenceFailureTypes.reduce((acc, item) => {
@@ -193,142 +163,93 @@ export function SystemOverview() {
   }
 
   return (
-    <div className="space-y-8">
-      {/* 全局 KPI 概览区 */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <GlobalKPICard
-          title="总任务数"
-          value={globalTotalTasks.toLocaleString()}
-          breakdown={[
-            { label: "Evidence", value: evidenceSummary?.total_tasks || 0 },
-            { label: "Subscription", value: subscriptionSummary?.total_tasks || 0 }
-          ]}
-          className="hover:shadow-xl hover:scale-[1.02] transition-all duration-300"
-        />
+    <div className="space-y-6">
+      {/* Evidence 模块 */}
+      <ModuleSection
+        title="注册取证任务"
+        icon={BarChart3}
+        iconColor="text-blue-600"
+        summary={
+          evidenceSummary
+            ? {
+                pendingCount: evidenceSummary.pending_count,
+                runningCount: evidenceSummary.running_count
+              }
+            : null
+        }
+        onStatusClick={(status) => router.push(`/evidence?status=${status}`)}
+        chartNode={
+          <EvidenceDailyTrendChart
+            dailyTrend={evidenceDailyTrend}
+            days={5}
+            onDateClick={(date) => {
+              const selectedDate = new Date(date);
+              setDateRange({ from: selectedDate, to: selectedDate });
+              router.push("/evidence");
+            }}
+          />
+        }
+        taskListNode={
+          <EvidenceTaskListRecent
+            tasks={evidenceRecentTasks}
+            total={evidenceSummary?.total_tasks || 0}
+            failureTypeLabel={evidenceFailureTypeLabel}
+            onTaskClick={() => router.push("/evidence")}
+            onViewAll={() => router.push("/evidence")}
+          />
+        }
+      />
 
-        <GlobalKPICard
-          title="总成功率"
-          value={`${globalSuccessRate}%`}
-          breakdown={[
-            { label: "成功", value: globalSuccessCount },
-            { label: "失败", value: globalFailedCount }
-          ]}
-          className={cn(
-            "hover:shadow-xl hover:scale-[1.02] transition-all duration-300",
-            parseFloat(globalSuccessRate) >= 95 && "border-green-200 from-green-50 to-emerald-50"
-          )}
-        />
+      {/* Subscription 模块 */}
+      <ModuleSection
+        title="订阅链接任务"
+        icon={Mail}
+        iconColor="text-purple-600"
+        summary={
+          subscriptionSummary
+            ? {
+                pendingCount: subscriptionSummary.pending_count,
+                runningCount: subscriptionSummary.running_count
+              }
+            : null
+        }
+        onStatusClick={(status) => router.push(`/subscription?status=${status}`)}
+        chartNode={
+          <SubscriptionDailyTrendChart
+            dailyTrend={subscriptionDailyTrend}
+            days={5}
+            onDateClick={(date) => {
+              const selectedDate = new Date(date);
+              setDateRange({ from: selectedDate, to: selectedDate });
+              router.push("/subscription");
+            }}
+          />
+        }
+        taskListNode={
+          <SubscriptionTaskListRecent
+            tasks={subscriptionRecentTasks}
+            total={subscriptionSummary?.total_tasks || 0}
+            failureTypeLabel={subscriptionFailureTypeLabel}
+            onTaskClick={() => router.push("/subscription")}
+            onViewAll={() => router.push("/subscription")}
+          />
+        }
+      />
 
-        <GlobalKPICard
-          title="活跃队列"
-          value={globalActiveQueue}
-          breakdown={[
-            { label: "执行中", value: globalRunningCount },
-            { label: "待执行", value: globalPendingCount }
-          ]}
-          className="hover:shadow-xl hover:scale-[1.02] transition-all duration-300"
-        />
-
-        <GlobalKPICard
-          title="期间完成"
-          value={(globalSuccessCount + globalFailedCount).toLocaleString()}
-          breakdown={[
-            { label: "成功", value: globalSuccessCount },
-            { label: "失败", value: globalFailedCount }
-          ]}
-          className="hover:shadow-xl hover:scale-[1.02] transition-all duration-300"
-        />
-      </div>
-
-      {/* 三层模块区 */}
-      <div className="space-y-6">
-        {/* Evidence 模块 */}
-        <ModuleSection
-          title="注册取证任务"
-          icon={BarChart3}
-          iconColor="text-blue-600"
-          summary={
-            evidenceSummary
-              ? {
-                  pendingCount: evidenceSummary.pending_count,
-                  runningCount: evidenceSummary.running_count
-                }
-              : null
-          }
-          onStatusClick={(status) => router.push(`/evidence?status=${status}`)}
-          chartNode={
-            <EvidenceDailyTrendChart
-              dailyTrend={evidenceDailyTrend}
-              days={5}
-              onDateClick={(date) => {
-                const selectedDate = new Date(date);
-                setDateRange({ from: selectedDate, to: selectedDate });
-                router.push("/evidence");
-              }}
-            />
-          }
-          taskListNode={
-            <EvidenceTaskListRecent
-              tasks={evidenceRecentTasks}
-              total={evidenceSummary?.total_tasks || 0}
-              failureTypeLabel={evidenceFailureTypeLabel}
-              onTaskClick={() => router.push("/evidence")}
-              onViewAll={() => router.push("/evidence")}
-            />
-          }
-        />
-
-        {/* Subscription 模块 */}
-        <ModuleSection
-          title="订阅链接任务"
-          icon={Mail}
-          iconColor="text-purple-600"
-          summary={
-            subscriptionSummary
-              ? {
-                  pendingCount: subscriptionSummary.pending_count,
-                  runningCount: subscriptionSummary.running_count
-                }
-              : null
-          }
-          onStatusClick={(status) => router.push(`/subscription?status=${status}`)}
-          chartNode={
-            <SubscriptionDailyTrendChart
-              dailyTrend={subscriptionDailyTrend}
-              days={5}
-              onDateClick={(date) => {
-                const selectedDate = new Date(date);
-                setDateRange({ from: selectedDate, to: selectedDate });
-                router.push("/subscription");
-              }}
-            />
-          }
-          taskListNode={
-            <SubscriptionTaskListRecent
-              tasks={subscriptionRecentTasks}
-              total={subscriptionSummary?.total_tasks || 0}
-              failureTypeLabel={subscriptionFailureTypeLabel}
-              onTaskClick={() => router.push("/subscription")}
-              onViewAll={() => router.push("/subscription")}
-            />
-          }
-        />
-
-        {/* Payment 模块 - 占位符 */}
-        <ModuleSection
-          title="支付链接任务"
-          icon={CreditCard}
-          iconColor="text-slate-400"
-          themeColors={{
-            gradient: "bg-gradient-to-br from-slate-50 to-slate-100",
-            border: "border-slate-300"
-          }}
-          summary={null}
-          onStatusClick={() => {}}
-          isPlaceholder
-          placeholderMessage="预计上线时间：2026年 Q1"
-        />
-      </div>
+      {/* Payment 模块 - 占位符 */}
+      <ModuleSection
+        title="支付链接任务"
+        icon={CreditCard}
+        iconColor="text-slate-400"
+        themeColors={{
+          gradient: "bg-gradient-to-br from-slate-50 to-slate-100",
+          border: "border-slate-300"
+        }}
+        summary={null}
+        onStatusClick={() => {}}
+        isPlaceholder
+        placeholderMessage="预计上线时间：2026年 Q1"
+      />
     </div>
   );
 }
