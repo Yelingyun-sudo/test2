@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Optional, Union
 
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
@@ -11,7 +11,9 @@ from sqlalchemy.orm import Session
 from website_analytics.settings import get_settings
 
 from .db import SessionLocal
-from .models import SubscriptionTask, TaskStatus
+from .models import EvidenceTask, SubscriptionTask, TaskStatus
+
+TaskModel = Union[SubscriptionTask, EvidenceTask]
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +26,7 @@ def _normalize_dt(dt: Optional[datetime]) -> Optional[datetime]:
     return dt
 
 
-def _get_stale_task(db: Session, cutoff: datetime) -> SubscriptionTask | None:
+def _get_stale_subscription_task(db: Session, cutoff: datetime) -> SubscriptionTask | None:
     return (
         db.query(SubscriptionTask)
         .filter(
@@ -48,8 +50,32 @@ def _get_stale_task(db: Session, cutoff: datetime) -> SubscriptionTask | None:
     )
 
 
+def _get_stale_evidence_task(db: Session, cutoff: datetime) -> EvidenceTask | None:
+    return (
+        db.query(EvidenceTask)
+        .filter(
+            EvidenceTask.status == TaskStatus.RUNNING,
+            or_(
+                and_(
+                    EvidenceTask.executed_at.isnot(None),
+                    EvidenceTask.executed_at < cutoff,
+                ),
+                and_(
+                    EvidenceTask.executed_at.is_(None),
+                    EvidenceTask.created_at < cutoff,
+                ),
+            ),
+        )
+        .order_by(
+            EvidenceTask.executed_at.asc().nullsfirst(),
+            EvidenceTask.created_at.asc(),
+        )
+        .first()
+    )
+
+
 def _mark_cleaned(
-    db: Session, task: SubscriptionTask, *, timeout_seconds: int, now: datetime
+    db: Session, task: TaskModel, *, timeout_seconds: int, now: datetime
 ) -> None:
     task.status = TaskStatus.FAILED
     task.failure_type = "task_cleaned"
@@ -72,13 +98,19 @@ async def process_once() -> None:
 
     db = SessionLocal()
     try:
-        stale_task = _get_stale_task(db, cutoff)
-        if not stale_task:
-            return
-
         now = datetime.now(timezone.utc)
-        _mark_cleaned(db, stale_task, timeout_seconds=timeout, now=now)
-        logger.warning("清理超时任务: id=%s, url=%s", stale_task.id, stale_task.url)
+
+        # 清理超时的 SubscriptionTask
+        stale_sub = _get_stale_subscription_task(db, cutoff)
+        if stale_sub:
+            _mark_cleaned(db, stale_sub, timeout_seconds=timeout, now=now)
+            logger.warning("清理超时订阅任务: id=%s, url=%s", stale_sub.id, stale_sub.url)
+
+        # 清理超时的 EvidenceTask
+        stale_evi = _get_stale_evidence_task(db, cutoff)
+        if stale_evi:
+            _mark_cleaned(db, stale_evi, timeout_seconds=timeout, now=now)
+            logger.warning("清理超时证据任务: id=%s, url=%s", stale_evi.id, stale_evi.url)
     finally:
         db.close()
 
