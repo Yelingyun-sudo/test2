@@ -50,9 +50,9 @@ export function ModuleKPICard({
   const getSuccessRateStyle = () => {
     if (successRate === "--") return { color: "text-slate-400", icon: null };
     const rate = parseFloat(successRate);
-    if (rate >= 95) return { color: "text-green-600", icon: "🟢" };
-    if (rate >= 90) return { color: "text-yellow-600", icon: "🟡" };
-    return { color: "text-red-600", icon: "🔴" };
+    if (rate >= 60) return { color: "text-emerald-600", icon: null };
+    if (rate >= 40) return { color: "text-slate-700", icon: null };
+    return { color: "text-slate-600", icon: null };
   };
 
   const successRateStyle = getSuccessRateStyle();
@@ -68,21 +68,21 @@ export function ModuleKPICard({
     switch (module) {
       case "evidence":
         return {
-          bg: "bg-gradient-to-br from-blue-50 to-cyan-50",
-          border: "border-blue-100",
-          iconColor: "text-blue-600"
+          bg: "bg-gradient-to-br from-sky-500/10 to-sky-600/10",
+          border: "border-sky-100",
+          iconColor: "text-sky-600"
         };
       case "subscription":
         return {
-          bg: "bg-gradient-to-br from-purple-50 to-pink-50",
-          border: "border-purple-100",
-          iconColor: "text-purple-600"
+          bg: "bg-gradient-to-br from-emerald-500/10 to-emerald-600/10",
+          border: "border-emerald-100",
+          iconColor: "text-emerald-600"
         };
       case "payment":
         return {
-          bg: "bg-slate-50",
-          border: "border-dashed border-slate-300",
-          iconColor: "text-slate-400"
+          bg: "bg-gradient-to-br from-violet-100 to-violet-200/60",
+          border: "border-purple-100",
+          iconColor: "text-violet-600"
         };
     }
   };

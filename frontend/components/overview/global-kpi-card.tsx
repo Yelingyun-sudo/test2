@@ -26,7 +26,7 @@ export function GlobalKPICard({
   return (
     <div
       className={cn(
-        "rounded-2xl border bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-100 p-6 shadow-sm backdrop-blur",
+        "rounded-2xl border bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border-blue-100 p-6 shadow-sm backdrop-blur",
         className
       )}
     >

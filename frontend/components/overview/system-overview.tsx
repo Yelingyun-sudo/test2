@@ -175,7 +175,7 @@ export function SystemOverview() {
         />
       </div>
 
-      {/* 最近任务列表区域 */}
+      {/* 最新任务列表区域 */}
       <RecentTasksList
         evidenceTasks={evidenceRecentTasks}
         subscriptionTasks={subscriptionRecentTasks}

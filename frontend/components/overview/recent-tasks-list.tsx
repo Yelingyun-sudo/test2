@@ -124,7 +124,7 @@ export function RecentTasksList({
       <div className="flex items-center justify-between pb-4 border-b border-slate-100">
         <div className="flex items-center gap-2">
           <List className="h-5 w-5 text-slate-600" />
-          <h3 className="text-lg font-semibold text-slate-900">最近任务</h3>
+          <h3 className="text-lg font-semibold text-slate-900">最新任务</h3>
           {!isExpanded && mergedTasks.length > 0 && (
             <span className="text-sm text-slate-500">
               （共 {mergedTasks.length} 个任务）
@@ -156,7 +156,7 @@ export function RecentTasksList({
         <div className="mt-4 transition-all duration-300">
           {mergedTasks.length === 0 ? (
             <div className="py-8 text-center text-sm text-slate-500">
-              暂无最近任务
+              暂无最新任务
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
