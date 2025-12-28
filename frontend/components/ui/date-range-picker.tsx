@@ -25,6 +25,62 @@ type DateRangePickerProps = {
   variant?: "tabs" | "select";
 };
 
+// 预设标签映射（显示标签与按钮标签保持一致，但"全部时间"例外）
+const PRESET_LABELS: Record<string, string> = {
+  today: "今天",
+  yesterday: "昨天",
+  "3d": "最近3天",
+  "7d": "最近7天",
+  "30d": "最近30天",
+  ALL: "全部时间",
+};
+
+// 判断日期范围是否匹配预设值
+function matchPresetRange(range: DateRange): string | null {
+  // 检查"全部时间"
+  if (!range.from && !range.to) {
+    return PRESET_LABELS.ALL;
+  }
+
+  // 其他预设都需要完整的日期范围
+  if (!range.from || !range.to) {
+    return null;
+  }
+
+  const today = startOfToday();
+  const yesterday = startOfYesterday();
+
+  // 检查"今天"
+  if (isSameDay(range.from, today) && isSameDay(range.to, today)) {
+    return PRESET_LABELS.today;
+  }
+
+  // 检查"昨天"
+  if (isSameDay(range.from, yesterday) && isSameDay(range.to, yesterday)) {
+    return PRESET_LABELS.yesterday;
+  }
+
+  // 检查"最近3天"
+  const threeDaysAgo = subDays(today, 2);
+  if (isSameDay(range.from, threeDaysAgo) && isSameDay(range.to, today)) {
+    return PRESET_LABELS["3d"];
+  }
+
+  // 检查"最近7天"
+  const sevenDaysAgo = subDays(today, 6);
+  if (isSameDay(range.from, sevenDaysAgo) && isSameDay(range.to, today)) {
+    return PRESET_LABELS["7d"];
+  }
+
+  // 检查"最近30天"
+  const thirtyDaysAgo = subDays(today, 29);
+  if (isSameDay(range.from, thirtyDaysAgo) && isSameDay(range.to, today)) {
+    return PRESET_LABELS["30d"];
+  }
+
+  return null;
+}
+
 // 格式化日期显示标签
 function formatDateLabel(date: Date): string {
   return `${date.getMonth() + 1}月${date.getDate()}日`;
@@ -32,6 +88,13 @@ function formatDateLabel(date: Date): string {
 
 // 格式化日期范围显示文本
 function formatDateRange(range: DateRange): string {
+  // 先检查是否匹配预设值
+  const presetLabel = matchPresetRange(range);
+  if (presetLabel) {
+    return presetLabel;
+  }
+
+  // 如果不匹配预设，使用原有的日期格式化逻辑
   if (!range.from && !range.to) {
     return "全部时间";
   }
