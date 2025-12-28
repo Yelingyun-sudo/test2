@@ -8,6 +8,7 @@ import { toast } from "sonner";
 
 import { apiFetch } from "@/lib/api";
 import { useDateRange } from "@/lib/date-range-context";
+import { ModuleKPICard } from "@/components/overview/module-kpi-card";
 import { ModuleSection } from "@/components/overview/module-section";
 import { DailyTrendStackedBarChart as EvidenceDailyTrendChart } from "@/components/overview/daily-trend-stacked-bar-chart";
 import { TaskListRecent as EvidenceTaskListRecent } from "@/components/evidence/task-list-recent";
@@ -182,8 +183,37 @@ export function SystemOverview() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Evidence 模块 */}
+    <div className="space-y-8">
+      {/* 业务场景 KPI 概览区 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <ModuleKPICard
+          module="evidence"
+          title="注册取证任务"
+          icon={<BarChart3 className="h-5 w-5" />}
+          summary={evidenceSummary}
+          detailUrl="/evidence"
+        />
+
+        <ModuleKPICard
+          module="subscription"
+          title="订阅链接任务"
+          icon={<Mail className="h-5 w-5" />}
+          summary={subscriptionSummary}
+          detailUrl="/subscription"
+        />
+
+        <ModuleKPICard
+          module="payment"
+          title="支付链接任务"
+          icon={<CreditCard className="h-5 w-5" />}
+          summary={null}
+          detailUrl="/payment"
+        />
+      </div>
+
+      {/* 三层模块区 */}
+      <div className="space-y-6">
+        {/* Evidence 模块 */}
       <ModuleSection
         title="注册取证任务"
         icon={BarChart3}
@@ -281,6 +311,7 @@ export function SystemOverview() {
         isPlaceholder
         placeholderMessage="预计上线时间：2026年 Q1"
       />
+      </div>
 
       {/* 证据任务列表抽屉 */}
       <Sheet

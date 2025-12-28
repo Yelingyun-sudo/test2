@@ -1,0 +1,219 @@
+"use client";
+
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { formatDurationSeconds } from "@/lib/datetime";
+import { formatTokenCount } from "@/lib/utils";
+
+interface ModuleSummaryData {
+  total_tasks: number;
+  pending_count: number;
+  running_count: number;
+  today_success_count: number;
+  today_failed_count: number;
+  today_tokens: number;
+  today_avg_success_duration_seconds: number;
+  today_avg_failed_duration_seconds: number;
+}
+
+interface ModuleKPICardProps {
+  module: "evidence" | "subscription" | "payment";
+  title: string;
+  icon: React.ReactNode;
+  summary?: ModuleSummaryData | null;
+  detailUrl: string;
+  className?: string;
+}
+
+export function ModuleKPICard({
+  module,
+  title,
+  icon,
+  summary,
+  detailUrl,
+  className
+}: ModuleKPICardProps) {
+  const isPayment = module === "payment";
+
+  // 计算成功率
+  const successCount = summary?.today_success_count || 0;
+  const failedCount = summary?.today_failed_count || 0;
+  const totalCompleted = successCount + failedCount;
+  const successRate =
+    totalCompleted > 0
+      ? ((successCount / totalCompleted) * 100).toFixed(1)
+      : "--";
+
+  // 成功率颜色和状态图标
+  const getSuccessRateStyle = () => {
+    if (successRate === "--") return { color: "text-slate-400", icon: null };
+    const rate = parseFloat(successRate);
+    if (rate >= 95) return { color: "text-green-600", icon: "🟢" };
+    if (rate >= 90) return { color: "text-yellow-600", icon: "🟡" };
+    return { color: "text-red-600", icon: "🔴" };
+  };
+
+  const successRateStyle = getSuccessRateStyle();
+
+  // 计算平均时长（优先使用成功任务的平均时长）
+  const avgDuration =
+    summary?.today_avg_success_duration_seconds ??
+    summary?.today_avg_failed_duration_seconds ??
+    null;
+
+  // 模块颜色方案
+  const getModuleStyles = () => {
+    switch (module) {
+      case "evidence":
+        return {
+          bg: "bg-gradient-to-br from-blue-50 to-cyan-50",
+          border: "border-blue-100",
+          iconColor: "text-blue-600"
+        };
+      case "subscription":
+        return {
+          bg: "bg-gradient-to-br from-purple-50 to-pink-50",
+          border: "border-purple-100",
+          iconColor: "text-purple-600"
+        };
+      case "payment":
+        return {
+          bg: "bg-slate-50",
+          border: "border-dashed border-slate-300",
+          iconColor: "text-slate-400"
+        };
+    }
+  };
+
+  const moduleStyles = getModuleStyles();
+
+  return (
+    <div
+      className={cn(
+        "rounded-2xl border p-6 shadow-sm backdrop-blur transition-all duration-300 hover:shadow-xl hover:scale-[1.02]",
+        moduleStyles.bg,
+        moduleStyles.border,
+        className
+      )}
+    >
+      {/* 顶部：图标 + 标题 */}
+      <div className="mb-4 flex items-center gap-2">
+        <div className={cn("flex-shrink-0", moduleStyles.iconColor)}>
+          {icon}
+        </div>
+        <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
+      </div>
+
+      {isPayment ? (
+        /* Payment 占位符内容 */
+        <div className="space-y-4">
+          <div className="text-center py-8">
+            <div className="text-4xl mb-2">🚧</div>
+            <div className="text-sm font-medium text-slate-700 mb-1">
+              功能开发中，敬请期待
+            </div>
+            <div className="text-xs text-slate-500">
+              预计上线时间：2026年 Q1
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={(e) => {
+              e.preventDefault();
+              // 可以添加 toast 提示
+            }}
+            disabled
+          >
+            查看详情
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+        </div>
+      ) : (
+        <>
+          {/* 主要指标区域：总任务数 + 成功率 */}
+          <div className="mb-4 grid grid-cols-2 gap-4">
+            <div>
+              <div className="text-4xl font-bold text-slate-900">
+                {summary?.total_tasks.toLocaleString() ?? "--"}
+              </div>
+              <div className="text-xs text-slate-600 mt-1">总任务数</div>
+            </div>
+            <div className="text-right">
+              <div
+                className={cn(
+                  "text-2xl font-bold",
+                  successRateStyle.color
+                )}
+              >
+                {successRate}%
+                {successRateStyle.icon && (
+                  <span className="ml-1 text-base">
+                    {successRateStyle.icon}
+                  </span>
+                )}
+              </div>
+              <div className="text-xs text-slate-600 mt-1">成功率</div>
+            </div>
+          </div>
+
+          {/* 细分指标区域：成功/失败，执行中/待执行 */}
+          <div className="mb-4 space-y-2 rounded-lg bg-white/60 p-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-slate-600">成功:</span>
+              <span className="font-semibold text-green-600">
+                {successCount.toLocaleString()}
+              </span>
+              <span className="text-slate-400">|</span>
+              <span className="text-slate-600">失败:</span>
+              <span className="font-semibold text-red-600">
+                {failedCount.toLocaleString()}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-slate-600">执行中:</span>
+              <span className="font-semibold text-amber-600">
+                {summary?.running_count ?? "--"}
+              </span>
+              <span className="text-slate-400">|</span>
+              <span className="text-slate-600">待执行:</span>
+              <span className="font-semibold text-slate-700">
+                {summary?.pending_count ?? "--"}
+              </span>
+            </div>
+          </div>
+
+          {/* 辅助信息区域：Token + 平均时长 */}
+          <div className="mb-4 flex items-center justify-between text-sm">
+            <div className="flex items-center gap-1">
+              <span className="text-slate-600">Token:</span>
+              <span className="font-medium text-slate-900">
+                {formatTokenCount(summary?.today_tokens)}
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-slate-600">平均时长:</span>
+              <span className="font-medium text-slate-900">
+                {formatDurationSeconds(avgDuration)}
+              </span>
+            </div>
+          </div>
+
+          {/* 底部操作按钮 */}
+          <Link href={detailUrl}>
+            <Button
+              variant="outline"
+              className="w-full group"
+            >
+              查看详情
+              <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </Button>
+          </Link>
+        </>
+      )}
+    </div>
+  );
+}
+
