@@ -15,6 +15,7 @@ import { DailyTrendStackedBarChart as SubscriptionDailyTrendChart } from "@/comp
 import { TaskListRecent as SubscriptionTaskListRecent } from "@/components/subscription/task-list-recent";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { TaskListDrawer } from "@/components/evidence/task-list-drawer";
+import { TaskListDrawer as SubscriptionTaskListDrawer } from "@/components/subscription/task-list-drawer";
 import type { DailyTrendItem, DailyTrendResponse, RecentTasksResponse } from "@/lib/types";
 import type { EvidenceItem } from "@/types/evidence";
 import type { SubscriptionItem } from "@/types/subscription";
@@ -39,6 +40,7 @@ export function SystemOverview() {
   const { dateRange, setDateRange } = useDateRange();
   const [loading, setLoading] = useState(true);
   const [isEvidenceDrawerOpen, setIsEvidenceDrawerOpen] = useState(false);
+  const [isSubscriptionDrawerOpen, setIsSubscriptionDrawerOpen] = useState(false);
 
   // Evidence 数据
   const [evidenceSummary, setEvidenceSummary] = useState<SummaryData | null>(null);
@@ -236,7 +238,11 @@ export function SystemOverview() {
               }
             : null
         }
-        onStatusClick={(status) => router.push(`/subscription?status=${status}`)}
+        onStatusClick={(status) => {
+          const statusUpper = status.toUpperCase(); // "pending" -> "PENDING"
+          router.push(`/?status=${statusUpper}`);
+          setIsSubscriptionDrawerOpen(true);
+        }}
         chartNode={
           <SubscriptionDailyTrendChart
             dailyTrend={subscriptionDailyTrend}
@@ -254,7 +260,9 @@ export function SystemOverview() {
             total={subscriptionSummary?.total_tasks || 0}
             failureTypeLabel={subscriptionFailureTypeLabel}
             onTaskClick={() => router.push("/subscription")}
-            onViewAll={() => router.push("/subscription")}
+            onViewAll={() => {
+              setIsSubscriptionDrawerOpen(true);
+            }}
           />
         }
       />
@@ -305,6 +313,41 @@ export function SystemOverview() {
           <TaskListDrawer
             failureTypes={evidenceFailureTypes}
             failureTypeLabel={evidenceFailureTypeLabel}
+          />
+        </SheetContent>
+      </Sheet>
+
+      {/* 订阅链接任务列表抽屉 */}
+      <Sheet
+        open={isSubscriptionDrawerOpen}
+        onOpenChange={(open) => {
+          setIsSubscriptionDrawerOpen(open);
+          if (!open) {
+            const params = new URLSearchParams(searchParams.toString());
+            params.delete("page");
+            params.delete("status");
+            params.delete("failure_type");
+            params.delete("q");
+            params.delete("start_date");
+            params.delete("end_date");
+            const queryString = params.toString();
+            router.push(queryString ? `/?${queryString}` : "/");
+          }
+        }}
+      >
+        <SheetContent
+          side="right"
+          className="w-[95vw] sm:w-[93vw] lg:w-[90vw] overflow-y-auto p-6"
+        >
+          <SheetHeader className="mb-4">
+            <SheetTitle>全部任务</SheetTitle>
+            <SheetDescription>
+              订阅链接任务列表，支持筛选与检索
+            </SheetDescription>
+          </SheetHeader>
+          <SubscriptionTaskListDrawer
+            failureTypes={subscriptionFailureTypes}
+            failureTypeLabel={subscriptionFailureTypeLabel}
           />
         </SheetContent>
       </Sheet>
