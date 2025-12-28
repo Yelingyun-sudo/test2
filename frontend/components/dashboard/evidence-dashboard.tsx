@@ -17,7 +17,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { TaskQueueCard } from "@/components/evidence/task-queue-card";
+import { TaskQueueCard } from "@/components/common/task-queue-card";
 import { TaskListRecent } from "@/components/evidence/task-list-recent";
 import { TaskListDrawer } from "@/components/evidence/task-list-drawer";
 import { TaskDetailModal } from "@/components/evidence/task-detail-modal";

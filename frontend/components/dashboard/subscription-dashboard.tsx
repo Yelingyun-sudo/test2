@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { TaskListDrawer } from "@/components/subscription/task-list-drawer";
 import { TaskDetailModal } from "@/components/subscription/task-detail-modal";
-import { TaskQueueCard } from "@/components/subscription/task-queue-card";
+import { TaskQueueCard } from "@/components/common/task-queue-card";
 import { TaskListRecent } from "@/components/subscription/task-list-recent";
 import { type DateRange, getPresetRange } from "@/components/ui/date-range-picker";
 import { format } from "date-fns";
