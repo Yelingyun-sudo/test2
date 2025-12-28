@@ -80,6 +80,13 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
     // 点击日期时，设置全局时间范围为该日期
     const selectedDate = new Date(date);
     setDateRange({ from: selectedDate, to: selectedDate });
+    
+    // 将日期参数添加到 URL 中，以便抽屉窗口能够读取并显示
+    const params = new URLSearchParams();
+    params.set("start_date", format(selectedDate, "yyyy-MM-dd"));
+    params.set("end_date", format(selectedDate, "yyyy-MM-dd"));
+    router.push(`/subscription?${params.toString()}`);
+    
     setIsTaskListDrawerOpen(true); // 打开抽屉框
   };
 

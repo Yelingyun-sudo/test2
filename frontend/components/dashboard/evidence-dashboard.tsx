@@ -74,6 +74,13 @@ export function EvidenceDashboard({ onLogout, account }: DashboardProps) {
   const handleDateClick = (date: string) => {
     const selectedDate = new Date(date);
     setDateRange({ from: selectedDate, to: selectedDate });
+    
+    // 将日期参数添加到 URL 中，以便抽屉窗口能够读取并显示
+    const params = new URLSearchParams();
+    params.set("start_date", format(selectedDate, "yyyy-MM-dd"));
+    params.set("end_date", format(selectedDate, "yyyy-MM-dd"));
+    router.push(`/evidence?${params.toString()}`);
+    
     setIsTaskListDrawerOpen(true);
   };
 
