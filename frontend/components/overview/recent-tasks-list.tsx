@@ -188,23 +188,30 @@ export function RecentTasksList({
                         </div>
                       </div>
                     </div>
-                    <span
-                      className={cn(
-                        "inline-flex items-center rounded-full px-2 py-1 text-xs font-medium",
-                        STATUS_STYLES[task.status as TaskStatus] ||
-                          "bg-slate-100 text-slate-600 border border-slate-200"
+                    <div className="flex items-center gap-2">
+                      {task.status === "FAILED" && task.failure_type && (
+                        <span className="inline-flex items-center rounded-md bg-rose-50 px-2 py-1 text-xs font-medium text-rose-700 ring-1 ring-inset ring-rose-600/10">
+                          {failureTypeLabel[task.failure_type] || task.failure_type}
+                        </span>
                       )}
-                    >
-                      {getStatusIcon(task.status)}
-                      {STATUS_LABELS[task.status as TaskStatus] || task.status}
-                    </span>
+                      <span
+                        className={cn(
+                          "inline-flex items-center rounded-full px-2 py-1 text-xs font-medium",
+                          STATUS_STYLES[task.status as TaskStatus] ||
+                            "bg-slate-100 text-slate-600 border border-slate-200"
+                        )}
+                      >
+                        {getStatusIcon(task.status)}
+                        {STATUS_LABELS[task.status as TaskStatus] || task.status}
+                      </span>
+                    </div>
                   </div>
 
                   {/* 任务信息 */}
                   <div className="space-y-1 text-xs text-slate-600">
                     {task.executed_at && (
                       <div>
-                        执行时间: {formatDateTime(task.executed_at)}
+                        时间: {formatDateTime(task.executed_at)}
                       </div>
                     )}
                     {task.duration_seconds !== null && task.status !== "RUNNING" && task.status !== "PENDING" && (
@@ -215,13 +222,6 @@ export function RecentTasksList({
                     <div className="truncate" title={task.url}>
                       网址: {task.url}
                     </div>
-                    {task.status === "FAILED" && task.failure_type && (
-                      <div className="mt-2">
-                        <span className="inline-flex items-center rounded-md bg-rose-50 px-2 py-1 text-xs font-medium text-rose-700 ring-1 ring-inset ring-rose-600/10">
-                          {failureTypeLabel[task.failure_type] || task.failure_type}
-                        </span>
-                      </div>
-                    )}
                     {task.result && (
                       <div className="mt-2 truncate" title={task.result}>
                         结果: {task.result}
