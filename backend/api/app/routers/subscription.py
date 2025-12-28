@@ -625,13 +625,15 @@ def _compute_summary(
     )
 
 
-def _compute_daily_trend(db: Session, cn_today: datetime.date) -> list[DailyTrendItem]:
+def _compute_daily_trend(db: Session, tz_cn: timezone) -> list[DailyTrendItem]:
     """计算每日趋势（最近10天）"""
-    ten_days_ago = cn_today - timedelta(days=10)
+    now_cn = datetime.now(tz_cn)
+    ten_days_ago = now_cn.date() - timedelta(days=10)
 
+    # 按执行时间的日期分组
     daily_trend_results = (
         db.query(
-            SubscriptionTask.created_date.label("date"),
+            func.date(SubscriptionTask.executed_at).label("date"),
             func.count(SubscriptionTask.id).label("total_count"),
             func.sum(
                 case((SubscriptionTask.status == TaskStatus.SUCCESS, 1), else_=0)
@@ -640,9 +642,12 @@ def _compute_daily_trend(db: Session, cn_today: datetime.date) -> list[DailyTren
                 case((SubscriptionTask.status == TaskStatus.FAILED, 1), else_=0)
             ).label("failed_count"),
         )
-        .filter(SubscriptionTask.created_date >= ten_days_ago)
-        .group_by(SubscriptionTask.created_date)
-        .order_by(SubscriptionTask.created_date.asc())
+        .filter(
+            SubscriptionTask.executed_at.isnot(None),
+            func.date(SubscriptionTask.executed_at) >= ten_days_ago,
+        )
+        .group_by(func.date(SubscriptionTask.executed_at))
+        .order_by(func.date(SubscriptionTask.executed_at).asc())
         .all()
     )
 
@@ -656,9 +661,17 @@ def _compute_daily_trend(db: Session, cn_today: datetime.date) -> list[DailyTren
             (success_count_day / completed_day) if completed_day > 0 else 0.0
         )
 
+        # 处理 row.date 可能是字符串或 date 对象的情况
+        date_str = ""
+        if row.date:
+            if isinstance(row.date, str):
+                date_str = row.date
+            else:
+                date_str = row.date.isoformat()
+
         daily_trend.append(
             DailyTrendItem(
-                date=row.date.isoformat() if row.date else "",
+                date=date_str,
                 total_count=total_count,
                 success_count=success_count_day,
                 failed_count=failed_count_day,
@@ -928,7 +941,7 @@ def get_subscription_stats(
         )
 
     if "daily_trend" in requested_fields:
-        result["daily_trend"] = _compute_daily_trend(db, cn_today)
+        result["daily_trend"] = _compute_daily_trend(db, tz_cn)
 
     if "status_distribution" in requested_fields:
         result["status_distribution"] = _compute_status_distribution(
@@ -1009,9 +1022,8 @@ def get_subscription_stats_daily_trend(
 ):
     """获取订阅任务的每日趋势数据（最近10天）"""
     tz_cn = timezone(timedelta(hours=8))
-    cn_today = datetime.now(tz_cn).date()
 
-    daily_trend = _compute_daily_trend(db, cn_today)
+    daily_trend = _compute_daily_trend(db, tz_cn)
     return DailyTrendResponse(daily_trend=daily_trend)
 
 
