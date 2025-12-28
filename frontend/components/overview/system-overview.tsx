@@ -1,26 +1,13 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { format } from "date-fns";
-import { useRouter, useSearchParams } from "next/navigation";
 import { BarChart3, Mail, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 
 import { apiFetch } from "@/lib/api";
 import { useDateRange } from "@/lib/date-range-context";
 import { ModuleKPICard } from "@/components/overview/module-kpi-card";
-import { ModuleSection } from "@/components/overview/module-section";
-import { DailyTrendStackedBarChart as EvidenceDailyTrendChart } from "@/components/overview/daily-trend-stacked-bar-chart";
-import { TaskListRecent as EvidenceTaskListRecent } from "@/components/evidence/task-list-recent";
-import { DailyTrendStackedBarChart as SubscriptionDailyTrendChart } from "@/components/overview/daily-trend-stacked-bar-chart";
-import { TaskListRecent as SubscriptionTaskListRecent } from "@/components/subscription/task-list-recent";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { TaskListDrawer } from "@/components/evidence/task-list-drawer";
-import { TaskListDrawer as SubscriptionTaskListDrawer } from "@/components/subscription/task-list-drawer";
-import type { DailyTrendItem, DailyTrendResponse, RecentTasksResponse } from "@/lib/types";
-import type { EvidenceItem } from "@/types/evidence";
-import type { SubscriptionItem } from "@/types/subscription";
-import type { FailureTypeItem, FailureTypesResponse } from "@/types/common";
 
 interface SummaryData {
   total_tasks: number;
@@ -36,58 +23,14 @@ interface SummaryData {
 }
 
 export function SystemOverview() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const { dateRange, setDateRange } = useDateRange();
+  const { dateRange } = useDateRange();
   const [loading, setLoading] = useState(true);
-  const [isEvidenceDrawerOpen, setIsEvidenceDrawerOpen] = useState(false);
-  const [isSubscriptionDrawerOpen, setIsSubscriptionDrawerOpen] = useState(false);
 
   // Evidence 数据
   const [evidenceSummary, setEvidenceSummary] = useState<SummaryData | null>(null);
-  const [evidenceDailyTrend, setEvidenceDailyTrend] = useState<DailyTrendItem[]>([]);
-  const [evidenceRecentTasks, setEvidenceRecentTasks] = useState<EvidenceItem[]>([]);
-  const [evidenceFailureTypes, setEvidenceFailureTypes] = useState<FailureTypeItem[]>([]);
 
   // Subscription 数据
   const [subscriptionSummary, setSubscriptionSummary] = useState<SummaryData | null>(null);
-  const [subscriptionDailyTrend, setSubscriptionDailyTrend] = useState<DailyTrendItem[]>([]);
-  const [subscriptionRecentTasks, setSubscriptionRecentTasks] = useState<SubscriptionItem[]>([]);
-  const [subscriptionFailureTypes, setSubscriptionFailureTypes] = useState<FailureTypeItem[]>([]);
-
-  // 获取失败类型列表（只需获取一次）
-  useEffect(() => {
-    const fetchFailureTypes = async () => {
-      try {
-        const [evidenceRes, subscriptionRes] = await Promise.all([
-          apiFetch("/evidence/failure-types"),
-          apiFetch("/subscription/failure-types")
-        ]);
-        const [evidenceData, subscriptionData] = await Promise.all([
-          evidenceRes.json() as Promise<FailureTypesResponse>,
-          subscriptionRes.json() as Promise<FailureTypesResponse>
-        ]);
-        setEvidenceFailureTypes(evidenceData.items);
-        setSubscriptionFailureTypes(subscriptionData.items);
-      } catch (error) {
-        console.error("获取失败类型列表失败:", error);
-      }
-    };
-    fetchFailureTypes();
-  }, []);
-
-  // 监听 URL 参数，自动打开抽屉框（当存在任务查询参数时）
-  useEffect(() => {
-    const hasQueryParams =
-      searchParams.get("page") ||
-      searchParams.get("status") ||
-      searchParams.get("failure_type") ||
-      searchParams.get("q");
-
-    if (hasQueryParams) {
-      setIsEvidenceDrawerOpen(true);
-    }
-  }, [searchParams]);
 
   // 获取数据（受 dateRange 影响，包含轮询）
   useEffect(() => {
@@ -103,47 +46,21 @@ export function SystemOverview() {
 
         const queryString = params.toString() ? `?${params}` : "";
 
-        // 并发调用所有 API
-        const [
-          evidenceSummaryRes,
-          evidenceDailyTrendRes,
-          evidenceRecentTasksRes,
-          subscriptionSummaryRes,
-          subscriptionDailyTrendRes,
-          subscriptionRecentTasksRes
-        ] = await Promise.all([
+        // 并发调用 summary API
+        const [evidenceSummaryRes, subscriptionSummaryRes] = await Promise.all([
           apiFetch(`/evidence/stats/summary${queryString}`),
-          apiFetch(`/evidence/stats/daily-trend`),
-          apiFetch(`/evidence/stats/recent-tasks`),
-          apiFetch(`/subscription/stats/summary${queryString}`),
-          apiFetch(`/subscription/stats/daily-trend`),
-          apiFetch(`/subscription/stats/recent-tasks`)
+          apiFetch(`/subscription/stats/summary${queryString}`)
         ]);
 
         // 解析响应
-        const [
-          evidenceSummaryData,
-          evidenceDailyTrendData,
-          evidenceRecentTasksData,
-          subscriptionSummaryData,
-          subscriptionDailyTrendData,
-          subscriptionRecentTasksData
-        ] = await Promise.all([
+        const [evidenceSummaryData, subscriptionSummaryData] = await Promise.all([
           evidenceSummaryRes.json(),
-          evidenceDailyTrendRes.json() as Promise<DailyTrendResponse>,
-          evidenceRecentTasksRes.json() as Promise<{ recent_tasks: EvidenceItem[] }>,
-          subscriptionSummaryRes.json(),
-          subscriptionDailyTrendRes.json() as Promise<DailyTrendResponse>,
-          subscriptionRecentTasksRes.json() as Promise<{ recent_tasks: SubscriptionItem[] }>
+          subscriptionSummaryRes.json()
         ]);
 
         // 设置数据
         setEvidenceSummary(evidenceSummaryData.summary);
-        setEvidenceDailyTrend(evidenceDailyTrendData.daily_trend);
-        setEvidenceRecentTasks(evidenceRecentTasksData.recent_tasks);
         setSubscriptionSummary(subscriptionSummaryData.summary);
-        setSubscriptionDailyTrend(subscriptionDailyTrendData.daily_trend);
-        setSubscriptionRecentTasks(subscriptionRecentTasksData.recent_tasks);
       } catch (error) {
         console.error("Failed to fetch overview data:", error);
         toast.error("加载概览数据失败");
@@ -158,21 +75,6 @@ export function SystemOverview() {
     const interval = setInterval(fetchOverviewData, 30000);
     return () => clearInterval(interval);
   }, [dateRange]);
-
-  // 构建失败类型标签映射
-  const evidenceFailureTypeLabel = useMemo(() => {
-    return evidenceFailureTypes.reduce((acc, item) => {
-      acc[item.value] = item.label;
-      return acc;
-    }, {} as Record<string, string>);
-  }, [evidenceFailureTypes]);
-
-  const subscriptionFailureTypeLabel = useMemo(() => {
-    return subscriptionFailureTypes.reduce((acc, item) => {
-      acc[item.value] = item.label;
-      return acc;
-    }, {} as Record<string, string>);
-  }, [subscriptionFailureTypes]);
 
   if (loading && !evidenceSummary && !subscriptionSummary) {
     return (
@@ -210,178 +112,6 @@ export function SystemOverview() {
           detailUrl="/payment"
         />
       </div>
-
-      {/* 三层模块区 */}
-      <div className="space-y-6">
-        {/* Evidence 模块 */}
-      <ModuleSection
-        title="注册取证任务"
-        icon={BarChart3}
-        iconColor="text-blue-600"
-        summary={
-          evidenceSummary
-            ? {
-                pendingCount: evidenceSummary.pending_count,
-                runningCount: evidenceSummary.running_count
-              }
-            : null
-        }
-        onStatusClick={(status) => {
-          const statusUpper = status.toUpperCase(); // "pending" -> "PENDING"
-          router.push(`/?status=${statusUpper}`);
-          setIsEvidenceDrawerOpen(true);
-        }}
-        chartNode={
-          <EvidenceDailyTrendChart
-            dailyTrend={evidenceDailyTrend}
-            days={5}
-            onDateClick={(date) => {
-              const selectedDate = new Date(date);
-              setDateRange({ from: selectedDate, to: selectedDate });
-              router.push("/evidence");
-            }}
-          />
-        }
-        taskListNode={
-          <EvidenceTaskListRecent
-            tasks={evidenceRecentTasks}
-            total={evidenceSummary?.total_tasks || 0}
-            failureTypeLabel={evidenceFailureTypeLabel}
-            onTaskClick={() => router.push("/evidence")}
-            onViewAll={() => {
-              setIsEvidenceDrawerOpen(true);
-            }}
-          />
-        }
-      />
-
-      {/* Subscription 模块 */}
-      <ModuleSection
-        title="订阅链接任务"
-        icon={Mail}
-        iconColor="text-purple-600"
-        summary={
-          subscriptionSummary
-            ? {
-                pendingCount: subscriptionSummary.pending_count,
-                runningCount: subscriptionSummary.running_count
-              }
-            : null
-        }
-        onStatusClick={(status) => {
-          const statusUpper = status.toUpperCase(); // "pending" -> "PENDING"
-          router.push(`/?status=${statusUpper}`);
-          setIsSubscriptionDrawerOpen(true);
-        }}
-        chartNode={
-          <SubscriptionDailyTrendChart
-            dailyTrend={subscriptionDailyTrend}
-            days={5}
-            onDateClick={(date) => {
-              const selectedDate = new Date(date);
-              setDateRange({ from: selectedDate, to: selectedDate });
-              router.push("/subscription");
-            }}
-          />
-        }
-        taskListNode={
-          <SubscriptionTaskListRecent
-            tasks={subscriptionRecentTasks}
-            total={subscriptionSummary?.total_tasks || 0}
-            failureTypeLabel={subscriptionFailureTypeLabel}
-            onTaskClick={() => router.push("/subscription")}
-            onViewAll={() => {
-              setIsSubscriptionDrawerOpen(true);
-            }}
-          />
-        }
-      />
-
-      {/* Payment 模块 - 占位符 */}
-      <ModuleSection
-        title="支付链接任务"
-        icon={CreditCard}
-        iconColor="text-slate-400"
-        themeColors={{
-          gradient: "bg-gradient-to-br from-slate-50 to-slate-100",
-          border: "border-slate-300"
-        }}
-        summary={null}
-        onStatusClick={() => {}}
-        isPlaceholder
-        placeholderMessage="预计上线时间：2026年 Q1"
-      />
-      </div>
-
-      {/* 证据任务列表抽屉 */}
-      <Sheet
-        open={isEvidenceDrawerOpen}
-        onOpenChange={(open) => {
-          setIsEvidenceDrawerOpen(open);
-          if (!open) {
-            const params = new URLSearchParams(searchParams.toString());
-            params.delete("page");
-            params.delete("status");
-            params.delete("failure_type");
-            params.delete("q");
-            params.delete("start_date");
-            params.delete("end_date");
-            const queryString = params.toString();
-            router.push(queryString ? `/?${queryString}` : "/");
-          }
-        }}
-      >
-        <SheetContent
-          side="right"
-          className="w-[95vw] sm:w-[93vw] lg:w-[90vw] overflow-y-auto p-6"
-        >
-          <SheetHeader className="mb-4">
-            <SheetTitle>全部任务</SheetTitle>
-            <SheetDescription>
-              取证任务列表，支持筛选与检索
-            </SheetDescription>
-          </SheetHeader>
-          <TaskListDrawer
-            failureTypes={evidenceFailureTypes}
-            failureTypeLabel={evidenceFailureTypeLabel}
-          />
-        </SheetContent>
-      </Sheet>
-
-      {/* 订阅链接任务列表抽屉 */}
-      <Sheet
-        open={isSubscriptionDrawerOpen}
-        onOpenChange={(open) => {
-          setIsSubscriptionDrawerOpen(open);
-          if (!open) {
-            const params = new URLSearchParams(searchParams.toString());
-            params.delete("page");
-            params.delete("status");
-            params.delete("failure_type");
-            params.delete("q");
-            params.delete("start_date");
-            params.delete("end_date");
-            const queryString = params.toString();
-            router.push(queryString ? `/?${queryString}` : "/");
-          }
-        }}
-      >
-        <SheetContent
-          side="right"
-          className="w-[95vw] sm:w-[93vw] lg:w-[90vw] overflow-y-auto p-6"
-        >
-          <SheetHeader className="mb-4">
-            <SheetTitle>全部任务</SheetTitle>
-            <SheetDescription>
-              订阅链接任务列表，支持筛选与检索
-            </SheetDescription>
-          </SheetHeader>
-          <SubscriptionTaskListDrawer
-            failureTypes={subscriptionFailureTypes}
-            failureTypeLabel={subscriptionFailureTypeLabel}
-          />
-        </SheetContent>
-      </Sheet>
     </div>
   );
 }
