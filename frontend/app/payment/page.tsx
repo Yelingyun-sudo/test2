@@ -4,19 +4,16 @@ import { DashboardShell } from "@/components/dashboard/shell";
 
 export default function PaymentPage() {
   return (
-    <DashboardShell
-      title="支付链接任务"
-      description="支付链接任务管理（功能开发中）"
-    >
-      <div className="flex min-h-[400px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50">
-        <div className="text-center">
-          <div className="mb-2 text-4xl">🚧</div>
-          <div className="text-lg font-medium text-slate-700">
+    <DashboardShell>
+      <div className="flex min-h-[400px] items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50">
+        <div className="text-center p-8">
+          <div className="text-6xl mb-4">🚧</div>
+          <h2 className="text-2xl font-semibold text-slate-900 mb-2">
             功能开发中
-          </div>
-          <div className="mt-1 text-sm text-slate-500">
-            支付链接任务管理功能即将上线
-          </div>
+          </h2>
+          <p className="text-slate-600">
+            支付链接任务功能正在开发中，预计上线时间：2026年 Q1
+          </p>
         </div>
       </div>
     </DashboardShell>

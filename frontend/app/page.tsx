@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { DashboardShell } from "@/components/dashboard/shell";
+import { SystemOverview } from "@/components/overview/system-overview";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { clearLocalAuth, isJwtExpired } from "@/lib/api";
@@ -123,12 +124,10 @@ export default function Page() {
   if (isAuthed) {
     return (
       <DashboardShell
-        title="系统概览"
-        description="系统概览与数据汇总"
         account={account ?? undefined}
         onLogout={handleLogout}
       >
-        {/* 内容区域已清空，等待重新设计 */}
+        <SystemOverview />
       </DashboardShell>
     );
   }
