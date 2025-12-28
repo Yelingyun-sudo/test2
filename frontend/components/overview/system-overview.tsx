@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { format } from "date-fns";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { BarChart3, Mail, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 
@@ -13,6 +13,8 @@ import { DailyTrendStackedBarChart as EvidenceDailyTrendChart } from "@/componen
 import { TaskListRecent as EvidenceTaskListRecent } from "@/components/evidence/task-list-recent";
 import { DailyTrendStackedBarChart as SubscriptionDailyTrendChart } from "@/components/overview/daily-trend-stacked-bar-chart";
 import { TaskListRecent as SubscriptionTaskListRecent } from "@/components/subscription/task-list-recent";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { TaskListDrawer } from "@/components/evidence/task-list-drawer";
 import type { DailyTrendItem, DailyTrendResponse, RecentTasksResponse } from "@/lib/types";
 import type { EvidenceItem } from "@/types/evidence";
 import type { SubscriptionItem } from "@/types/subscription";
@@ -33,8 +35,10 @@ interface SummaryData {
 
 export function SystemOverview() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { dateRange, setDateRange } = useDateRange();
   const [loading, setLoading] = useState(true);
+  const [isEvidenceDrawerOpen, setIsEvidenceDrawerOpen] = useState(false);
 
   // Evidence 数据
   const [evidenceSummary, setEvidenceSummary] = useState<SummaryData | null>(null);
@@ -68,6 +72,19 @@ export function SystemOverview() {
     };
     fetchFailureTypes();
   }, []);
+
+  // 监听 URL 参数，自动打开抽屉框（当存在任务查询参数时）
+  useEffect(() => {
+    const hasQueryParams =
+      searchParams.get("page") ||
+      searchParams.get("status") ||
+      searchParams.get("failure_type") ||
+      searchParams.get("q");
+
+    if (hasQueryParams) {
+      setIsEvidenceDrawerOpen(true);
+    }
+  }, [searchParams]);
 
   // 获取数据（受 dateRange 影响，包含轮询）
   useEffect(() => {
@@ -177,7 +194,11 @@ export function SystemOverview() {
               }
             : null
         }
-        onStatusClick={(status) => router.push(`/evidence?status=${status}`)}
+        onStatusClick={(status) => {
+          const statusUpper = status.toUpperCase(); // "pending" -> "PENDING"
+          router.push(`/?status=${statusUpper}`);
+          setIsEvidenceDrawerOpen(true);
+        }}
         chartNode={
           <EvidenceDailyTrendChart
             dailyTrend={evidenceDailyTrend}
@@ -195,7 +216,9 @@ export function SystemOverview() {
             total={evidenceSummary?.total_tasks || 0}
             failureTypeLabel={evidenceFailureTypeLabel}
             onTaskClick={() => router.push("/evidence")}
-            onViewAll={() => router.push("/evidence")}
+            onViewAll={() => {
+              setIsEvidenceDrawerOpen(true);
+            }}
           />
         }
       />
@@ -250,6 +273,41 @@ export function SystemOverview() {
         isPlaceholder
         placeholderMessage="预计上线时间：2026年 Q1"
       />
+
+      {/* 证据任务列表抽屉 */}
+      <Sheet
+        open={isEvidenceDrawerOpen}
+        onOpenChange={(open) => {
+          setIsEvidenceDrawerOpen(open);
+          if (!open) {
+            const params = new URLSearchParams(searchParams.toString());
+            params.delete("page");
+            params.delete("status");
+            params.delete("failure_type");
+            params.delete("q");
+            params.delete("start_date");
+            params.delete("end_date");
+            const queryString = params.toString();
+            router.push(queryString ? `/?${queryString}` : "/");
+          }
+        }}
+      >
+        <SheetContent
+          side="right"
+          className="w-[95vw] sm:w-[93vw] lg:w-[90vw] overflow-y-auto p-6"
+        >
+          <SheetHeader className="mb-4">
+            <SheetTitle>全部任务</SheetTitle>
+            <SheetDescription>
+              取证任务列表，支持筛选与检索
+            </SheetDescription>
+          </SheetHeader>
+          <TaskListDrawer
+            failureTypes={evidenceFailureTypes}
+            failureTypeLabel={evidenceFailureTypeLabel}
+          />
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
