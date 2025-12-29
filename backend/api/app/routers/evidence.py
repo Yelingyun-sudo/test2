@@ -50,7 +50,7 @@ def _parse_time_range(
     解析预设时间范围，返回 UTC 时区的 (开始时间, 结束时间)
 
     Args:
-        range_key: 时间范围键值（today/yesterday/3d/7d/30d）
+        range_key: 时间范围键值（today/yesterday/dayBeforeYesterday/3d/7d/30d）
         tz_cn: 中国时区
 
     Returns:
@@ -77,6 +77,15 @@ def _parse_time_range(
         )
         # 转换为 UTC 时间返回
         return yesterday_start.astimezone(timezone.utc), yesterday_end.astimezone(
+            timezone.utc
+        )
+    elif range_key == "dayBeforeYesterday":
+        day_before_yesterday_start = today_start - timedelta(days=2)
+        day_before_yesterday_end = day_before_yesterday_start.replace(
+            hour=23, minute=59, second=59, microsecond=999999
+        )
+        # 转换为 UTC 时间返回
+        return day_before_yesterday_start.astimezone(timezone.utc), day_before_yesterday_end.astimezone(
             timezone.utc
         )
     elif range_key == "3d":

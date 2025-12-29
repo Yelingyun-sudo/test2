@@ -186,6 +186,7 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
     // 检查是否为预设值
     const todayRange = getPresetRange("today");
     const yesterdayRange = getPresetRange("yesterday");
+    const dayBeforeYesterdayRange = getPresetRange("dayBeforeYesterday");
     const threeDaysRange = getPresetRange("3d");
     const sevenDaysRange = getPresetRange("7d");
     const thirtyDaysRange = getPresetRange("30d");
@@ -206,6 +207,11 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
           isSameDay(range.from, yesterdayRange.from) &&
           isSameDay(range.to, yesterdayRange.to)) {
         return "昨日";
+      }
+      if (dayBeforeYesterdayRange.from && dayBeforeYesterdayRange.to &&
+          isSameDay(range.from, dayBeforeYesterdayRange.from) &&
+          isSameDay(range.to, dayBeforeYesterdayRange.to)) {
+        return "前日";
       }
       if (threeDaysRange.from && threeDaysRange.to &&
           isSameDay(range.from, threeDaysRange.from) &&

@@ -29,6 +29,7 @@ type DateRangePickerProps = {
 const PRESET_LABELS: Record<string, string> = {
   today: "今天",
   yesterday: "昨天",
+  dayBeforeYesterday: "前天",
   "3d": "最近3天",
   "7d": "最近7天",
   "30d": "最近30天",
@@ -49,6 +50,7 @@ function matchPresetRange(range: DateRange): string | null {
 
   const today = startOfToday();
   const yesterday = startOfYesterday();
+  const dayBeforeYesterday = subDays(today, 2);
 
   // 检查"今天"
   if (isSameDay(range.from, today) && isSameDay(range.to, today)) {
@@ -58,6 +60,11 @@ function matchPresetRange(range: DateRange): string | null {
   // 检查"昨天"
   if (isSameDay(range.from, yesterday) && isSameDay(range.to, yesterday)) {
     return PRESET_LABELS.yesterday;
+  }
+
+  // 检查"前天"
+  if (isSameDay(range.from, dayBeforeYesterday) && isSameDay(range.to, dayBeforeYesterday)) {
+    return PRESET_LABELS.dayBeforeYesterday;
   }
 
   // 检查"最近3天"
@@ -123,6 +130,8 @@ function getPresetRange(preset: string): DateRange {
       return { from: today, to: today };
     case "yesterday":
       return { from: yesterday, to: yesterday };
+    case "dayBeforeYesterday":
+      return { from: subDays(today, 2), to: subDays(today, 2) };
     case "3d":
       return { from: subDays(today, 2), to: today };
     case "7d":
@@ -161,6 +170,7 @@ export function DateRangePicker({
   const presets = [
     { label: "今天", preset: "today" },
     { label: "昨天", preset: "yesterday" },
+    { label: "前天", preset: "dayBeforeYesterday" },
     { label: "最近3天", preset: "3d" },
     { label: "最近7天", preset: "7d" },
     { label: "最近30天", preset: "30d" },
