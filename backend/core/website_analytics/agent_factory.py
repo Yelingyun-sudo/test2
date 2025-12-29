@@ -13,6 +13,7 @@ from website_analytics.output_types import (
     EvidenceOutput,
     ExtractOutput,
     LoginOutput,
+    RegisterOutput,
 )
 from website_analytics.settings import get_settings
 
@@ -33,12 +34,24 @@ async def extract_structured_output(result: RunResult) -> str:
 
 
 def build_login_agent(playwright_server: MCPServerStdio, instructions: str) -> Agent:
+    """构建登录代理。"""
     return Agent(
         name="loginAgent",
         instructions=instructions,
         mcp_servers=[playwright_server],
         model=settings.agent_model,
         output_type=LoginOutput,
+    )
+
+
+def build_register_agent(playwright_server: MCPServerStdio, instructions: str) -> Agent:
+    """构建注册代理。"""
+    return Agent(
+        name="registerAgent",
+        instructions=instructions,
+        mcp_servers=[playwright_server],
+        model=settings.agent_model,
+        output_type=RegisterOutput,
     )
 
 
@@ -69,6 +82,7 @@ def build_evidence_agent(
 
 def build_coordinator_agent(
     login_agent: Agent,
+    register_agent: Agent,
     extract_agent: Agent,
     evidence_agent: Agent,
     coordinator_instructions: str,
@@ -80,6 +94,14 @@ def build_coordinator_agent(
         login_agent.as_tool(
             tool_name="perform_login",
             tool_description="使用浏览器自动化登录指定站点。",
+            max_turns=20,
+            hooks=child_hooks,
+            run_config=run_config,
+            custom_output_extractor=extract_structured_output,
+        ),
+        register_agent.as_tool(
+            tool_name="perform_register",
+            tool_description="使用浏览器自动化注册指定站点。",
             max_turns=20,
             hooks=child_hooks,
             run_config=run_config,

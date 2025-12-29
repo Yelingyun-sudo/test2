@@ -63,12 +63,8 @@ def list_evidence(
     failure_type: str | None = Query(
         None, description="按失败类型过滤（通常与 status=failed 配合使用）"
     ),
-    start_date: str | None = Query(
-        None, description="开始日期 YYYY-MM-DD 格式"
-    ),
-    end_date: str | None = Query(
-        None, description="结束日期 YYYY-MM-DD 格式"
-    ),
+    start_date: str | None = Query(None, description="开始日期 YYYY-MM-DD 格式"),
+    end_date: str | None = Query(None, description="结束日期 YYYY-MM-DD 格式"),
     db: Session = Depends(get_db),
 ):
     query = db.query(EvidenceTask)
@@ -323,12 +319,12 @@ def _compute_summary(
     """计算汇总统计"""
     summary_result = db.query(
         func.count(EvidenceTask.id).label("total_tasks"),
-        func.sum(
-            case((EvidenceTask.status == TaskStatus.PENDING, 1), else_=0)
-        ).label("pending_count"),
-        func.sum(
-            case((EvidenceTask.status == TaskStatus.RUNNING, 1), else_=0)
-        ).label("running_count"),
+        func.sum(case((EvidenceTask.status == TaskStatus.PENDING, 1), else_=0)).label(
+            "pending_count"
+        ),
+        func.sum(case((EvidenceTask.status == TaskStatus.RUNNING, 1), else_=0)).label(
+            "running_count"
+        ),
         func.sum(
             case(
                 (
@@ -461,10 +457,6 @@ def _compute_summary(
     )
 
 
-
-
-
-
 def _build_evidence_item(rec: EvidenceTask, _format_dt: Callable) -> EvidenceItem:
     """构建 EvidenceItem 对象"""
     status_value = rec.status.value if hasattr(rec.status, "value") else rec.status
@@ -497,8 +489,6 @@ def _build_evidence_item(rec: EvidenceTask, _format_dt: Callable) -> EvidenceIte
     )
 
 
-
-
 # ===== 专用统计端点 =====
 
 
@@ -508,12 +498,8 @@ def _build_evidence_item(rec: EvidenceTask, _format_dt: Callable) -> EvidenceIte
     summary="获取取证任务汇总统计",
 )
 def get_evidence_stats_summary(
-    start_date: str | None = Query(
-        None, description="开始日期 YYYY-MM-DD 格式"
-    ),
-    end_date: str | None = Query(
-        None, description="结束日期 YYYY-MM-DD 格式"
-    ),
+    start_date: str | None = Query(None, description="开始日期 YYYY-MM-DD 格式"),
+    end_date: str | None = Query(None, description="结束日期 YYYY-MM-DD 格式"),
     db: Session = Depends(get_db),
 ):
     """获取取证任务的汇总统计数据"""
@@ -531,7 +517,9 @@ def get_evidence_stats_summary(
         range_start_utc = today_start_cn.astimezone(timezone.utc)
         range_end_utc = today_end_cn.astimezone(timezone.utc)
 
-    summary = _compute_summary(db, range_start_utc, range_end_utc, start_date, end_date, tz_cn)
+    summary = _compute_summary(
+        db, range_start_utc, range_end_utc, start_date, end_date, tz_cn
+    )
     return SummaryResponse(summary=summary)
 
 
@@ -558,12 +546,8 @@ def get_evidence_stats_daily_trend(
     summary="获取取证任务状态分布",
 )
 def get_evidence_stats_status_distribution(
-    start_date: str | None = Query(
-        None, description="开始日期 YYYY-MM-DD 格式"
-    ),
-    end_date: str | None = Query(
-        None, description="结束日期 YYYY-MM-DD 格式"
-    ),
+    start_date: str | None = Query(None, description="开始日期 YYYY-MM-DD 格式"),
+    end_date: str | None = Query(None, description="结束日期 YYYY-MM-DD 格式"),
     db: Session = Depends(get_db),
 ):
     """获取取证任务的状态分布数据"""
@@ -599,12 +583,8 @@ def get_evidence_stats_status_distribution(
     summary="获取最新取证任务列表",
 )
 def get_evidence_stats_recent_tasks(
-    start_date: str | None = Query(
-        None, description="开始日期 YYYY-MM-DD 格式"
-    ),
-    end_date: str | None = Query(
-        None, description="结束日期 YYYY-MM-DD 格式"
-    ),
+    start_date: str | None = Query(None, description="开始日期 YYYY-MM-DD 格式"),
+    end_date: str | None = Query(None, description="结束日期 YYYY-MM-DD 格式"),
     db: Session = Depends(get_db),
 ):
     """获取最新取证任务列表（最多 100 条）"""
@@ -642,12 +622,8 @@ def get_evidence_stats_recent_tasks(
     summary="获取取证任务失败类型统计",
 )
 def get_evidence_stats_failure_types(
-    start_date: str | None = Query(
-        None, description="开始日期 YYYY-MM-DD 格式"
-    ),
-    end_date: str | None = Query(
-        None, description="结束日期 YYYY-MM-DD 格式"
-    ),
+    start_date: str | None = Query(None, description="开始日期 YYYY-MM-DD 格式"),
+    end_date: str | None = Query(None, description="结束日期 YYYY-MM-DD 格式"),
     db: Session = Depends(get_db),
 ):
     """获取失败类型分布统计和失败总览"""

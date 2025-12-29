@@ -64,12 +64,8 @@ def list_subscription(
     failure_type: str | None = Query(
         None, description="按失败类型过滤（通常与 status=failed 配合使用）"
     ),
-    start_date: str | None = Query(
-        None, description="开始日期 YYYY-MM-DD 格式"
-    ),
-    end_date: str | None = Query(
-        None, description="结束日期 YYYY-MM-DD 格式"
-    ),
+    start_date: str | None = Query(None, description="开始日期 YYYY-MM-DD 格式"),
+    end_date: str | None = Query(None, description="结束日期 YYYY-MM-DD 格式"),
     db: Session = Depends(get_db),
 ):
     query = db.query(SubscriptionTask)
@@ -491,7 +487,7 @@ def _compute_summary(
     avg_failed_tokens = summary_result.avg_failed_tokens or 0.0
     today_success_count = summary_result.today_success_count or 0
     today_failed_count = summary_result.today_failed_count or 0
-    
+
     # 总任务数 = 时间范围内已执行的任务数（成功+失败），与 evidence 模块保持一致
     total_tasks = today_success_count + today_failed_count
     today_avg_success_duration = summary_result.today_avg_success_duration or 0.0
@@ -540,7 +536,9 @@ def _compute_summary(
     )
 
 
-def _build_subscription_item(rec: SubscriptionTask, _format_dt: Callable) -> SubscriptionItem:
+def _build_subscription_item(
+    rec: SubscriptionTask, _format_dt: Callable
+) -> SubscriptionItem:
     """构建 SubscriptionItem 对象"""
     status_value = rec.status.value if hasattr(rec.status, "value") else rec.status
 
@@ -572,12 +570,6 @@ def _build_subscription_item(rec: SubscriptionTask, _format_dt: Callable) -> Sub
     )
 
 
-
-
-
-
-
-
 # ===== 专用统计端点 =====
 
 
@@ -587,12 +579,8 @@ def _build_subscription_item(rec: SubscriptionTask, _format_dt: Callable) -> Sub
     summary="获取订阅任务汇总统计",
 )
 def get_subscription_stats_summary(
-    start_date: str | None = Query(
-        None, description="开始日期 YYYY-MM-DD 格式"
-    ),
-    end_date: str | None = Query(
-        None, description="结束日期 YYYY-MM-DD 格式"
-    ),
+    start_date: str | None = Query(None, description="开始日期 YYYY-MM-DD 格式"),
+    end_date: str | None = Query(None, description="结束日期 YYYY-MM-DD 格式"),
     db: Session = Depends(get_db),
 ):
     """获取订阅任务的汇总统计数据"""
@@ -611,7 +599,9 @@ def get_subscription_stats_summary(
         range_start_utc = today_start_cn.astimezone(timezone.utc)
         range_end_utc = today_end_cn.astimezone(timezone.utc)
 
-    summary = _compute_summary(db, cn_today, range_start_utc, range_end_utc, start_date, end_date, tz_cn)
+    summary = _compute_summary(
+        db, cn_today, range_start_utc, range_end_utc, start_date, end_date, tz_cn
+    )
     return SummaryResponse(summary=summary)
 
 
@@ -638,12 +628,8 @@ def get_subscription_stats_daily_trend(
     summary="获取订阅任务状态分布",
 )
 def get_subscription_stats_status_distribution(
-    start_date: str | None = Query(
-        None, description="开始日期 YYYY-MM-DD 格式"
-    ),
-    end_date: str | None = Query(
-        None, description="结束日期 YYYY-MM-DD 格式"
-    ),
+    start_date: str | None = Query(None, description="开始日期 YYYY-MM-DD 格式"),
+    end_date: str | None = Query(None, description="结束日期 YYYY-MM-DD 格式"),
     db: Session = Depends(get_db),
 ):
     """获取订阅任务的状态分布数据"""
@@ -679,12 +665,8 @@ def get_subscription_stats_status_distribution(
     summary="获取最新任务列表",
 )
 def get_subscription_stats_recent_tasks(
-    start_date: str | None = Query(
-        None, description="开始日期 YYYY-MM-DD 格式"
-    ),
-    end_date: str | None = Query(
-        None, description="结束日期 YYYY-MM-DD 格式"
-    ),
+    start_date: str | None = Query(None, description="开始日期 YYYY-MM-DD 格式"),
+    end_date: str | None = Query(None, description="结束日期 YYYY-MM-DD 格式"),
     db: Session = Depends(get_db),
 ):
     """获取最新任务列表（最多 100 条）"""
@@ -722,12 +704,8 @@ def get_subscription_stats_recent_tasks(
     summary="获取失败类型统计",
 )
 def get_subscription_stats_failure_types(
-    start_date: str | None = Query(
-        None, description="开始日期 YYYY-MM-DD 格式"
-    ),
-    end_date: str | None = Query(
-        None, description="结束日期 YYYY-MM-DD 格式"
-    ),
+    start_date: str | None = Query(None, description="开始日期 YYYY-MM-DD 格式"),
+    end_date: str | None = Query(None, description="结束日期 YYYY-MM-DD 格式"),
     db: Session = Depends(get_db),
 ):
     """获取失败类型分布统计和失败总览"""

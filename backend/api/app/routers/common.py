@@ -8,7 +8,10 @@ from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from ..schemas.common import FailureTypeItem, FailureTypesResponse
-from website_analytics.output_types import FAILURE_TYPE_LABELS, get_failure_types_ordered
+from website_analytics.output_types import (
+    FAILURE_TYPE_LABELS,
+    get_failure_types_ordered,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -42,9 +45,7 @@ def parse_date_range(
 
     try:
         start = datetime.strptime(start_date, "%Y-%m-%d")
-        start = start.replace(
-            hour=0, minute=0, second=0, microsecond=0, tzinfo=tz_cn
-        )
+        start = start.replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=tz_cn)
         end = datetime.strptime(end_date, "%Y-%m-%d")
         end = end.replace(
             hour=23, minute=59, second=59, microsecond=999999, tzinfo=tz_cn
@@ -251,12 +252,12 @@ def compute_daily_trend(
         db.query(
             func.date(task_model.executed_at).label("date"),
             func.count(task_model.id).label("total_count"),
-            func.sum(
-                case((task_model.status == TaskStatus.SUCCESS, 1), else_=0)
-            ).label("success_count"),
-            func.sum(
-                case((task_model.status == TaskStatus.FAILED, 1), else_=0)
-            ).label("failed_count"),
+            func.sum(case((task_model.status == TaskStatus.SUCCESS, 1), else_=0)).label(
+                "success_count"
+            ),
+            func.sum(case((task_model.status == TaskStatus.FAILED, 1), else_=0)).label(
+                "failed_count"
+            ),
         )
         .filter(
             task_model.executed_at.isnot(None),
@@ -374,4 +375,3 @@ def get_failure_types_endpoint() -> FailureTypesResponse:
     """
     types_list = get_failure_types_ordered()
     return FailureTypesResponse(items=[FailureTypeItem(**item) for item in types_list])
-

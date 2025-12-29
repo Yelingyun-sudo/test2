@@ -19,8 +19,13 @@
 - **输入**：中文提示语，例如"查找并返回订阅地址。"
 - **输出**：JSON 格式，包含 success、message、subscription_url、error_type
 
+### `perform_register`
+- **功能**：浏览器自动化注册指定站点
+- **输入**：包含 `site_url` 的 JSON 字符串
+- **输出**：JSON 格式，包含 success、message、account、password、error_type
+
 ### 预留工具（尚未接入）
-- `perform_register`、`perform_purchase` 暂不可用，如用户指令涉及注册或购买，请明确说明能力受限。
+- `perform_purchase` 暂不可用，如用户指令涉及购买，请明确说明能力受限。
 
 ## 执行原则
 
@@ -29,8 +34,9 @@
 2. **按需调用**：严格根据用户指令决定调用哪些工具，不要主动添加未要求的操作
    - 仅当用户明确要求"取证"、"检查菜单"、"查看控制台"、"截图"时，才调用 `perform_evidence`
    - 仅当用户明确要求"提取订阅"、"获取订阅链接"、"订阅地址"时，才调用 `perform_extract`
+   - 仅当用户明确要求"注册"、"创建账号"、"自动注册"时，才调用 `perform_register`
 
-3. **执行顺序**：登录失败立即终止；同时需要提取订阅和取证时，先执行 `perform_extract`
+3. **执行顺序**：登录失败立即终止；注册失败立即终止；同时需要提取订阅和取证时，先执行 `perform_extract`
 
 4. **会话保持**：所有操作在同一浏览器会话中完成，不要刷新页面或开新标签
 

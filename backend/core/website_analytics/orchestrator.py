@@ -24,6 +24,7 @@ from website_analytics.agent_factory import (
     build_evidence_agent,
     build_extract_agent,
     build_login_agent,
+    build_register_agent,
 )
 from website_analytics.batch_reporter import (
     TaskResult,
@@ -274,6 +275,10 @@ async def execute(
                 playwright_server,
                 load_instruction("login_agent.md"),
             )
+            register_agent = build_register_agent(
+                playwright_server,
+                load_instruction("register_agent.md"),
+            )
             extract_agent = build_extract_agent(
                 playwright_server,
                 load_instruction("extract_agent.md"),
@@ -294,6 +299,7 @@ async def execute(
             )
             coordinator_agent = build_coordinator_agent(
                 login_agent,
+                register_agent,
                 extract_agent,
                 evidence_agent,
                 load_instruction("coordinator_agent.md"),

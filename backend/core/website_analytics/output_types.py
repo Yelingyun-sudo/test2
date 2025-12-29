@@ -21,6 +21,7 @@ class ErrorType(str, Enum):
     SITE_NETWORK_ERROR = "site_network_error"
     SITE_DOMAIN_ERROR = "site_domain_error"
     LOGIN_PAGE_NOT_FOUND = "login_page_not_found"
+    REGISTER_PAGE_NOT_FOUND = "register_page_not_found"
 
     # 反自动化类
     ANTI_AUTOMATION_DETECTED = "anti_automation_detected"
@@ -49,6 +50,7 @@ FAILURE_TYPE_LABELS: dict[str, str] = {
     "site_network_error": "网站网络错误",
     "site_domain_error": "网站域名错误",
     "login_page_not_found": "登录页未找到",
+    "register_page_not_found": "注册页未找到",
     # 反自动化类
     "anti_automation_detected": "反自动化检测",
     "human_verification_failed": "人机验证失败",
@@ -80,6 +82,7 @@ def get_failure_types_ordered() -> list[dict[str, str]]:
         "site_network_error",
         "site_domain_error",
         "login_page_not_found",
+        "register_page_not_found",
         # 反自动化类
         "anti_automation_detected",
         "human_verification_failed",
@@ -105,6 +108,19 @@ class LoginOutput(BaseModel):
 
     success: bool = Field(description="是否登录成功")
     message: str = Field(description="详细消息")
+    error_type: str | None = Field(
+        default=None,
+        description="失败原因枚举值（success=false 时建议必填），取值范围同 CoordinatorOutput.error_type",
+    )
+
+
+class RegisterOutput(BaseModel):
+    """注册代理的结构化输出。"""
+
+    success: bool = Field(description="是否注册成功")
+    message: str = Field(description="详细消息")
+    account: str = Field(default="", description="注册使用的账号")
+    password: str = Field(default="", description="注册使用的密码")
     error_type: str | None = Field(
         default=None,
         description="失败原因枚举值（success=false 时建议必填），取值范围同 CoordinatorOutput.error_type",

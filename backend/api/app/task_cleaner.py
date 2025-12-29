@@ -26,7 +26,9 @@ def _normalize_dt(dt: Optional[datetime]) -> Optional[datetime]:
     return dt
 
 
-def _get_stale_subscription_task(db: Session, cutoff: datetime) -> SubscriptionTask | None:
+def _get_stale_subscription_task(
+    db: Session, cutoff: datetime
+) -> SubscriptionTask | None:
     return (
         db.query(SubscriptionTask)
         .filter(
@@ -104,13 +106,17 @@ async def process_once() -> None:
         stale_sub = _get_stale_subscription_task(db, cutoff)
         if stale_sub:
             _mark_cleaned(db, stale_sub, timeout_seconds=timeout, now=now)
-            logger.warning("清理超时订阅任务: id=%s, url=%s", stale_sub.id, stale_sub.url)
+            logger.warning(
+                "清理超时订阅任务: id=%s, url=%s", stale_sub.id, stale_sub.url
+            )
 
         # 清理超时的 EvidenceTask
         stale_evi = _get_stale_evidence_task(db, cutoff)
         if stale_evi:
             _mark_cleaned(db, stale_evi, timeout_seconds=timeout, now=now)
-            logger.warning("清理超时证据任务: id=%s, url=%s", stale_evi.id, stale_evi.url)
+            logger.warning(
+                "清理超时证据任务: id=%s, url=%s", stale_evi.id, stale_evi.url
+            )
     finally:
         db.close()
 

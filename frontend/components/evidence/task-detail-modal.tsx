@@ -35,7 +35,7 @@ function buildReplayInstruction(item: EvidenceItem): string {
   const url = (item.url ?? "").trim();
   const account = (item.account ?? "").trim();
   const password = (item.password ?? "").trim();
-  return `登录 ${url}（账号和密码分别为 ${account} 和 ${password}）并完成巡检`;
+  return `登录 ${url}（账号和密码分别为 ${account} 和 ${password}）并完成取证`;
 }
 
 function buildReplayCommand(item: EvidenceItem): string {
