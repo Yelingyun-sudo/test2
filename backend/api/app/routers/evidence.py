@@ -4,18 +4,18 @@ import json
 import logging
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import List
+from typing import Callable, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import Integer, case, func
 from sqlalchemy.orm import Session
 
 from ..db import get_db
 from ..utils import resolve_task_dir
 from ..models import EvidenceTask, TaskStatus
-from ..schemas.common import FailureTypeItem, FailureTypesResponse, LLMUsage
+from ..schemas.common import FailureTypesResponse, LLMUsage
 from ..schemas.evidence import (
     DailyTrendItem,
     DailyTrendResponse,
@@ -30,9 +30,14 @@ from ..schemas.evidence import (
     StatusDistributionResponse,
     SummaryResponse,
 )
-from website_analytics.output_types import (
-    FAILURE_TYPE_LABELS,
-    get_failure_types_ordered,
+from .common import (
+    compute_daily_trend,
+    compute_failure_stats,
+    compute_recent_tasks,
+    compute_status_distribution,
+    format_datetime,
+    get_failure_types_endpoint,
+    parse_date_range,
 )
 
 logger = logging.getLogger(__name__)
@@ -41,105 +46,6 @@ router = APIRouter(
     prefix="/evidence",
     tags=["evidence"],
 )
-
-
-def _parse_time_range(
-    range_key: str | None, tz_cn: timezone
-) -> tuple[datetime | None, datetime | None]:
-    """
-    解析预设时间范围，返回 UTC 时区的 (开始时间, 结束时间)
-
-    Args:
-        range_key: 时间范围键值（today/yesterday/dayBeforeYesterday/3d/7d/30d）
-        tz_cn: 中国时区
-
-    Returns:
-        (start_time_utc, end_time_utc) 或 (None, None)
-
-    Note:
-        内部先计算东八区的时间范围，然后转换为 UTC 返回。
-        这样可以确保与数据库中存储的 UTC 时间正确比较。
-    """
-    if not range_key:
-        return None, None
-
-    now_cn = datetime.now(tz_cn)
-    today_start = now_cn.replace(hour=0, minute=0, second=0, microsecond=0)
-    today_end = now_cn.replace(hour=23, minute=59, second=59, microsecond=999999)
-
-    if range_key == "today":
-        # 转换为 UTC 时间返回
-        return today_start.astimezone(timezone.utc), today_end.astimezone(timezone.utc)
-    elif range_key == "yesterday":
-        yesterday_start = today_start - timedelta(days=1)
-        yesterday_end = yesterday_start.replace(
-            hour=23, minute=59, second=59, microsecond=999999
-        )
-        # 转换为 UTC 时间返回
-        return yesterday_start.astimezone(timezone.utc), yesterday_end.astimezone(
-            timezone.utc
-        )
-    elif range_key == "dayBeforeYesterday":
-        day_before_yesterday_start = today_start - timedelta(days=2)
-        day_before_yesterday_end = day_before_yesterday_start.replace(
-            hour=23, minute=59, second=59, microsecond=999999
-        )
-        # 转换为 UTC 时间返回
-        return day_before_yesterday_start.astimezone(timezone.utc), day_before_yesterday_end.astimezone(
-            timezone.utc
-        )
-    elif range_key == "3d":
-        start = today_start - timedelta(days=2)
-        # 转换为 UTC 时间返回
-        return start.astimezone(timezone.utc), today_end.astimezone(timezone.utc)
-    elif range_key == "7d":
-        start = today_start - timedelta(days=6)
-        # 转换为 UTC 时间返回
-        return start.astimezone(timezone.utc), today_end.astimezone(timezone.utc)
-    elif range_key == "30d":
-        start = today_start - timedelta(days=29)
-        # 转换为 UTC 时间返回
-        return start.astimezone(timezone.utc), today_end.astimezone(timezone.utc)
-    else:
-        return None, None
-
-
-def parse_date_range(
-    start_date: str | None,
-    end_date: str | None,
-    tz_cn: timezone
-) -> tuple[datetime | None, datetime | None]:
-    """
-    解析日期范围，返回 UTC 时区的 (开始时间, 结束时间)
-
-    Args:
-        start_date: 开始日期 YYYY-MM-DD 格式
-        end_date: 结束日期 YYYY-MM-DD 格式
-        tz_cn: 中国时区
-
-    Returns:
-        (start_time_utc, end_time_utc) 或 (None, None)
-
-    Note:
-        内部先计算东八区的时间范围，然后转换为 UTC 返回。
-        这样可以确保与数据库中存储的 UTC 时间正确比较。
-    """
-    if not start_date or not end_date:
-        return None, None
-
-    try:
-        start = datetime.strptime(start_date, "%Y-%m-%d")
-        start = start.replace(
-            hour=0, minute=0, second=0, microsecond=0, tzinfo=tz_cn
-        )
-        end = datetime.strptime(end_date, "%Y-%m-%d")
-        end = end.replace(
-            hour=23, minute=59, second=59, microsecond=999999, tzinfo=tz_cn
-        )
-        return start.astimezone(timezone.utc), end.astimezone(timezone.utc)
-    except ValueError:
-        # 日期格式无效
-        return None, None
 
 
 @router.get(
@@ -156,9 +62,6 @@ def list_evidence(
     ),
     failure_type: str | None = Query(
         None, description="按失败类型过滤（通常与 status=failed 配合使用）"
-    ),
-    time_range: str | None = Query(
-        None, description="按执行时间范围过滤（today/yesterday/3d/7d/30d）"
     ),
     start_date: str | None = Query(
         None, description="开始日期 YYYY-MM-DD 格式"
@@ -189,7 +92,7 @@ def list_evidence(
     # 时间范围筛选
     tz_cn = timezone(timedelta(hours=8))
 
-    # 优先使用 start_date 和 end_date 参数
+    # 应用时间范围过滤
     if start_date and end_date:
         range_start_utc, range_end_utc = parse_date_range(start_date, end_date, tz_cn)
         if range_start_utc and range_end_utc:
@@ -197,15 +100,6 @@ def list_evidence(
                 EvidenceTask.executed_at.isnot(None),
                 EvidenceTask.executed_at >= range_start_utc,
                 EvidenceTask.executed_at <= range_end_utc,
-            )
-    # 否则使用 time_range 参数（向后兼容）
-    elif time_range:
-        start_time, end_time = _parse_time_range(time_range, tz_cn)
-        if start_time and end_time:
-            query = query.filter(
-                EvidenceTask.executed_at.isnot(None),
-                EvidenceTask.executed_at >= start_time,
-                EvidenceTask.executed_at <= end_time,
             )
 
     total = query.count()
@@ -230,13 +124,6 @@ def list_evidence(
 
     tz_cn = timezone(timedelta(hours=8))
 
-    def _format_dt(dt) -> str:
-        if not dt:
-            return ""
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone(tz_cn).isoformat()
-
     sliced = []
     for rec in records:
         # 安全地转换 llm_usage
@@ -258,8 +145,8 @@ def list_evidence(
                 account=rec.account,
                 password=rec.password,
                 status=rec.status.value if rec.status else "PENDING",
-                created_at=_format_dt(rec.created_at),
-                executed_at=_format_dt(rec.executed_at),
+                created_at=format_datetime(rec.created_at, tz_cn),
+                executed_at=format_datetime(rec.executed_at, tz_cn),
                 duration_seconds=rec.duration_seconds or 0,
                 result=rec.result,
                 failure_type=rec.failure_type,
@@ -279,7 +166,7 @@ def list_evidence(
 class EvidenceEntryDetail(BaseModel):
     """证据入口详情"""
 
-    json: str
+    json_data: str = Field(alias="json")
     screenshot: str
     text: str
 
@@ -419,8 +306,7 @@ def get_failure_types():
     Returns:
         失败类型列表，包含 value 和 label 字段。
     """
-    types_list = get_failure_types_ordered()
-    return FailureTypesResponse(items=[FailureTypeItem(**item) for item in types_list])
+    return get_failure_types_endpoint()
 
 
 # ===== 统计辅助函数 =====
@@ -575,252 +461,42 @@ def _compute_summary(
     )
 
 
-def _compute_daily_trend(db: Session, tz_cn: timezone) -> list[DailyTrendItem]:
-    """计算每日趋势（最近5天）"""
-    now_cn = datetime.now(tz_cn)
-    five_days_ago = now_cn.date() - timedelta(days=4)
-
-    # 按执行时间的日期分组
-    daily_trend_results = (
-        db.query(
-            func.date(EvidenceTask.executed_at).label("date"),
-            func.count(EvidenceTask.id).label("total_count"),
-            func.sum(
-                case((EvidenceTask.status == TaskStatus.SUCCESS, 1), else_=0)
-            ).label("success_count"),
-            func.sum(
-                case((EvidenceTask.status == TaskStatus.FAILED, 1), else_=0)
-            ).label("failed_count"),
-        )
-        .filter(
-            EvidenceTask.executed_at.isnot(None),
-            func.date(EvidenceTask.executed_at) >= five_days_ago,
-        )
-        .group_by(func.date(EvidenceTask.executed_at))
-        .order_by(func.date(EvidenceTask.executed_at).asc())
-        .all()
-    )
-
-    daily_trend = []
-    for row in daily_trend_results:
-        total_count = row.total_count or 0
-        success_count_day = row.success_count or 0
-        failed_count_day = row.failed_count or 0
-        completed_day = success_count_day + failed_count_day
-        day_success_rate = (
-            (success_count_day / completed_day) if completed_day > 0 else 0.0
-        )
-
-        # 处理 row.date 可能是字符串或 date 对象的情况
-        date_str = ""
-        if row.date:
-            if isinstance(row.date, str):
-                date_str = row.date
-            else:
-                date_str = row.date.isoformat()
-
-        daily_trend.append(
-            DailyTrendItem(
-                date=date_str,
-                total_count=total_count,
-                success_count=success_count_day,
-                failed_count=failed_count_day,
-                success_rate=day_success_rate,
-            )
-        )
-
-    return daily_trend
 
 
-def _compute_status_distribution(
-    db: Session,
-    start_date: str | None,
-    end_date: str | None,
-    range_start_utc: datetime,
-    range_end_utc: datetime,
-) -> list[StatusDistributionItem]:
-    """计算状态分布（根据时间范围过滤）"""
-    status_query = db.query(
-        EvidenceTask.status.label("status"),
-        func.count(EvidenceTask.id).label("count"),
-    )
-
-    # 应用时间范围过滤（如果指定）
-    if start_date and end_date:
-        status_query = status_query.filter(
-            EvidenceTask.executed_at.isnot(None),
-            EvidenceTask.executed_at >= range_start_utc,
-            EvidenceTask.executed_at <= range_end_utc,
-        )
-
-    status_results = status_query.group_by(EvidenceTask.status).all()
-
-    status_distribution = []
-    for row in status_results:
-        status_value = row.status.value if hasattr(row.status, "value") else row.status
-        status_distribution.append(
-            StatusDistributionItem(status=status_value or "", count=row.count or 0)
-        )
-
-    return status_distribution
 
 
-def _compute_recent_tasks(
-    db: Session,
-    start_date: str | None,
-    end_date: str | None,
-    range_start_utc: datetime,
-    range_end_utc: datetime,
-    tz_cn: timezone,
-) -> list[EvidenceItem]:
-    """获取最新任务列表（最近15条）"""
+def _build_evidence_item(rec: EvidenceTask, _format_dt: Callable) -> EvidenceItem:
+    """构建 EvidenceItem 对象"""
+    status_value = rec.status.value if hasattr(rec.status, "value") else rec.status
 
-    def _format_dt(dt):
-        if not dt:
-            return ""
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone(tz_cn).isoformat()
-
-    # 状态优先级：running > success/failed > pending
-    recent_status_priority = case(
-        (EvidenceTask.status == TaskStatus.RUNNING, 0),
-        (EvidenceTask.status.in_([TaskStatus.SUCCESS, TaskStatus.FAILED]), 1),
-        else_=2,
-    )
-
-    recent_task_query = db.query(EvidenceTask)
-
-    # 应用时间范围过滤（如果指定）
-    if start_date and end_date:
-        recent_task_query = recent_task_query.filter(
-            EvidenceTask.executed_at.isnot(None),
-            EvidenceTask.executed_at >= range_start_utc,
-            EvidenceTask.executed_at <= range_end_utc,
-        )
-
-    recent_task_records = (
-        recent_task_query.order_by(
-            recent_status_priority,
-            EvidenceTask.executed_at.desc().nulls_last(),
-            EvidenceTask.id.asc(),
-        )
-        .limit(5)
-        .all()
-    )
-
-    recent_tasks = []
-    for rec in recent_task_records:
-        status_value = rec.status.value if hasattr(rec.status, "value") else rec.status
-
-        # 安全地转换 llm_usage
-        llm_usage_value = None
-        if rec.llm_usage is not None:
-            try:
-                llm_usage_value = LLMUsage(**rec.llm_usage)
-            except (ValidationError, TypeError) as exc:
-                logger.error(
-                    "任务 ID=%s 的 llm_usage 数据格式错误，已跳过: %s",
-                    rec.id,
-                    exc,
-                )
-
-        recent_tasks.append(
-            EvidenceItem(
-                id=int(rec.id) if rec.id is not None else 0,
-                url=rec.url,
-                account=rec.account,
-                password=rec.password,
-                status=status_value or "",
-                created_at=_format_dt(rec.created_at),
-                duration_seconds=rec.duration_seconds or 0,
-                executed_at=_format_dt(rec.executed_at),
-                task_dir=rec.task_dir,
-                result=rec.result,
-                failure_type=rec.failure_type,
-                llm_usage=llm_usage_value,
-            )
-        )
-
-    return recent_tasks
-
-
-def _compute_failure_stats(
-    db: Session,
-    start_date: str | None,
-    end_date: str | None,
-    tz_cn: timezone,
-) -> tuple[list[FailureTypeDistributionItem], FailureSummary]:
-    """计算失败类型分布统计和失败总览（支持时间范围过滤）"""
-    failure_type_query = db.query(
-        EvidenceTask.failure_type,
-        func.count(EvidenceTask.id).label("count"),
-    ).filter(
-        EvidenceTask.status == TaskStatus.FAILED,
-        EvidenceTask.failure_type.isnot(None),
-    )
-
-    # 应用时间范围过滤（如果指定）
-    if start_date and end_date:
-        start_time, end_time = parse_date_range(start_date, end_date, tz_cn)
-        if start_time and end_time:
-            failure_type_query = failure_type_query.filter(
-                EvidenceTask.executed_at.isnot(None),
-                EvidenceTask.executed_at >= start_time,
-                EvidenceTask.executed_at <= end_time,
+    # 安全地转换 llm_usage
+    llm_usage_value = None
+    if rec.llm_usage is not None:
+        try:
+            llm_usage_value = LLMUsage(**rec.llm_usage)
+        except (ValidationError, TypeError) as exc:
+            logger.error(
+                "任务 ID=%s 的 llm_usage 数据格式错误，已跳过: %s",
+                rec.id,
+                exc,
             )
 
-    failure_type_results = (
-        failure_type_query.group_by(EvidenceTask.failure_type)
-        .order_by(func.count(EvidenceTask.id).desc())
-        .all()
+    return EvidenceItem(
+        id=int(rec.id) if rec.id is not None else 0,
+        url=rec.url,
+        account=rec.account,
+        password=rec.password,
+        status=status_value or "",
+        created_at=_format_dt(rec.created_at),
+        duration_seconds=rec.duration_seconds or 0,
+        executed_at=_format_dt(rec.executed_at),
+        task_dir=rec.task_dir,
+        result=rec.result,
+        failure_type=rec.failure_type,
+        llm_usage=llm_usage_value,
     )
 
-    # 计算时间范围内的实际失败总数（用于百分比计算）
-    range_failed_count = sum(row.count or 0 for row in failure_type_results)
 
-    # Top 5 + "其他"
-    top_5_types = failure_type_results[:5]
-    others_count = sum(row.count or 0 for row in failure_type_results[5:])
-
-    failure_type_distribution = []
-    for row in top_5_types:
-        count = row.count or 0
-        # 使用时间范围内的失败数计算百分比
-        percentage = (
-            (count / range_failed_count * 100) if range_failed_count > 0 else 0.0
-        )
-        failure_type_distribution.append(
-            FailureTypeDistributionItem(
-                type=row.failure_type or "",
-                label=FAILURE_TYPE_LABELS.get(
-                    row.failure_type or "", row.failure_type or ""
-                ),
-                count=count,
-                percentage=round(percentage, 1),
-            )
-        )
-
-    # 添加"其他"类别
-    if others_count > 0:
-        others_percentage = (
-            (others_count / range_failed_count * 100) if range_failed_count > 0 else 0.0
-        )
-        failure_type_distribution.append(
-            FailureTypeDistributionItem(
-                type="others",
-                label="其他",
-                count=others_count,
-                percentage=round(others_percentage, 1),
-            )
-        )
-
-    failure_summary = FailureSummary(
-        total_failed=range_failed_count,  # 使用时间范围内的数量
-        unique_types=len(failure_type_results),
-    )
-
-    return failure_type_distribution, failure_summary
 
 
 # ===== 专用统计端点 =====
@@ -870,7 +546,9 @@ def get_evidence_stats_daily_trend(
     """获取取证任务的每日趋势数据（最近5天）"""
     tz_cn = timezone(timedelta(hours=8))
 
-    daily_trend = _compute_daily_trend(db, tz_cn)
+    daily_trend = compute_daily_trend(
+        db, EvidenceTask, tz_cn, days=5, daily_trend_item_cls=DailyTrendItem
+    )
     return DailyTrendResponse(daily_trend=daily_trend)
 
 
@@ -903,8 +581,14 @@ def get_evidence_stats_status_distribution(
         range_start_utc = today_start_cn.astimezone(timezone.utc)
         range_end_utc = today_end_cn.astimezone(timezone.utc)
 
-    status_distribution = _compute_status_distribution(
-        db, start_date, end_date, range_start_utc, range_end_utc
+    status_distribution = compute_status_distribution(
+        db,
+        EvidenceTask,
+        start_date,
+        end_date,
+        range_start_utc,
+        range_end_utc,
+        StatusDistributionItem,
     )
     return StatusDistributionResponse(status_distribution=status_distribution)
 
@@ -938,8 +622,16 @@ def get_evidence_stats_recent_tasks(
         range_start_utc = today_start_cn.astimezone(timezone.utc)
         range_end_utc = today_end_cn.astimezone(timezone.utc)
 
-    recent_tasks = _compute_recent_tasks(
-        db, start_date, end_date, range_start_utc, range_end_utc, tz_cn
+    recent_tasks = compute_recent_tasks(
+        db,
+        EvidenceTask,
+        start_date,
+        end_date,
+        range_start_utc,
+        range_end_utc,
+        tz_cn,
+        EvidenceItem,
+        _build_evidence_item,
     )
     return RecentTasksResponse(recent_tasks=recent_tasks)
 
@@ -961,8 +653,14 @@ def get_evidence_stats_failure_types(
     """获取失败类型分布统计和失败总览"""
     tz_cn = timezone(timedelta(hours=8))
 
-    failure_type_distribution, failure_summary = _compute_failure_stats(
-        db, start_date, end_date, tz_cn
+    failure_type_distribution, failure_summary = compute_failure_stats(
+        db,
+        EvidenceTask,
+        start_date,
+        end_date,
+        tz_cn,
+        FailureTypeDistributionItem,
+        FailureSummary,
     )
 
     return FailureTypesStatsResponse(
