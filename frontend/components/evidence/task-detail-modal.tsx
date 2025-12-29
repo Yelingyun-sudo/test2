@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Loader2, Pause, Play, RotateCcw } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Pause, Play, RotateCcw, Copy } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -197,6 +197,21 @@ export function TaskDetailModal({ task, onClose, failureTypeLabel }: TaskDetailM
       toast.error("复制失败，请手动复制");
     }
   }, [task]);
+
+  const handleCopyUrl = useCallback(async () => {
+    const url = (task.url ?? "").trim();
+    if (!url) {
+      toast.error("网址为空，无法复制");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("复制成功");
+    } catch {
+      toast.error("复制失败，请手动复制");
+    }
+  }, [task.url]);
 
   const revokeArtifactUrls = useCallback((urls: ArtifactUrls) => {
     for (const value of Object.values(urls)) {
@@ -691,7 +706,37 @@ export function TaskDetailModal({ task, onClose, failureTypeLabel }: TaskDetailM
           <div className="grid gap-4 px-6 py-5 text-sm text-slate-700 sm:grid-cols-2 lg:grid-cols-3">
             <div className="space-y-1">
               <div className="text-slate-500">网址</div>
-              <div className="break-all font-medium text-slate-800">{task.url}</div>
+              {task.url ? (
+                <div className="flex items-center gap-2">
+                  <a
+                    href={task.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="break-all font-medium text-slate-800 hover:text-sky-600 hover:underline cursor-pointer transition-colors flex-1"
+                  >
+                    {task.url}
+                  </a>
+                  <TooltipProvider delayDuration={200}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 flex-shrink-0"
+                          onClick={handleCopyUrl}
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>复制网址</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              ) : (
+                <div className="break-all font-medium text-slate-800">-</div>
+              )}
             </div>
             <div className="space-y-1">
               <div className="text-slate-500">用户名</div>
