@@ -49,7 +49,7 @@
 
 **填写：**
 - 使用 `browser_fill_form` **一次性填写所有字段**（包括文本框和复选框）：
-  - 账号/邮箱 textbox：`wangqian674@163.com`
+  - 账号/邮箱 textbox：`wangqian674@qq.com` 注意：如果form中已经有 `@qq.com` 则只填前缀部分
   - 密码 textbox：`test1234`
   - 确认密码 textbox（如果表单有此字段）：`test1234`
   - 服务条款 checkbox（**必填**）：勾选所有"服务条款"、"用户协议"、"同意条款"、"我同意"等复选框
@@ -60,7 +60,7 @@
 ```json
 {
   "fields": [
-    {"name": "邮箱", "type": "textbox", "ref": "e21", "value": "wangqian668@163.com"},
+    {"name": "邮箱", "type": "textbox", "ref": "e21", "value": "wangqian668@qq.com"},
     {"name": "密码", "type": "textbox", "ref": "e25", "value": "test1234"},
     {"name": "重复密码", "type": "textbox", "ref": "e31", "value": "test1234"},
     {"name": "我同意 服务条款", "type": "checkbox", "ref": "e38", "value": "true"}
@@ -125,7 +125,7 @@
   {
     "success": true,
     "message": "注册成功",
-    "account": "wangqian666@163.com",
+    "account": "wangqian666@qq.com",
     "password": "test1234",
     "error_type": null
   }
