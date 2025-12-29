@@ -687,7 +687,7 @@ def get_subscription_stats_recent_tasks(
     ),
     db: Session = Depends(get_db),
 ):
-    """获取最新任务列表（最近5条）"""
+    """获取最新任务列表（最多 100 条）"""
     tz_cn = timezone(timedelta(hours=8))
     now_cn = datetime.now(tz_cn)
     today_start_cn = now_cn.replace(hour=0, minute=0, second=0, microsecond=0)

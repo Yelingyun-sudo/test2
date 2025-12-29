@@ -22,6 +22,9 @@ export function TaskListRecent({
   onTaskClick,
   onViewAll,
 }: TaskListRecentProps) {
+  // 限制最多显示 5 个任务
+  const displayedTasks = tasks.slice(0, 5);
+
   return (
     <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm h-[350px] flex flex-col">
       <div className="flex items-start justify-between">
@@ -57,14 +60,14 @@ export function TaskListRecent({
             </tr>
           </thead>
           <tbody>
-            {tasks.length === 0 ? (
+            {displayedTasks.length === 0 ? (
               <tr>
                 <td colSpan={6} className="p-4 text-center text-sm text-slate-500">
                   暂无任务记录
                 </td>
               </tr>
             ) : (
-              tasks.map((task) => (
+              displayedTasks.map((task) => (
                 <tr
                   key={task.id}
                   className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors"

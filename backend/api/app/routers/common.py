@@ -324,7 +324,7 @@ def compute_recent_tasks(
         build_item_fn: 构建 Item 对象的函数，接收 (rec, _format_dt) 参数
 
     Returns:
-        最新任务列表
+        最新任务列表（最多 100 条）
     """
     from ..models import TaskStatus
 
@@ -354,7 +354,7 @@ def compute_recent_tasks(
             task_model.executed_at.desc().nulls_last(),
             task_model.id.asc(),
         )
-        .limit(5)
+        .limit(100)
         .all()
     )
 
