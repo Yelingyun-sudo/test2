@@ -21,7 +21,7 @@ import { TaskQueueCard } from "@/components/common/task-queue-card";
 import { TaskListRecent } from "@/components/evidence/task-list-recent";
 import { TaskListDrawer } from "@/components/evidence/task-list-drawer";
 import { TaskDetailModal } from "@/components/evidence/task-detail-modal";
-import { type DateRange, getTimeRangeLabel } from "@/components/ui/date-range-picker";
+import { type DateRange, getDateRangeLabel } from "@/components/ui/date-range-picker";
 import { format } from "date-fns";
 import { DailyTrendChart } from "@/components/evidence/daily-trend-chart";
 import { DashboardShell } from "./shell";
@@ -161,8 +161,8 @@ export function EvidenceDashboard({ onLogout, account }: DashboardProps) {
     }, {} as Record<string, string>);
   }, [failureTypes]);
 
-  // 根据时间范围生成 KPI 卡片标题前缀
-  const timeRangeLabel = getTimeRangeLabel(statsTimeRange);
+  // 根据日期范围生成 KPI 卡片标题前缀
+  const timeRangeLabel = getDateRangeLabel(statsTimeRange);
 
   if (loading) {
     return (

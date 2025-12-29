@@ -289,11 +289,11 @@ export function DateRangePicker({
 }
 
 /**
- * 根据时间范围生成标签（用于 KPI 卡片等场景）
+ * 根据日期范围生成标签（用于 KPI 卡片等场景）
  * @param range 日期范围
- * @returns 标签文本，如"今日"、"昨日"、"前日"、"近3天"、"选定时间"、"总计"
+ * @returns 标签文本，如"今天"、"昨天"、"前天"、"近3天"、"选定时间"、"总计"
  */
-export function getTimeRangeLabel(range: DateRange): string {
+export function getDateRangeLabel(range: DateRange): string {
   if (!range.from && !range.to) {
     return "总计";
   }

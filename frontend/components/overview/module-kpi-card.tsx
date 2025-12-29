@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatDurationSeconds } from "@/lib/datetime";
 import { formatTokenCount } from "@/lib/utils";
-import { type DateRange, getTimeRangeLabel } from "@/components/ui/date-range-picker";
+import { type DateRange, getDateRangeLabel } from "@/components/ui/date-range-picker";
 
 interface ModuleSummaryData {
   total_tasks: number;
@@ -41,7 +41,7 @@ export function ModuleKPICard({
   const isPayment = module === "payment";
 
   // 根据日期范围生成标签
-  const timeRangeLabel = dateRange ? getTimeRangeLabel(dateRange) : "总计";
+  const timeRangeLabel = dateRange ? getDateRangeLabel(dateRange) : "总计";
   const taskCountLabel = `${timeRangeLabel}执行`;
 
   // 计算成功率
