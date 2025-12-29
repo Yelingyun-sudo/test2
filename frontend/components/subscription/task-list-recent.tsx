@@ -24,8 +24,13 @@ export function TaskListRecent({
 }: TaskListRecentProps) {
   return (
     <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm h-[350px] flex flex-col">
-      <div className="flex items-start justify-between">
-        <h3 className="text-lg font-semibold text-slate-900">最新任务列表</h3>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <h3 className="text-lg font-semibold text-slate-900">最新任务列表</h3>
+          <span className="text-xs text-slate-400">
+            共 {tasks.length} 个
+          </span>
+        </div>
         <Button
           variant="outline"
           size="sm"

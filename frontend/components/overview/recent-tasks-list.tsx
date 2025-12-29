@@ -157,11 +157,9 @@ export function RecentTasksList({
         <div className="flex items-center gap-2">
           <List className="h-5 w-5 text-slate-600" />
           <h3 className="text-lg font-semibold text-slate-900">最新任务列表</h3>
-          {!isExpanded && mergedTasks.length > 0 && (
-            <span className="text-sm text-slate-500">
-              （共 {mergedTasks.length} 个任务）
-            </span>
-          )}
+          <span className="text-xs text-slate-400">
+            共 {mergedTasks.length} 个
+          </span>
         </div>
         <div className="flex items-center gap-2">
           {/* 任务类型过滤器 */}
