@@ -1,8 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { ChevronDown, ChevronUp, List, CheckSquare, ListChecks, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { formatDateTime, formatDurationSeconds } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
 import { TaskDetailModal as EvidenceTaskDetailModal } from "@/components/evidence/task-detail-modal";
@@ -35,51 +42,76 @@ export function RecentTasksList({
   failureTypeLabel = {}
 }: RecentTasksListProps) {
   const [isExpanded, setIsExpanded] = useState(true);
+  const [selectedTaskType, setSelectedTaskType] = useState<string>("all");
+  const [selectedTaskStatus, setSelectedTaskStatus] = useState<string>("all");
   const [selectedTask, setSelectedTask] = useState<{
     type: "evidence" | "subscription";
     task: EvidenceItem | SubscriptionItem;
   } | null>(null);
 
   // 合并任务并添加模块标识
-  const mergedTasks: RecentTask[] = [
-    ...evidenceTasks.map((task) => ({
-      id: task.id,
-      module: "evidence" as const,
-      moduleLabel: "注册取证任务",
-      status: task.status,
-      url: task.url,
-      executed_at: task.executed_at || null,
-      duration_seconds: task.duration_seconds || null,
-      result: task.result || null,
-      failure_type: task.failure_type || null
-    })),
-    ...subscriptionTasks.map((task) => ({
-      id: task.id,
-      module: "subscription" as const,
-      moduleLabel: "订阅链接任务",
-      status: task.status,
-      url: task.url,
-      executed_at: task.executed_at || null,
-      duration_seconds: task.duration_seconds || null,
-      result: task.result || null,
-      failure_type: task.failure_type || null
-    }))
-  ]
-    .sort((a, b) => {
-      // 按执行时间排序，执行中的任务优先
-      if (a.status === "RUNNING" && b.status !== "RUNNING") return -1;
-      if (a.status !== "RUNNING" && b.status === "RUNNING") return 1;
-      
-      // 按执行时间倒序
-      if (a.executed_at && b.executed_at) {
-        return new Date(b.executed_at).getTime() - new Date(a.executed_at).getTime();
+  const allMergedTasks: RecentTask[] = useMemo(() => {
+    return [
+      ...evidenceTasks.map((task) => ({
+        id: task.id,
+        module: "evidence" as const,
+        moduleLabel: "注册取证任务",
+        status: task.status,
+        url: task.url,
+        executed_at: task.executed_at || null,
+        duration_seconds: task.duration_seconds || null,
+        result: task.result || null,
+        failure_type: task.failure_type || null
+      })),
+      ...subscriptionTasks.map((task) => ({
+        id: task.id,
+        module: "subscription" as const,
+        moduleLabel: "订阅链接任务",
+        status: task.status,
+        url: task.url,
+        executed_at: task.executed_at || null,
+        duration_seconds: task.duration_seconds || null,
+        result: task.result || null,
+        failure_type: task.failure_type || null
+      }))
+    ]
+      .sort((a, b) => {
+        // 按执行时间排序，执行中的任务优先
+        if (a.status === "RUNNING" && b.status !== "RUNNING") return -1;
+        if (a.status !== "RUNNING" && b.status === "RUNNING") return 1;
+        
+        // 按执行时间倒序
+        if (a.executed_at && b.executed_at) {
+          return new Date(b.executed_at).getTime() - new Date(a.executed_at).getTime();
+        }
+        if (a.executed_at) return -1;
+        if (b.executed_at) return 1;
+        
+        return b.id - a.id;
+      });
+  }, [evidenceTasks, subscriptionTasks]);
+
+  // 应用过滤条件
+  const mergedTasks: RecentTask[] = useMemo(() => {
+    let filtered = allMergedTasks;
+
+    // 任务类型过滤
+    if (selectedTaskType !== "all") {
+      if (selectedTaskType === "payment") {
+        // 支付链接任务目前无数据，返回空数组
+        filtered = [];
+      } else {
+        filtered = filtered.filter((task) => task.module === selectedTaskType);
       }
-      if (a.executed_at) return -1;
-      if (b.executed_at) return 1;
-      
-      return b.id - a.id;
-    })
-    .slice(0, 9); // 取前9个（3x3网格）
+    }
+
+    // 任务状态过滤
+    if (selectedTaskStatus !== "all") {
+      filtered = filtered.filter((task) => task.status === selectedTaskStatus);
+    }
+
+    return filtered.slice(0, 9); // 取前9个（3x3网格）
+  }, [allMergedTasks, selectedTaskType, selectedTaskStatus]);
 
   const handleTaskClick = (task: RecentTask) => {
     if (task.module === "evidence") {
@@ -131,24 +163,52 @@ export function RecentTasksList({
             </span>
           )}
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="text-slate-600 hover:text-slate-900"
-        >
-          {isExpanded ? (
-            <>
-              收起
-              <ChevronUp className="ml-1 h-4 w-4" />
-            </>
-          ) : (
-            <>
-              展开
-              <ChevronDown className="ml-1 h-4 w-4" />
-            </>
-          )}
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* 任务类型过滤器 */}
+          <Select value={selectedTaskType} onValueChange={setSelectedTaskType}>
+            <SelectTrigger className="w-[160px]">
+              <SelectValue placeholder="任务类型" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">所有任务</SelectItem>
+              <SelectItem value="evidence">注册取证任务</SelectItem>
+              <SelectItem value="subscription">订阅链接任务</SelectItem>
+              <SelectItem value="payment">支付链接任务</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* 任务状态过滤器 */}
+          <Select value={selectedTaskStatus} onValueChange={setSelectedTaskStatus}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue placeholder="任务状态" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">所有状态</SelectItem>
+              <SelectItem value="SUCCESS">成功</SelectItem>
+              <SelectItem value="FAILED">失败</SelectItem>
+              <SelectItem value="RUNNING">执行中</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="text-slate-600 hover:text-slate-900"
+          >
+            {isExpanded ? (
+              <>
+                收起
+                <ChevronUp className="ml-1 h-4 w-4" />
+              </>
+            ) : (
+              <>
+                展开
+                <ChevronDown className="ml-1 h-4 w-4" />
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
       {/* 任务列表 */}
