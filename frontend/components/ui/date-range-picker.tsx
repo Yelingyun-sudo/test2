@@ -288,5 +288,64 @@ export function DateRangePicker({
   );
 }
 
+/**
+ * 根据时间范围生成标签（用于 KPI 卡片等场景）
+ * @param range 日期范围
+ * @returns 标签文本，如"今日"、"昨日"、"前日"、"近3天"、"选定时间"、"总计"
+ */
+export function getTimeRangeLabel(range: DateRange): string {
+  if (!range.from && !range.to) {
+    return "总计";
+  }
+  
+  // 检查是否为预设值
+  const todayRange = getPresetRange("today");
+  const yesterdayRange = getPresetRange("yesterday");
+  const dayBeforeYesterdayRange = getPresetRange("dayBeforeYesterday");
+  const threeDaysRange = getPresetRange("3d");
+  const sevenDaysRange = getPresetRange("7d");
+  const thirtyDaysRange = getPresetRange("30d");
+  
+  if (range.from && range.to) {
+    // 比较日期范围（只比较日期，忽略时间）
+    const isSameDay = (d1: Date, d2: Date) =>
+      d1.getFullYear() === d2.getFullYear() &&
+      d1.getMonth() === d2.getMonth() &&
+      d1.getDate() === d2.getDate();
+    
+    if (todayRange.from && todayRange.to &&
+        isSameDay(range.from, todayRange.from) &&
+        isSameDay(range.to, todayRange.to)) {
+      return "今天";
+    }
+    if (yesterdayRange.from && yesterdayRange.to &&
+        isSameDay(range.from, yesterdayRange.from) &&
+        isSameDay(range.to, yesterdayRange.to)) {
+      return "昨天";
+    }
+    if (dayBeforeYesterdayRange.from && dayBeforeYesterdayRange.to &&
+        isSameDay(range.from, dayBeforeYesterdayRange.from) &&
+        isSameDay(range.to, dayBeforeYesterdayRange.to)) {
+      return "前天";
+    }
+    if (threeDaysRange.from && threeDaysRange.to &&
+        isSameDay(range.from, threeDaysRange.from) &&
+        isSameDay(range.to, threeDaysRange.to)) {
+      return "近3天";
+    }
+    if (sevenDaysRange.from && sevenDaysRange.to &&
+        isSameDay(range.from, sevenDaysRange.from) &&
+        isSameDay(range.to, sevenDaysRange.to)) {
+      return "近7天";
+    }
+    if (thirtyDaysRange.from && thirtyDaysRange.to &&
+        isSameDay(range.from, thirtyDaysRange.from) &&
+        isSameDay(range.to, thirtyDaysRange.to)) {
+      return "近30天";
+    }
+  }
+  return "选定时间";
+}
+
 // 导出辅助函数供外部使用
 export { getPresetRange };

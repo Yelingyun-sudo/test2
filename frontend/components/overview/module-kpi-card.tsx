@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatDurationSeconds } from "@/lib/datetime";
 import { formatTokenCount } from "@/lib/utils";
+import { type DateRange, getTimeRangeLabel } from "@/components/ui/date-range-picker";
 
 interface ModuleSummaryData {
   total_tasks: number;
@@ -25,6 +26,7 @@ interface ModuleKPICardProps {
   summary?: ModuleSummaryData | null;
   detailUrl: string;
   className?: string;
+  dateRange?: DateRange;
 }
 
 export function ModuleKPICard({
@@ -33,9 +35,14 @@ export function ModuleKPICard({
   icon,
   summary,
   detailUrl,
-  className
+  className,
+  dateRange
 }: ModuleKPICardProps) {
   const isPayment = module === "payment";
+
+  // 根据日期范围生成标签
+  const timeRangeLabel = dateRange ? getTimeRangeLabel(dateRange) : "总计";
+  const taskCountLabel = `${timeRangeLabel}执行`;
 
   // 计算成功率
   const successCount = summary?.today_success_count || 0;
@@ -139,7 +146,7 @@ export function ModuleKPICard({
               <div className="text-4xl font-bold text-slate-900">
                 {summary?.total_tasks.toLocaleString() ?? "--"}
               </div>
-              <div className="text-xs text-slate-600 mt-1">总任务数</div>
+              <div className="text-xs text-slate-600 mt-1">{taskCountLabel}</div>
             </div>
             <div className="text-right">
               <div

@@ -156,6 +156,7 @@ export function SystemOverview() {
           icon={<BarChart3 className="h-5 w-5" />}
           summary={evidenceSummary}
           detailUrl="/evidence"
+          dateRange={dateRange}
         />
 
         <ModuleKPICard
@@ -164,6 +165,7 @@ export function SystemOverview() {
           icon={<Mail className="h-5 w-5" />}
           summary={subscriptionSummary}
           detailUrl="/subscription"
+          dateRange={dateRange}
         />
 
         <ModuleKPICard
@@ -172,6 +174,7 @@ export function SystemOverview() {
           icon={<CreditCard className="h-5 w-5" />}
           summary={null}
           detailUrl="/payment"
+          dateRange={dateRange}
         />
       </div>
 

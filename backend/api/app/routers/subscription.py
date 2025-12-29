@@ -300,7 +300,6 @@ def _compute_summary(
 ) -> SubscriptionStatsSummary:
     """计算汇总统计"""
     summary_result = db.query(
-        func.count(SubscriptionTask.id).label("total_tasks"),
         func.sum(case((SubscriptionTask.created_date == cn_today, 1), else_=0)).label(
             "today_tasks"
         ),
@@ -467,7 +466,6 @@ def _compute_summary(
         ).label("today_avg_failed_tokens"),
     ).first()
 
-    total_tasks = summary_result.total_tasks or 0
     today_tasks = summary_result.today_tasks or 0
     success_count = summary_result.success_count or 0
     failed_count = summary_result.failed_count or 0
@@ -493,6 +491,9 @@ def _compute_summary(
     avg_failed_tokens = summary_result.avg_failed_tokens or 0.0
     today_success_count = summary_result.today_success_count or 0
     today_failed_count = summary_result.today_failed_count or 0
+    
+    # 总任务数 = 时间范围内已执行的任务数（成功+失败），与 evidence 模块保持一致
+    total_tasks = today_success_count + today_failed_count
     today_avg_success_duration = summary_result.today_avg_success_duration or 0.0
     today_avg_failed_duration = summary_result.today_avg_failed_duration or 0.0
     today_avg_success_tokens = summary_result.today_avg_success_tokens or 0.0

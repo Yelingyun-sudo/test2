@@ -21,7 +21,7 @@ import { TaskQueueCard } from "@/components/common/task-queue-card";
 import { TaskListRecent } from "@/components/evidence/task-list-recent";
 import { TaskListDrawer } from "@/components/evidence/task-list-drawer";
 import { TaskDetailModal } from "@/components/evidence/task-detail-modal";
-import { type DateRange, getPresetRange } from "@/components/ui/date-range-picker";
+import { type DateRange, getTimeRangeLabel } from "@/components/ui/date-range-picker";
 import { format } from "date-fns";
 import { DailyTrendChart } from "@/components/evidence/daily-trend-chart";
 import { DashboardShell } from "./shell";
@@ -161,57 +161,7 @@ export function EvidenceDashboard({ onLogout, account }: DashboardProps) {
     }, {} as Record<string, string>);
   }, [failureTypes]);
 
-  const getTimeRangeLabel = (range: DateRange): string => {
-    if (!range.from && !range.to) {
-      return "总计";
-    }
-    const todayRange = getPresetRange("today");
-    const yesterdayRange = getPresetRange("yesterday");
-    const dayBeforeYesterdayRange = getPresetRange("dayBeforeYesterday");
-    const threeDaysRange = getPresetRange("3d");
-    const sevenDaysRange = getPresetRange("7d");
-    const thirtyDaysRange = getPresetRange("30d");
-
-    if (range.from && range.to) {
-      const isSameDay = (d1: Date, d2: Date) =>
-        d1.getFullYear() === d2.getFullYear() &&
-        d1.getMonth() === d2.getMonth() &&
-        d1.getDate() === d2.getDate();
-
-      if (todayRange.from && todayRange.to &&
-          isSameDay(range.from, todayRange.from) &&
-          isSameDay(range.to, todayRange.to)) {
-        return "今日";
-      }
-      if (yesterdayRange.from && yesterdayRange.to &&
-          isSameDay(range.from, yesterdayRange.from) &&
-          isSameDay(range.to, yesterdayRange.to)) {
-        return "昨日";
-      }
-      if (dayBeforeYesterdayRange.from && dayBeforeYesterdayRange.to &&
-          isSameDay(range.from, dayBeforeYesterdayRange.from) &&
-          isSameDay(range.to, dayBeforeYesterdayRange.to)) {
-        return "前日";
-      }
-      if (threeDaysRange.from && threeDaysRange.to &&
-          isSameDay(range.from, threeDaysRange.from) &&
-          isSameDay(range.to, threeDaysRange.to)) {
-        return "近3天";
-      }
-      if (sevenDaysRange.from && sevenDaysRange.to &&
-          isSameDay(range.from, sevenDaysRange.from) &&
-          isSameDay(range.to, sevenDaysRange.to)) {
-        return "近7天";
-      }
-      if (thirtyDaysRange.from && thirtyDaysRange.to &&
-          isSameDay(range.from, thirtyDaysRange.from) &&
-          isSameDay(range.to, thirtyDaysRange.to)) {
-        return "近30天";
-      }
-    }
-    return "选定时间";
-  };
-
+  // 根据时间范围生成 KPI 卡片标题前缀
   const timeRangeLabel = getTimeRangeLabel(statsTimeRange);
 
   if (loading) {
@@ -278,7 +228,7 @@ export function EvidenceDashboard({ onLogout, account }: DashboardProps) {
         <div className="grid gap-4 md:grid-cols-5">
           {/* 已执行 */}
           <div className="rounded-2xl border bg-gradient-to-br from-sky-500/10 to-sky-600/10 text-sky-700 border-sky-100 p-5 shadow-sm backdrop-blur">
-            <p className="text-sm text-slate-600">{timeRangeLabel}已执行</p>
+            <p className="text-sm text-slate-600">{timeRangeLabel}执行</p>
             <div className="mt-2 flex items-baseline gap-3">
               <div className="text-3xl font-semibold">
                 {summary.today_success_count + summary.today_failed_count}
