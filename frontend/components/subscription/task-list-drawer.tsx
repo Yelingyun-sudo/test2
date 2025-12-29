@@ -50,7 +50,7 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [failureTypeFilter, setFailureTypeFilter] = useState("ALL");
-  const [timeRangeFilter, setTimeRangeFilter] = useState<DateRange>({ from: undefined, to: undefined });
+  const [dateRangeFilter, setDateRangeFilter] = useState<DateRange>({ from: undefined, to: undefined });
   const [loading, setLoading] = useState(false);
   const [selectedItem, setSelectedItem] = useState<SubscriptionItem | null>(null);
   const [failureTypeStats, setFailureTypeStats] = useState<
@@ -84,7 +84,7 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
   const pageItems = useMemo(() => getPageItems(page, totalPages), [page, totalPages]);
 
   const fetchData = useCallback(
-    async (params: { page: number; q: string; status: string; failureType: string; timeRange: DateRange }) => {
+    async (params: { page: number; q: string; status: string; failureType: string; dateRange: DateRange }) => {
       setLoading(true);
       try {
         const searchParams = new URLSearchParams({
@@ -94,9 +94,9 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
         if (params.q) searchParams.set("q", params.q);
         if (params.status && params.status !== "ALL") searchParams.set("status", params.status);
         if (params.failureType && params.failureType !== "ALL") searchParams.set("failure_type", params.failureType);
-        if (params.timeRange.from && params.timeRange.to) {
-          searchParams.set("start_date", format(params.timeRange.from, "yyyy-MM-dd"));
-          searchParams.set("end_date", format(params.timeRange.to, "yyyy-MM-dd"));
+        if (params.dateRange.from && params.dateRange.to) {
+          searchParams.set("start_date", format(params.dateRange.from, "yyyy-MM-dd"));
+          searchParams.set("end_date", format(params.dateRange.to, "yyyy-MM-dd"));
         }
 
         const res = await apiFetch(
@@ -118,12 +118,12 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
     []
   );
 
-  const fetchFailureTypeStats = useCallback(async (timeRange?: DateRange) => {
+  const fetchFailureTypeStats = useCallback(async (dateRange?: DateRange) => {
     try {
       const params = new URLSearchParams();
-      if (timeRange?.from && timeRange?.to) {
-        params.set("start_date", format(timeRange.from, "yyyy-MM-dd"));
-        params.set("end_date", format(timeRange.to, "yyyy-MM-dd"));
+      if (dateRange?.from && dateRange?.to) {
+        params.set("start_date", format(dateRange.from, "yyyy-MM-dd"));
+        params.set("end_date", format(dateRange.to, "yyyy-MM-dd"));
       }
       const dateRangeParam = params.toString() ? `?${params.toString()}` : "";
       const url = `/subscription/stats/failure-types${dateRangeParam}`;
@@ -178,7 +178,7 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
     setQuery(urlQuery); // 即使是空字符串也设置
     setStatusFilter(urlStatus);
     setFailureTypeFilter(urlFailureType);
-    setTimeRangeFilter(dateRange);
+    setDateRangeFilter(dateRange);
 
     // 使用 URL 参数获取数据
     fetchData({
@@ -186,7 +186,7 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
       status: urlStatus,
       failureType: urlFailureType,
       q: urlQuery,
-      timeRange: dateRange
+      dateRange: dateRange
     });
     
     // 获取失败类型统计，传递时间范围参数
@@ -201,14 +201,14 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
         q: query,
         status: statusFilter,
         failureType: failureTypeFilter,
-        timeRange: timeRangeFilter
+        dateRange: dateRangeFilter
       });
       // 定时刷新时也传递当前时间范围
-      fetchFailureTypeStats(timeRangeFilter);
+      fetchFailureTypeStats(dateRangeFilter);
     }, 30_000);
 
     return () => clearInterval(interval);
-  }, [fetchData, fetchFailureTypeStats, page, query, statusFilter, failureTypeFilter, timeRangeFilter]);
+  }, [fetchData, fetchFailureTypeStats, page, query, statusFilter, failureTypeFilter, dateRangeFilter]);
 
   const handleSearch = () => {
     const trimmedQuery = query.trim();
@@ -222,7 +222,7 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
       q: trimmedQuery, 
       status: statusFilter, 
       failureType: failureTypeFilter, 
-      timeRange: timeRangeFilter 
+      dateRange: dateRangeFilter 
     });
   };
 
@@ -296,7 +296,7 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
       q: query, 
       status: statusFilter, 
       failureType: failureTypeFilter, 
-      timeRange: timeRangeFilter 
+      dateRange: dateRangeFilter 
     });
   };
 
@@ -313,17 +313,17 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
       q: query, 
       status: statusFilter, 
       failureType: failureTypeFilter, 
-      timeRange: timeRangeFilter 
+      dateRange: dateRangeFilter 
     });
   };
 
   const handleStatusChange = (value: string) => {
     const newFailureType = value !== "FAILED" ? "ALL" : failureTypeFilter;
 
-    // 如果切换到 PENDING 或 RUNNING，清空时间范围
-    const newTimeRange = (value === "PENDING" || value === "RUNNING") 
+    // 如果切换到 PENDING 或 RUNNING，清空日期范围
+    const newDateRange = (value === "PENDING" || value === "RUNNING") 
       ? { from: undefined, to: undefined } 
-      : timeRangeFilter;
+      : dateRangeFilter;
 
     // 更新状态
     setStatusFilter(value);
@@ -331,7 +331,7 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
       setFailureTypeFilter("ALL");
     }
     if (value === "PENDING" || value === "RUNNING") {
-      setTimeRangeFilter({ from: undefined, to: undefined });
+      setDateRangeFilter({ from: undefined, to: undefined });
     }
     setPage(1);
     setPageInput("1");
@@ -342,7 +342,7 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
       q: query, 
       status: value, 
       failureType: newFailureType, 
-      timeRange: newTimeRange 
+      dateRange: newDateRange 
     });
   };
 
@@ -357,12 +357,12 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
       q: query, 
       status: statusFilter, 
       failureType: value, 
-      timeRange: timeRangeFilter 
+      dateRange: dateRangeFilter 
     });
   };
 
-  const handleTimeRangeChange = (value: DateRange) => {
-    setTimeRangeFilter(value);
+  const handleDateRangeChange = (value: DateRange) => {
+    setDateRangeFilter(value);
     setPage(1);
     setPageInput("1");
 
@@ -384,7 +384,7 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
       q: query, 
       status: statusFilter, 
       failureType: failureTypeFilter, 
-      timeRange: value 
+      dateRange: value 
     });
     // 更新失败类型统计（带时间范围参数）
     fetchFailureTypeStats(value);
@@ -448,8 +448,8 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold text-slate-700">时间范围</span>
               <DateRangePicker
-                value={timeRangeFilter}
-                onChange={handleTimeRangeChange}
+                value={dateRangeFilter}
+                onChange={handleDateRangeChange}
                 className="min-w-[200px] h-10 border-slate-200 bg-white shadow-[0_6px_18px_rgba(15,23,42,0.06)]"
               />
             </div>

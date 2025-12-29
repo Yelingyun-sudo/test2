@@ -41,8 +41,8 @@ export function ModuleKPICard({
   const isPayment = module === "payment";
 
   // 根据日期范围生成标签
-  const timeRangeLabel = dateRange ? getDateRangeLabel(dateRange) : "总计";
-  const taskCountLabel = `${timeRangeLabel}执行`;
+  const dateRangeLabel = dateRange ? getDateRangeLabel(dateRange) : "总计";
+  const taskCountLabel = `${dateRangeLabel}执行`;
 
   // 计算成功率
   const successCount = summary?.today_success_count || 0;

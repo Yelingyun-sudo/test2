@@ -50,7 +50,7 @@ export function EvidenceDashboard({ onLogout, account }: DashboardProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const { dateRange: statsTimeRange, setDateRange } = useDateRange();
+  const { dateRange: statsDateRange, setDateRange } = useDateRange();
 
   const [stats, setStats] = useState<EvidenceStatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -88,9 +88,9 @@ export function EvidenceDashboard({ onLogout, account }: DashboardProps) {
     async function fetchStats() {
       try {
         const params = new URLSearchParams();
-        if (statsTimeRange.from && statsTimeRange.to) {
-          params.set("start_date", format(statsTimeRange.from, "yyyy-MM-dd"));
-          params.set("end_date", format(statsTimeRange.to, "yyyy-MM-dd"));
+        if (statsDateRange.from && statsDateRange.to) {
+          params.set("start_date", format(statsDateRange.from, "yyyy-MM-dd"));
+          params.set("end_date", format(statsDateRange.to, "yyyy-MM-dd"));
         }
         const dateRangeParam = params.toString() ? `?${params.toString()}` : "";
 
@@ -135,7 +135,7 @@ export function EvidenceDashboard({ onLogout, account }: DashboardProps) {
     }, 30000);
 
     return () => clearInterval(interval);
-  }, [statsTimeRange]);
+  }, [statsDateRange]);
 
   useEffect(() => {
     const fetchFailureTypes = async () => {
@@ -162,7 +162,7 @@ export function EvidenceDashboard({ onLogout, account }: DashboardProps) {
   }, [failureTypes]);
 
   // 根据日期范围生成 KPI 卡片标题前缀
-  const timeRangeLabel = getDateRangeLabel(statsTimeRange);
+  const dateRangeLabel = getDateRangeLabel(statsDateRange);
 
   if (loading) {
     return (
@@ -212,11 +212,11 @@ export function EvidenceDashboard({ onLogout, account }: DashboardProps) {
        summary.today_failed_count * summary.today_avg_failed_duration_seconds) / totalExecuted
     : null;
 
-  const timeRangeSuccessCount = summary.today_success_count;
-  const timeRangeFailedCount = summary.today_failed_count;
-  const timeRangeTotalCompleted = timeRangeSuccessCount + timeRangeFailedCount;
-  const timeRangeSuccessRate = timeRangeTotalCompleted > 0
-    ? (timeRangeSuccessCount / timeRangeTotalCompleted)
+  const dateRangeSuccessCount = summary.today_success_count;
+  const dateRangeFailedCount = summary.today_failed_count;
+  const dateRangeTotalCompleted = dateRangeSuccessCount + dateRangeFailedCount;
+  const dateRangeSuccessRate = dateRangeTotalCompleted > 0
+    ? (dateRangeSuccessCount / dateRangeTotalCompleted)
     : 0.0;
 
   return (
@@ -228,7 +228,7 @@ export function EvidenceDashboard({ onLogout, account }: DashboardProps) {
         <div className="grid gap-4 md:grid-cols-5">
           {/* 已执行 */}
           <div className="rounded-2xl border bg-gradient-to-br from-sky-500/10 to-sky-600/10 text-sky-700 border-sky-100 p-5 shadow-sm backdrop-blur">
-            <p className="text-sm text-slate-600">{timeRangeLabel}执行</p>
+            <p className="text-sm text-slate-600">{dateRangeLabel}执行</p>
             <div className="mt-2 flex items-baseline gap-3">
               <div className="text-3xl font-semibold">
                 {summary.today_success_count + summary.today_failed_count}
@@ -251,7 +251,7 @@ export function EvidenceDashboard({ onLogout, account }: DashboardProps) {
 
           {/* 成功 */}
           <div className="rounded-2xl border bg-gradient-to-br from-emerald-500/10 to-emerald-600/10 text-emerald-700 border-emerald-100 p-5 shadow-sm backdrop-blur">
-            <p className="text-sm text-slate-600">{timeRangeLabel}成功</p>
+            <p className="text-sm text-slate-600">{dateRangeLabel}成功</p>
             <div className="mt-2 flex items-baseline gap-3">
               <div className="text-3xl font-semibold text-emerald-700">
                 {summary.today_success_count}
@@ -274,7 +274,7 @@ export function EvidenceDashboard({ onLogout, account }: DashboardProps) {
 
           {/* 失败 */}
           <div className="rounded-2xl border bg-gradient-to-br from-rose-500/10 to-rose-600/10 text-rose-700 border-rose-100 p-5 shadow-sm backdrop-blur">
-            <p className="text-sm text-slate-600">{timeRangeLabel}失败</p>
+            <p className="text-sm text-slate-600">{dateRangeLabel}失败</p>
             <div className="mt-2 flex items-baseline gap-3">
               <div className="text-3xl font-semibold text-rose-700">
                 {summary.today_failed_count}
@@ -297,16 +297,16 @@ export function EvidenceDashboard({ onLogout, account }: DashboardProps) {
 
           {/* 成功率 */}
           <div className="rounded-2xl border bg-gradient-to-br from-violet-100 to-violet-200/60 border-purple-100 p-5 shadow-sm">
-            <p className="text-sm text-[#555555]">{timeRangeLabel}成功率</p>
+            <p className="text-sm text-[#555555]">{dateRangeLabel}成功率</p>
             <div className="mt-2">
               <div className="text-3xl font-semibold text-[#5232D9]">
-                {(timeRangeSuccessRate * 100).toFixed(1)}%
+                {(dateRangeSuccessRate * 100).toFixed(1)}%
               </div>
             </div>
             <div className="mt-2">
               <div className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1 text-xs font-medium text-slate-600">
                 <span className="h-2 w-2 rounded-full bg-violet-400/60" />
-                成功 {timeRangeSuccessCount} · 失败 {timeRangeFailedCount}
+                成功 {dateRangeSuccessCount} · 失败 {dateRangeFailedCount}
               </div>
             </div>
           </div>
@@ -367,9 +367,9 @@ export function EvidenceDashboard({ onLogout, account }: DashboardProps) {
                           if (status) {
                             const params = new URLSearchParams();
                             params.set("status", status.toLowerCase());
-                            if (statsTimeRange.from && statsTimeRange.to) {
-                              params.set("start_date", format(statsTimeRange.from, "yyyy-MM-dd"));
-                              params.set("end_date", format(statsTimeRange.to, "yyyy-MM-dd"));
+                            if (statsDateRange.from && statsDateRange.to) {
+                              params.set("start_date", format(statsDateRange.from, "yyyy-MM-dd"));
+                              params.set("end_date", format(statsDateRange.to, "yyyy-MM-dd"));
                             }
                             router.push(`/evidence?${params.toString()}`);
                           }
@@ -461,9 +461,9 @@ export function EvidenceDashboard({ onLogout, account }: DashboardProps) {
                   onClick={() => {
                     const params = new URLSearchParams();
                     params.set("status", "failed");
-                    if (statsTimeRange.from && statsTimeRange.to) {
-                      params.set("start_date", format(statsTimeRange.from, "yyyy-MM-dd"));
-                      params.set("end_date", format(statsTimeRange.to, "yyyy-MM-dd"));
+                    if (statsDateRange.from && statsDateRange.to) {
+                      params.set("start_date", format(statsDateRange.from, "yyyy-MM-dd"));
+                      params.set("end_date", format(statsDateRange.to, "yyyy-MM-dd"));
                     }
                     router.push(`/evidence?${params.toString()}`);
                     setIsTaskListDrawerOpen(true);
@@ -516,9 +516,9 @@ export function EvidenceDashboard({ onLogout, account }: DashboardProps) {
                           if (failureType && failureType !== 'others') {
                             params.set("failure_type", failureType);
                           }
-                          if (statsTimeRange.from && statsTimeRange.to) {
-                            params.set("start_date", format(statsTimeRange.from, "yyyy-MM-dd"));
-                            params.set("end_date", format(statsTimeRange.to, "yyyy-MM-dd"));
+                          if (statsDateRange.from && statsDateRange.to) {
+                            params.set("start_date", format(statsDateRange.from, "yyyy-MM-dd"));
+                            params.set("end_date", format(statsDateRange.to, "yyyy-MM-dd"));
                           }
                           router.push(`/evidence?${params.toString()}`);
                         }}
@@ -583,7 +583,7 @@ export function EvidenceDashboard({ onLogout, account }: DashboardProps) {
             const params = new URLSearchParams(searchParams.toString());
             params.delete("page");
             params.delete("status");
-            params.delete("time_range");
+            params.delete("date_range");
             params.delete("failure_type");
             params.delete("q");
             const queryString = params.toString();
