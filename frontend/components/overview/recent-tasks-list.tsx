@@ -110,7 +110,7 @@ export function RecentTasksList({
       filtered = filtered.filter((task) => task.status === selectedTaskStatus);
     }
 
-    return filtered.slice(0, 9); // 取前9个（3x3网格）
+    return filtered; // 返回所有筛选后的任务，固定显示区域为 3x3 网格，超出部分通过滚动条查看
   }, [allMergedTasks, selectedTaskType, selectedTaskStatus]);
 
   const handleTaskClick = (task: RecentTask) => {
@@ -219,7 +219,7 @@ export function RecentTasksList({
               暂无最新任务
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[490px] overflow-y-auto scrollbar-hover">
               {mergedTasks.map((task) => (
                 <div
                   key={`${task.module}-${task.id}`}

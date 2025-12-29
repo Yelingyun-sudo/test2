@@ -61,3 +61,39 @@
   background-image: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.35) 1px, transparent 0);
   background-size: 18px 18px;
 }
+
+/* 滚动条悬停显示样式 */
+.scrollbar-hover {
+  /* Firefox - 始终占用空间，默认透明 */
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.scrollbar-hover:hover {
+  /* Firefox - hover 时显示颜色 */
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+/* WebKit 浏览器 (Chrome, Safari, Edge) */
+.scrollbar-hover::-webkit-scrollbar {
+  width: 8px; /* 始终占用空间 */
+  height: 8px;
+}
+
+.scrollbar-hover::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-hover::-webkit-scrollbar-thumb {
+  background: transparent; /* 默认透明 */
+  border-radius: 4px;
+}
+
+.scrollbar-hover:hover::-webkit-scrollbar-thumb {
+  background: #cbd5e1; /* slate-300 - hover 时显示 */
+  border-radius: 4px;
+}
+
+.scrollbar-hover:hover::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8; /* slate-400 */
+}
