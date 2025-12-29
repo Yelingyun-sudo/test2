@@ -146,7 +146,11 @@ export function ModuleKPICard({
               <div className="text-4xl font-bold text-slate-900">
                 {summary?.total_tasks.toLocaleString() ?? "--"}
               </div>
-              <div className="text-xs text-slate-600 mt-1">{taskCountLabel}</div>
+              <div className="text-sm mt-1">
+                <span className="text-slate-600">{dateRangeLabel}</span>
+                <span className="text-slate-300 mx-1">·</span>
+                <span className="font-medium text-slate-700">执行</span>
+              </div>
             </div>
             <div className="text-right">
               <div
@@ -162,7 +166,11 @@ export function ModuleKPICard({
                   </span>
                 )}
               </div>
-              <div className="text-xs text-slate-600 mt-1">成功率</div>
+              <div className="text-sm mt-1">
+                <span className="text-slate-600">{dateRangeLabel}</span>
+                <span className="text-slate-300 mx-1">·</span>
+                <span className="font-medium text-slate-700">成功率</span>
+              </div>
             </div>
           </div>
 

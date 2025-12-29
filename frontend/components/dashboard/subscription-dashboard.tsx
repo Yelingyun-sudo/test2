@@ -252,7 +252,11 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
         <div className="grid gap-4 md:grid-cols-5">
           {/* 已执行 */}
           <div className="rounded-2xl border bg-gradient-to-br from-sky-500/10 to-sky-600/10 text-sky-700 border-sky-100 p-5 shadow-sm backdrop-blur">
-            <p className="text-sm text-slate-600">{dateRangeLabel}执行</p>
+            <p className="text-sm">
+              <span className="text-slate-600">{dateRangeLabel}</span>
+              <span className="text-slate-300 mx-1">·</span>
+              <span className="font-medium text-slate-700">执行</span>
+            </p>
             <div className="mt-2 flex items-baseline gap-3">
               <div className="text-3xl font-semibold">
                 {summary.today_success_count + summary.today_failed_count}
@@ -275,7 +279,11 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
 
           {/* 成功 */}
           <div className="rounded-2xl border bg-gradient-to-br from-emerald-500/10 to-emerald-600/10 text-emerald-700 border-emerald-100 p-5 shadow-sm backdrop-blur">
-            <p className="text-sm text-slate-600">{dateRangeLabel}成功</p>
+            <p className="text-sm">
+              <span className="text-slate-600">{dateRangeLabel}</span>
+              <span className="text-slate-300 mx-1">·</span>
+              <span className="font-medium text-slate-700">成功</span>
+            </p>
             <div className="mt-2 flex items-baseline gap-3">
               <div className="text-3xl font-semibold text-emerald-700">
                 {summary.today_success_count}
@@ -298,7 +306,11 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
 
           {/* 失败 */}
           <div className="rounded-2xl border bg-gradient-to-br from-rose-500/10 to-rose-600/10 text-rose-700 border-rose-100 p-5 shadow-sm backdrop-blur">
-            <p className="text-sm text-slate-600">{dateRangeLabel}失败</p>
+            <p className="text-sm">
+              <span className="text-slate-600">{dateRangeLabel}</span>
+              <span className="text-slate-300 mx-1">·</span>
+              <span className="font-medium text-slate-700">失败</span>
+            </p>
             <div className="mt-2 flex items-baseline gap-3">
               <div className="text-3xl font-semibold text-rose-700">
                 {summary.today_failed_count}
@@ -321,7 +333,11 @@ export function SubscriptionDashboard({ onLogout, account }: DashboardProps) {
 
           {/* 成功率 */}
           <div className="rounded-2xl border bg-gradient-to-br from-violet-100 to-violet-200/60 border-purple-100 p-5 shadow-sm">
-            <p className="text-sm text-[#555555]">{dateRangeLabel}成功率</p>
+            <p className="text-sm">
+              <span className="text-slate-600">{dateRangeLabel}</span>
+              <span className="text-slate-300 mx-1">·</span>
+              <span className="font-medium text-slate-700">成功率</span>
+            </p>
             <div className="mt-2">
               <div className="text-3xl font-semibold text-[#5232D9]">
                 {(dateRangeSuccessRate * 100).toFixed(1)}%
