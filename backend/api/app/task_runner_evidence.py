@@ -29,7 +29,7 @@ def _build_instruction(task: EvidenceTask) -> str:
     if task.account and task.password:
         return f"登录 {task.url}（账号和密码分别为 {task.account} 和 {task.password}）并完成取证"
     else:
-        return f"访问 {task.url} 并完成取证"
+        return f"访问 {task.url} 注册账号并登录，最终完成取证"
 
 
 def _extract_success_result(exec_result: ExecutionResult | None) -> str:
