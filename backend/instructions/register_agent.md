@@ -111,6 +111,7 @@
 - **error_type**: 失败原因枚举值
   - `success=true` 时必须为 `null`
   - `success=false` 时必须填写（取值范围同协调器枚举），本注册任务常见取值：
+    - `account_already_exists`：账号已存在（注册时账号已被占用）
     - `human_verification_failed`：无法完成人机验证/挑战页（例如 Cloudflare）
     - `register_page_not_found`：网站无法找到注册页/注册表单
     - `site_network_error`：网站无法访问-网络错误（超时/DNS/TLS 等）

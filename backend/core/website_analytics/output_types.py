@@ -14,6 +14,7 @@ class ErrorType(str, Enum):
 
     # 账号/套餐类
     ACCOUNT_BANNED = "account_banned"
+    ACCOUNT_ALREADY_EXISTS = "account_already_exists"
     PLAN_EXPIRED = "plan_expired"
 
     # 网站访问类
@@ -44,6 +45,7 @@ class ErrorType(str, Enum):
 FAILURE_TYPE_LABELS: dict[str, str] = {
     # 账号/套餐类
     "account_banned": "账号被封禁",
+    "account_already_exists": "账号已存在",
     "plan_expired": "订阅套餐失效",
     # 网站访问类
     "site_server_error": "网站服务器错误",
@@ -76,6 +78,7 @@ def get_failure_types_ordered() -> list[dict[str, str]]:
     ordered_types = [
         # 账号/套餐类
         "account_banned",
+        "account_already_exists",
         "plan_expired",
         # 网站访问类
         "site_server_error",

@@ -35,7 +35,12 @@ function buildReplayInstruction(item: EvidenceItem): string {
   const url = (item.url ?? "").trim();
   const account = (item.account ?? "").trim();
   const password = (item.password ?? "").trim();
-  return `登录 ${url}（账号和密码分别为 ${account} 和 ${password}）并完成取证`;
+  
+  if (account && password) {
+    return `登录 ${url}（账号和密码分别为 ${account} 和 ${password}）并完成取证`;
+  } else {
+    return `访问 ${url} 注册账号并登录，最终完成取证`;
+  }
 }
 
 function buildReplayCommand(item: EvidenceItem): string {
@@ -183,10 +188,8 @@ export function TaskDetailModal({ task, onClose, failureTypeLabel }: TaskDetailM
 
   const handleCopyReplayCommand = useCallback(async () => {
     const url = (task.url ?? "").trim();
-    const account = (task.account ?? "").trim();
-    const password = (task.password ?? "").trim();
-    if (!url || !account || !password) {
-      toast.error("缺少网址/用户名/密码，无法生成命令");
+    if (!url) {
+      toast.error("缺少网址，无法生成命令");
       return;
     }
 
