@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronUp, List, BarChart3, Mail, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronUp, List, CheckSquare, ListChecks, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatDateTime, formatDurationSeconds } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
@@ -112,9 +112,9 @@ export function RecentTasksList({
 
   const getModuleIcon = (module: "evidence" | "subscription") => {
     return module === "evidence" ? (
-      <BarChart3 className="h-4 w-4" />
+      <CheckSquare className="h-4 w-4" />
     ) : (
-      <Mail className="h-4 w-4" />
+      <ListChecks className="h-4 w-4" />
     );
   };
 

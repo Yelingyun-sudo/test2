@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
-import { BarChart3, Mail, CreditCard } from "lucide-react";
+import { CheckSquare, ListChecks, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 
 import { apiFetch } from "@/lib/api";
@@ -121,6 +121,26 @@ export function SystemOverview() {
     return () => clearInterval(interval);
   }, [dateRange]);
 
+  // 构建失败类型标签映射（使用 useMemo 确保在依赖项变化时才重新计算）
+  // 注意：必须在所有条件返回之前调用 hooks，遵守 React Hooks 规则
+  const allFailureTypeLabel = useMemo(() => {
+    const evidenceFailureTypeLabel = evidenceFailureTypes.reduce((acc, item) => {
+      acc[item.value] = item.label;
+      return acc;
+    }, {} as Record<string, string>);
+
+    const subscriptionFailureTypeLabel = subscriptionFailureTypes.reduce((acc, item) => {
+      acc[item.value] = item.label;
+      return acc;
+    }, {} as Record<string, string>);
+
+    // 合并失败类型标签（subscription 的标签会覆盖 evidence 的相同 key，但标签应该一致）
+    return {
+      ...evidenceFailureTypeLabel,
+      ...subscriptionFailureTypeLabel
+    };
+  }, [evidenceFailureTypes, subscriptionFailureTypes]);
+
   if (loading && !evidenceSummary && !subscriptionSummary) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
@@ -129,23 +149,6 @@ export function SystemOverview() {
     );
   }
 
-  // 构建失败类型标签映射
-  const evidenceFailureTypeLabel = evidenceFailureTypes.reduce((acc, item) => {
-    acc[item.value] = item.label;
-    return acc;
-  }, {} as Record<string, string>);
-
-  const subscriptionFailureTypeLabel = subscriptionFailureTypes.reduce((acc, item) => {
-    acc[item.value] = item.label;
-    return acc;
-  }, {} as Record<string, string>);
-
-  // 合并失败类型标签
-  const allFailureTypeLabel = {
-    ...evidenceFailureTypeLabel,
-    ...subscriptionFailureTypeLabel
-  };
-
   return (
     <div className="space-y-6">
       {/* 业务场景 KPI 概览区 */}
@@ -153,7 +156,7 @@ export function SystemOverview() {
         <ModuleKPICard
           module="evidence"
           title="注册取证任务"
-          icon={<BarChart3 className="h-5 w-5" />}
+          icon={<CheckSquare className="h-5 w-5" />}
           summary={evidenceSummary}
           detailUrl="/evidence"
           dateRange={dateRange}
@@ -162,7 +165,7 @@ export function SystemOverview() {
         <ModuleKPICard
           module="subscription"
           title="订阅链接任务"
-          icon={<Mail className="h-5 w-5" />}
+          icon={<ListChecks className="h-5 w-5" />}
           summary={subscriptionSummary}
           detailUrl="/subscription"
           dateRange={dateRange}

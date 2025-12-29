@@ -168,25 +168,25 @@ export function ModuleKPICard({
 
           {/* 细分指标区域：成功/失败，执行中/待执行 */}
           <div className="mb-4 space-y-2 rounded-lg bg-white/60 p-3">
-            <div className="flex items-center justify-between text-sm">
+            <div className="grid grid-cols-5 items-center gap-x-2 text-sm">
               <span className="text-slate-600">成功:</span>
-              <span className="font-semibold text-green-600">
+              <span className="font-semibold text-green-600 text-right">
                 {successCount.toLocaleString()}
               </span>
-              <span className="text-slate-400">|</span>
+              <span className="text-slate-400 text-center">|</span>
               <span className="text-slate-600">失败:</span>
-              <span className="font-semibold text-red-600">
+              <span className="font-semibold text-red-600 text-right">
                 {failedCount.toLocaleString()}
               </span>
             </div>
-            <div className="flex items-center justify-between text-sm">
+            <div className="grid grid-cols-5 items-center gap-x-2 text-sm">
               <span className="text-slate-600">执行中:</span>
-              <span className="font-semibold text-amber-600">
+              <span className="font-semibold text-amber-600 text-right">
                 {summary?.running_count ?? "--"}
               </span>
-              <span className="text-slate-400">|</span>
+              <span className="text-slate-400 text-center">|</span>
               <span className="text-slate-600">待执行:</span>
-              <span className="font-semibold text-slate-700">
+              <span className="font-semibold text-slate-700 text-right">
                 {summary?.pending_count ?? "--"}
               </span>
             </div>
