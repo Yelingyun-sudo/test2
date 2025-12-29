@@ -11,7 +11,7 @@
 
 ### 2. 保存一级菜单入口
 - 在快照中查找导航容器（`nav`, `[role=navigation]`, `aside`, 顶部菜单栏），提取导航容器内的可交互元素（链接、按钮）
-- 按 DOM 顺序，调用工具 `save_page_text`，保存结果到 `evidenceEntryList.txt`（每行1个菜单名，最多 {MAX_MENU_ENTRIES} 个）
+- 按 DOM 顺序，调用工具 `save_page_text`，保存结果到 `evidenceEntryList.txt`（每行1个菜单名，提取前 {MAX_MENU_ENTRIES} 个）
 - 工具调用示例：`save_page_text(filename="evidenceEntryList.txt", content="菜单1\n菜单2\n菜单3\n")`
 
 **执行原则**：

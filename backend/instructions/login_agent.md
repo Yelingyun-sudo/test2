@@ -12,11 +12,15 @@
 
 1. 解析 JSON 参数获取 `site_url`、`account`、`password`；缺少任一字段时立即返回失败。
 2. 调用 `browser_navigate` 访问 `site_url`，立刻调用 `browser_snapshot` 获取页面状态
-3. 如果处于 Cloudflare/人机验证/挑战页，立即失败退出，**失败返回要求：**
-   - `success=false`
-   - `error_type="human_verification_failed"`
-   - `message` 为 Cloudflare/人机验证导致无法继续
-4. 注：如果是简单的 访问验证，则不应该被判定为人机验证，可继续执行 Step2. 探索登录入口
+3. 检查页面类型并处理：
+   - **简单访问验证**（有"继续访问"/"确认"/"验证"等按钮，点击即可通过）：
+     - 调用 `browser_click` 点击该按钮
+     - 调用 `browser_snapshot` 获取新页面
+     - 继续执行 Step2
+   - **真正的人机验证**（Cloudflare 挑战页/滑块验证/图片验证码）：
+     - 立即失败退出
+     - `success=false`、`error_type="human_verification_failed"`
+     - `message` 为"Cloudflare/人机验证导致无法继续"
 
 ### Step2. 探索登录入口
 
