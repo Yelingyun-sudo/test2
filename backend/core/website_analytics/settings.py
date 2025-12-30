@@ -64,6 +64,10 @@ class Settings(BaseSettings):
     llm_snapshot: bool = True
     llm_snapshot_fullpage: bool = True
 
+    # 注册相关
+    register_account: str = "my-account@example.com"
+    register_password: str = "mypassword"
+
     # 任务调度
     task_runner_enabled_subscription: bool = True
     task_runner_enabled_evidence: bool = True

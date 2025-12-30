@@ -49,9 +49,9 @@
 
 **填写：**
 - 使用 `browser_fill_form` **一次性填写所有字段**（包括文本框和复选框）：
-  - 账号/邮箱 textbox：`wangqian675@qq.com` 注意：如果form中已经有 `@qq.com` 则只填前缀部分（昵称也用前缀）
-  - 密码 textbox：`test1234`
-  - 确认密码 textbox（如果表单有此字段）：`test1234`
+  - 账号/邮箱 textbox：`{REGISTER_ACCOUNT}` 注意：如果form中已经有 `@qq.com` 则只填前缀部分（昵称也用前缀）
+  - 密码 textbox：`{REGISTER_PASSWORD}`
+  - 确认密码 textbox（如果表单有此字段）：`{REGISTER_PASSWORD}`
   - 服务条款 checkbox（**必填**）：勾选所有"服务条款"、"用户协议"、"同意条款"、"我同意"等复选框
 - `browser_fill_form` 支持的字段类型：`textbox`、`checkbox`、`radio`、`combobox`、`slider`
 - 其他字段（邀请码、手机号、验证码等）不用填

@@ -294,7 +294,13 @@ async def execute(
             )
             register_agent = build_register_agent(
                 playwright_server,
-                load_instruction("register_agent.md"),
+                load_instruction(
+                    "register_agent.md",
+                    replacements={
+                        "{REGISTER_ACCOUNT}": settings.register_account,
+                        "{REGISTER_PASSWORD}": settings.register_password,
+                    },
+                ),
             )
             extract_agent = build_extract_agent(
                 playwright_server,
