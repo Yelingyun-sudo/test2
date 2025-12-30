@@ -4,7 +4,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Callable, TypeVar
 
-from sqlalchemy import case, func
+from sqlalchemy import case, func, text
 from sqlalchemy.orm import Session
 
 from ..schemas.common import FailureTypeItem, FailureTypesResponse
@@ -247,10 +247,13 @@ def compute_daily_trend(
     now_cn = datetime.now(tz_cn)
     days_ago = now_cn.date() - timedelta(days=days - 1)
 
-    # 按执行时间的日期分组
+    # 按执行时间的日期分组（转换为中国时区后提取日期）
+    # 使用 date(datetime(executed_at, '+8 hours')) 将 UTC 时间转换为中国时区后提取日期
+    date_cn_expr = func.date(func.datetime(task_model.executed_at, text("'+8 hours'")))
+    
     daily_trend_results = (
         db.query(
-            func.date(task_model.executed_at).label("date"),
+            date_cn_expr.label("date"),
             func.count(task_model.id).label("total_count"),
             func.sum(case((task_model.status == TaskStatus.SUCCESS, 1), else_=0)).label(
                 "success_count"
@@ -261,10 +264,10 @@ def compute_daily_trend(
         )
         .filter(
             task_model.executed_at.isnot(None),
-            func.date(task_model.executed_at) >= days_ago,
+            date_cn_expr >= days_ago,
         )
-        .group_by(func.date(task_model.executed_at))
-        .order_by(func.date(task_model.executed_at).asc())
+        .group_by(date_cn_expr)
+        .order_by(date_cn_expr.asc())
         .all()
     )
 
