@@ -170,6 +170,7 @@ class EvidenceEntryDetail(BaseModel):
 class TaskArtifacts(BaseModel):
     """任务产物元信息"""
 
+    register_image_path: str | None
     login_image_path: str | None
     evidence_image_path: str | None
     evidence_entries_detail: list[EvidenceEntryDetail] | None = None
@@ -231,6 +232,7 @@ def get_task_artifacts(
                 evidence_entries_detail = None
 
         return TaskArtifacts(
+            register_image_path=operations.get("register", {}).get("cover_image_path"),
             login_image_path=operations.get("login", {}).get("cover_image_path"),
             evidence_image_path=evidence_image_path,
             evidence_entries_detail=evidence_entries_detail,

@@ -22,6 +22,7 @@ export type EvidenceEntryDetail = {
 };
 
 export type TaskArtifacts = {
+  register_image_path: string | null;
   login_image_path: string | null;
   evidence_image_path: string | null;
   evidence_entries_detail?: EvidenceEntryDetail[] | null;
@@ -30,6 +31,7 @@ export type TaskArtifacts = {
 };
 
 export type ArtifactUrls = {
+  registerImageUrl: string | null;
   loginImageUrl: string | null;
   evidenceImageUrl: string | null;
   videoUrl: string | null;

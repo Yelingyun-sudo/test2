@@ -85,6 +85,7 @@ type TaskDetailModalProps = {
 export function TaskDetailModal({ task, onClose, failureTypeLabel }: TaskDetailModalProps) {
   const [artifacts, setArtifacts] = useState<TaskArtifacts | null>(null);
   const [artifactUrls, setArtifactUrls] = useState<ArtifactUrls>({
+    registerImageUrl: null,
     loginImageUrl: null,
     evidenceImageUrl: null,
     videoUrl: null
@@ -103,6 +104,7 @@ export function TaskDetailModal({ task, onClose, failureTypeLabel }: TaskDetailM
   const [cardEvidenceIndex, setCardEvidenceIndex] = useState(0);
   const [cardEvidenceImageUrls, setCardEvidenceImageUrls] = useState<(string | null)[]>([]);
   const [cardEvidenceLoading, setCardEvidenceLoading] = useState(false);
+  const [cardAuthIndex, setCardAuthIndex] = useState(0);
   const [viewerVideoState, setViewerVideoState] = useState({
     paused: true,
     ended: false
@@ -126,6 +128,7 @@ export function TaskDetailModal({ task, onClose, failureTypeLabel }: TaskDetailM
   const [videoBlobStatus, setVideoBlobStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
 
   const artifactUrlsRef = useRef<ArtifactUrls>({
+    registerImageUrl: null,
     loginImageUrl: null,
     evidenceImageUrl: null,
     videoUrl: null
@@ -290,6 +293,7 @@ export function TaskDetailModal({ task, onClose, failureTypeLabel }: TaskDetailM
   useEffect(() => {
     revokeArtifactUrls(artifactUrlsRef.current);
     artifactUrlsRef.current = {
+      registerImageUrl: null,
       loginImageUrl: null,
       evidenceImageUrl: null,
       videoUrl: null
@@ -298,9 +302,11 @@ export function TaskDetailModal({ task, onClose, failureTypeLabel }: TaskDetailM
     setArtifacts(null);
     setVideoBlobStatus("idle");
     videoBlobPromiseRef.current = null;
+    setCardAuthIndex(0);
 
     if (task.status === "PENDING" || task.status === "RUNNING") {
       setArtifacts({
+        register_image_path: null,
         login_image_path: null,
         evidence_image_path: null,
         video_path: null,
@@ -327,19 +333,21 @@ export function TaskDetailModal({ task, onClose, failureTypeLabel }: TaskDetailM
         if (cancelled) return;
         setArtifacts(payload);
 
-        const [loginImageUrl, evidenceImageUrl] = await Promise.all([
+        const [registerImageUrl, loginImageUrl, evidenceImageUrl] = await Promise.all([
+          fetchArtifactBlobUrl(task.id, payload.register_image_path, controller.signal),
           fetchArtifactBlobUrl(task.id, payload.login_image_path, controller.signal),
           fetchArtifactBlobUrl(task.id, payload.evidence_image_path, controller.signal)
         ]);
 
         if (cancelled) {
-          revokeArtifactUrls({ loginImageUrl, evidenceImageUrl, videoUrl: null });
+          revokeArtifactUrls({ registerImageUrl, loginImageUrl, evidenceImageUrl, videoUrl: null });
           return;
         }
 
         setMediaReady({ login: false, evidence: false });
         setMediaError({ login: false, evidence: false });
-        artifactUrlsRef.current = { loginImageUrl, evidenceImageUrl, videoUrl: null };
+        setCardAuthIndex(0);
+        artifactUrlsRef.current = { registerImageUrl, loginImageUrl, evidenceImageUrl, videoUrl: null };
         setArtifactUrls(artifactUrlsRef.current);
 
         // 加载所有取证图片（用于卡片轮播）
@@ -431,6 +439,7 @@ export function TaskDetailModal({ task, onClose, failureTypeLabel }: TaskDetailM
       }
       revokeArtifactUrls(artifactUrlsRef.current);
       artifactUrlsRef.current = {
+        registerImageUrl: null,
         loginImageUrl: null,
         evidenceImageUrl: null,
         videoUrl: null
@@ -868,52 +877,101 @@ export function TaskDetailModal({ task, onClose, failureTypeLabel }: TaskDetailM
             <div className="grid gap-4 lg:grid-cols-3">
               <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="mb-3 flex items-center justify-between">
-                  <div className="text-sm font-semibold text-slate-800">登录截图</div>
+                  <div className="text-sm font-semibold text-slate-800">认证截图</div>
                 </div>
                 {artifactsLoading ? (
                   <div className="relative w-full aspect-[16/10] overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
                     <div className="absolute inset-0 animate-pulse bg-slate-100/70" />
                     <MediaLoadingOverlay label="加载中..." />
                   </div>
-                ) : artifactUrls.loginImageUrl ? (
-                  <button
-                    type="button"
-                    className="group relative block w-full"
-                    onClick={() => {
-                      const src = artifactUrls.loginImageUrl;
-                      if (!src) return;
-                      setViewer({
-                        type: "image",
-                        title: "登录截图",
-                        src
-                      });
-                    }}
-                  >
-                    {!mediaReady.login && !mediaError.login ? (
-                      <MediaLoadingOverlay label="加载中..." />
-                    ) : null}
-                    {mediaError.login ? (
-                      <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400">
-                        加载失败
-                      </div>
-                    ) : null}
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={artifactUrls.loginImageUrl}
-                      alt="登录截图"
-                      className={cn(
-                        "w-full aspect-[16/10] rounded-xl border border-slate-200 object-contain bg-slate-50 cursor-zoom-in group-hover:shadow-sm transition-opacity",
-                        mediaReady.login && !mediaError.login ? "opacity-100" : "opacity-0"
-                      )}
-                      onLoad={() => setMediaReady((prev) => ({ ...prev, login: true }))}
-                      onError={() => setMediaError((prev) => ({ ...prev, login: true }))}
-                    />
-                  </button>
-                ) : (
-                  <div className="flex w-full aspect-[16/10] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400">
-                    不存在
-                  </div>
-                )}
+                ) : (() => {
+                  // 准备认证图片数组
+                  const authImages: Array<{ type: 'register' | 'login'; url: string; label: string }> = [];
+                  if (artifactUrls.registerImageUrl) {
+                    authImages.push({ type: 'register', url: artifactUrls.registerImageUrl, label: '注册截图' });
+                  }
+                  if (artifactUrls.loginImageUrl) {
+                    authImages.push({ type: 'login', url: artifactUrls.loginImageUrl, label: '登录截图' });
+                  }
+                  const hasMultipleImages = authImages.length > 1;
+                  const currentImage = authImages[cardAuthIndex];
+
+                  return currentImage ? (
+                    <div className="relative">
+                      <button
+                        type="button"
+                        className="group relative block w-full"
+                        onClick={() => {
+                          setViewer({
+                            type: "image",
+                            title: currentImage.label,
+                            src: currentImage.url
+                          });
+                        }}
+                      >
+                        {!mediaReady.login && !mediaError.login ? (
+                          <MediaLoadingOverlay label="加载中..." />
+                        ) : null}
+                        {mediaError.login ? (
+                          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400">
+                            加载失败
+                          </div>
+                        ) : null}
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={currentImage.url}
+                          alt={currentImage.label}
+                          className={cn(
+                            "w-full aspect-[16/10] rounded-xl border border-slate-200 object-contain bg-slate-50 cursor-zoom-in group-hover:shadow-sm transition-opacity",
+                            mediaReady.login && !mediaError.login ? "opacity-100" : "opacity-0"
+                          )}
+                          onLoad={() => setMediaReady((prev) => ({ ...prev, login: true }))}
+                          onError={() => setMediaError((prev) => ({ ...prev, login: true }))}
+                        />
+                      </button>
+                      {hasMultipleImages ? (
+                        <>
+                          {/* 左箭头 */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setCardAuthIndex((prev) => prev > 0 ? prev - 1 : authImages.length - 1);
+                              setMediaReady((prev) => ({ ...prev, login: false }));
+                              setMediaError((prev) => ({ ...prev, login: false }));
+                            }}
+                            className="absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/40 p-1.5 text-white backdrop-blur-sm transition hover:bg-black/60"
+                            aria-label="上一张"
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                          </button>
+                          {/* 右箭头 */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setCardAuthIndex((prev) => prev < authImages.length - 1 ? prev + 1 : 0);
+                              setMediaReady((prev) => ({ ...prev, login: false }));
+                              setMediaError((prev) => ({ ...prev, login: false }));
+                            }}
+                            className="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/40 p-1.5 text-white backdrop-blur-sm transition hover:bg-black/60"
+                            aria-label="下一张"
+                          >
+                            <ChevronRight className="h-4 w-4" />
+                          </button>
+                          {/* 底部指示器 */}
+                          <div className="absolute bottom-2 left-1/2 z-10 -translate-x-1/2 rounded-full bg-black/40 px-3 py-1 text-xs text-white backdrop-blur-sm">
+                            {cardAuthIndex + 1} / {authImages.length} - {currentImage.label}
+                          </div>
+                        </>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="flex w-full aspect-[16/10] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400">
+                      不存在
+                    </div>
+                  );
+                })()}
               </div>
 
               <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -1116,26 +1174,29 @@ export function TaskDetailModal({ task, onClose, failureTypeLabel }: TaskDetailM
                     }}
                     aria-label="播放操作视频"
                   >
-                    {artifactUrls.loginImageUrl && !mediaError.login ? (
-                      <>
-                        {!mediaReady.login ? <MediaLoadingOverlay label="加载中..." /> : null}
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={artifactUrls.loginImageUrl}
-                          alt="操作视频封面"
-                          className={cn(
-                            "w-full aspect-[16/10] rounded-xl border border-slate-200 object-contain bg-slate-50 transition-opacity",
-                            mediaReady.login && !mediaError.login ? "opacity-100" : "opacity-0"
-                          )}
-                          onLoad={() => setMediaReady((prev) => ({ ...prev, login: true }))}
-                          onError={() => setMediaError((prev) => ({ ...prev, login: true }))}
-                        />
-                      </>
-                    ) : (
-                      <div className="relative w-full aspect-[16/10] overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-                        <div className="absolute inset-0 bg-slate-100/60" />
-                      </div>
-                    )}
+                    {(() => {
+                      const coverImageUrl = artifactUrls.registerImageUrl || artifactUrls.loginImageUrl;
+                      return coverImageUrl && !mediaError.login ? (
+                        <>
+                          {!mediaReady.login ? <MediaLoadingOverlay label="加载中..." /> : null}
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={coverImageUrl}
+                            alt="操作视频封面"
+                            className={cn(
+                              "w-full aspect-[16/10] rounded-xl border border-slate-200 object-contain bg-slate-50 transition-opacity",
+                              mediaReady.login && !mediaError.login ? "opacity-100" : "opacity-0"
+                            )}
+                            onLoad={() => setMediaReady((prev) => ({ ...prev, login: true }))}
+                            onError={() => setMediaError((prev) => ({ ...prev, login: true }))}
+                          />
+                        </>
+                      ) : (
+                        <div className="relative w-full aspect-[16/10] overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                          <div className="absolute inset-0 bg-slate-100/60" />
+                        </div>
+                      );
+                    })()}
                     <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center">
                       <div className="flex h-14 w-14 items-center justify-center rounded-full border border-white/60 bg-black/40 backdrop-blur-sm transition group-hover:scale-105 group-hover:bg-black/55">
                         <Play className="h-7 w-7 translate-x-[1px] text-white" fill="currentColor" />
