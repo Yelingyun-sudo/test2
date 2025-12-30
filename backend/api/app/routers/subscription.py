@@ -294,13 +294,129 @@ def get_task_artifact(
 def _compute_summary(
     db: Session,
     cn_today: datetime.date,
-    range_start_utc: datetime,
-    range_end_utc: datetime,
+    range_start_utc: datetime | None,
+    range_end_utc: datetime | None,
     start_date: str | None,
     end_date: str | None,
     tz_cn: timezone,
 ) -> SubscriptionStatsSummary:
     """计算汇总统计"""
+    # 构建时间范围过滤条件
+    time_range_conditions = []
+    if range_start_utc is not None and range_end_utc is not None:
+        time_range_conditions = [
+            SubscriptionTask.executed_at >= range_start_utc,
+            SubscriptionTask.executed_at <= range_end_utc,
+        ]
+
+    # 构建 tokens 计数条件
+    tokens_conditions = [SubscriptionTask.executed_at.isnot(None)]
+    if time_range_conditions:
+        tokens_conditions.extend(time_range_conditions)
+    tokens_expr = case(
+        (
+            and_(*tokens_conditions),
+            func.coalesce(
+                func.cast(
+                    func.json_extract(SubscriptionTask.llm_usage, "$.total_tokens"),
+                    Integer,
+                ),
+                0,
+            ),
+        ),
+        else_=0,
+    )
+
+    # 构建成功计数条件
+    success_conditions = [
+        SubscriptionTask.executed_at.isnot(None),
+        SubscriptionTask.status == TaskStatus.SUCCESS,
+    ]
+    if time_range_conditions:
+        success_conditions.extend(time_range_conditions)
+    success_count_expr = case(
+        (and_(*success_conditions), 1),
+        else_=0,
+    )
+
+    # 构建失败计数条件
+    failed_conditions = [
+        SubscriptionTask.executed_at.isnot(None),
+        SubscriptionTask.status == TaskStatus.FAILED,
+    ]
+    if time_range_conditions:
+        failed_conditions.extend(time_range_conditions)
+    failed_count_expr = case(
+        (and_(*failed_conditions), 1),
+        else_=0,
+    )
+
+    # 构建成功时长平均值条件
+    success_duration_conditions = [
+        SubscriptionTask.executed_at.isnot(None),
+        SubscriptionTask.status == TaskStatus.SUCCESS,
+    ]
+    if time_range_conditions:
+        success_duration_conditions.extend(time_range_conditions)
+    success_duration_avg_expr = case(
+        (
+            and_(*success_duration_conditions),
+            SubscriptionTask.duration_seconds,
+        ),
+        else_=None,
+    )
+
+    # 构建失败时长平均值条件
+    failed_duration_conditions = [
+        SubscriptionTask.executed_at.isnot(None),
+        SubscriptionTask.status == TaskStatus.FAILED,
+    ]
+    if time_range_conditions:
+        failed_duration_conditions.extend(time_range_conditions)
+    failed_duration_avg_expr = case(
+        (
+            and_(*failed_duration_conditions),
+            SubscriptionTask.duration_seconds,
+        ),
+        else_=None,
+    )
+
+    # 构建成功 tokens 平均值条件
+    success_tokens_conditions = [
+        SubscriptionTask.executed_at.isnot(None),
+        SubscriptionTask.status == TaskStatus.SUCCESS,
+    ]
+    if time_range_conditions:
+        success_tokens_conditions.extend(time_range_conditions)
+    success_tokens_avg_expr = case(
+        (
+            and_(*success_tokens_conditions),
+            func.cast(
+                func.json_extract(SubscriptionTask.llm_usage, "$.total_tokens"),
+                Integer,
+            ),
+        ),
+        else_=None,
+    )
+
+    # 构建失败 tokens 平均值条件
+    failed_tokens_conditions = [
+        SubscriptionTask.executed_at.isnot(None),
+        SubscriptionTask.status == TaskStatus.FAILED,
+    ]
+    if time_range_conditions:
+        failed_tokens_conditions.extend(time_range_conditions)
+    failed_tokens_avg_expr = case(
+        (
+            and_(*failed_tokens_conditions),
+            func.cast(
+                func.json_extract(SubscriptionTask.llm_usage, "$.total_tokens"),
+                Integer,
+            ),
+        ),
+        else_=None,
+    )
+
     summary_result = db.query(
         func.sum(case((SubscriptionTask.created_date == cn_today, 1), else_=0)).label(
             "today_tasks"
@@ -344,25 +460,7 @@ def _compute_summary(
                 0,
             )
         ).label("total_tokens"),
-        func.sum(
-            case(
-                (
-                    (SubscriptionTask.executed_at.isnot(None))
-                    & (SubscriptionTask.executed_at >= range_start_utc)
-                    & (SubscriptionTask.executed_at <= range_end_utc),
-                    func.coalesce(
-                        func.cast(
-                            func.json_extract(
-                                SubscriptionTask.llm_usage, "$.total_tokens"
-                            ),
-                            Integer,
-                        ),
-                        0,
-                    ),
-                ),
-                else_=0,
-            )
-        ).label("today_tokens"),
+        func.sum(tokens_expr).label("today_tokens"),
         func.avg(
             case(
                 (
@@ -387,85 +485,12 @@ def _compute_summary(
                 else_=None,
             )
         ).label("avg_failed_tokens"),
-        # 今日任务详细统计（基于执行时间）
-        func.sum(
-            case(
-                (
-                    (SubscriptionTask.executed_at.isnot(None))
-                    & (SubscriptionTask.executed_at >= range_start_utc)
-                    & (SubscriptionTask.executed_at <= range_end_utc)
-                    & (SubscriptionTask.status == TaskStatus.SUCCESS),
-                    1,
-                ),
-                else_=0,
-            )
-        ).label("today_success_count"),
-        func.sum(
-            case(
-                (
-                    (SubscriptionTask.executed_at.isnot(None))
-                    & (SubscriptionTask.executed_at >= range_start_utc)
-                    & (SubscriptionTask.executed_at <= range_end_utc)
-                    & (SubscriptionTask.status == TaskStatus.FAILED),
-                    1,
-                ),
-                else_=0,
-            )
-        ).label("today_failed_count"),
-        func.avg(
-            case(
-                (
-                    (SubscriptionTask.executed_at.isnot(None))
-                    & (SubscriptionTask.executed_at >= range_start_utc)
-                    & (SubscriptionTask.executed_at <= range_end_utc)
-                    & (SubscriptionTask.status == TaskStatus.SUCCESS),
-                    SubscriptionTask.duration_seconds,
-                ),
-                else_=None,
-            )
-        ).label("today_avg_success_duration"),
-        func.avg(
-            case(
-                (
-                    (SubscriptionTask.executed_at.isnot(None))
-                    & (SubscriptionTask.executed_at >= range_start_utc)
-                    & (SubscriptionTask.executed_at <= range_end_utc)
-                    & (SubscriptionTask.status == TaskStatus.FAILED),
-                    SubscriptionTask.duration_seconds,
-                ),
-                else_=None,
-            )
-        ).label("today_avg_failed_duration"),
-        func.avg(
-            case(
-                (
-                    (SubscriptionTask.executed_at.isnot(None))
-                    & (SubscriptionTask.executed_at >= range_start_utc)
-                    & (SubscriptionTask.executed_at <= range_end_utc)
-                    & (SubscriptionTask.status == TaskStatus.SUCCESS),
-                    func.cast(
-                        func.json_extract(SubscriptionTask.llm_usage, "$.total_tokens"),
-                        Integer,
-                    ),
-                ),
-                else_=None,
-            )
-        ).label("today_avg_success_tokens"),
-        func.avg(
-            case(
-                (
-                    (SubscriptionTask.executed_at.isnot(None))
-                    & (SubscriptionTask.executed_at >= range_start_utc)
-                    & (SubscriptionTask.executed_at <= range_end_utc)
-                    & (SubscriptionTask.status == TaskStatus.FAILED),
-                    func.cast(
-                        func.json_extract(SubscriptionTask.llm_usage, "$.total_tokens"),
-                        Integer,
-                    ),
-                ),
-                else_=None,
-            )
-        ).label("today_avg_failed_tokens"),
+        func.sum(success_count_expr).label("today_success_count"),
+        func.sum(failed_count_expr).label("today_failed_count"),
+        func.avg(success_duration_avg_expr).label("today_avg_success_duration"),
+        func.avg(failed_duration_avg_expr).label("today_avg_failed_duration"),
+        func.avg(success_tokens_avg_expr).label("today_avg_success_tokens"),
+        func.avg(failed_tokens_avg_expr).label("today_avg_failed_tokens"),
     ).first()
 
     today_tasks = summary_result.today_tasks or 0
@@ -477,13 +502,14 @@ def _compute_summary(
     # 如果指定了历史时间范围，待执行和执行中应该为0
     # 因为这些是当前状态，不应该出现在历史时间范围内
     # 判断是否包含今天：如果结束日期是今天，则包含今天
-    now_cn = datetime.now(tz_cn)
-    today_end_cn = now_cn.replace(hour=23, minute=59, second=59, microsecond=999999)
-    today_end_utc = today_end_cn.astimezone(timezone.utc)
-    if range_end_utc < today_end_utc:
-        # 结束日期早于今天，说明是历史时间范围
-        pending_count = 0
-        running_count = 0
+    if range_end_utc is not None:
+        now_cn = datetime.now(tz_cn)
+        today_end_cn = now_cn.replace(hour=23, minute=59, second=59, microsecond=999999)
+        today_end_utc = today_end_cn.astimezone(timezone.utc)
+        if range_end_utc < today_end_utc:
+            # 结束日期早于今天，说明是历史时间范围
+            pending_count = 0
+            running_count = 0
 
     avg_success_duration = summary_result.avg_success_duration or 0.0
     avg_failed_duration = summary_result.avg_failed_duration or 0.0
@@ -592,18 +618,17 @@ def get_subscription_stats_summary(
     """获取订阅任务的汇总统计数据"""
     tz_cn = timezone(timedelta(hours=8))
     cn_today = datetime.now(tz_cn).date()
-    now_cn = datetime.now(tz_cn)
-    today_start_cn = now_cn.replace(hour=0, minute=0, second=0, microsecond=0)
-    today_end_cn = now_cn.replace(hour=23, minute=59, second=59, microsecond=999999)
 
     if start_date and end_date:
         range_start_utc, range_end_utc = parse_date_range(start_date, end_date, tz_cn)
         if range_start_utc is None or range_end_utc is None:
-            range_start_utc = today_start_cn.astimezone(timezone.utc)
-            range_end_utc = today_end_cn.astimezone(timezone.utc)
+            # 日期解析失败时，不应用日期过滤（返回全部数据）
+            range_start_utc = None
+            range_end_utc = None
     else:
-        range_start_utc = today_start_cn.astimezone(timezone.utc)
-        range_end_utc = today_end_cn.astimezone(timezone.utc)
+        # 没有日期参数时，不应用日期过滤（返回全部数据）
+        range_start_utc = None
+        range_end_utc = None
 
     summary = _compute_summary(
         db, cn_today, range_start_utc, range_end_utc, start_date, end_date, tz_cn
@@ -640,18 +665,17 @@ def get_subscription_stats_status_distribution(
 ):
     """获取订阅任务的状态分布数据"""
     tz_cn = timezone(timedelta(hours=8))
-    now_cn = datetime.now(tz_cn)
-    today_start_cn = now_cn.replace(hour=0, minute=0, second=0, microsecond=0)
-    today_end_cn = now_cn.replace(hour=23, minute=59, second=59, microsecond=999999)
 
     if start_date and end_date:
         range_start_utc, range_end_utc = parse_date_range(start_date, end_date, tz_cn)
         if range_start_utc is None or range_end_utc is None:
-            range_start_utc = today_start_cn.astimezone(timezone.utc)
-            range_end_utc = today_end_cn.astimezone(timezone.utc)
+            # 日期解析失败时，不应用日期过滤（返回全部数据）
+            range_start_utc = None
+            range_end_utc = None
     else:
-        range_start_utc = today_start_cn.astimezone(timezone.utc)
-        range_end_utc = today_end_cn.astimezone(timezone.utc)
+        # 没有日期参数时，不应用日期过滤（返回全部数据）
+        range_start_utc = None
+        range_end_utc = None
 
     status_distribution = compute_status_distribution(
         db,
@@ -677,18 +701,17 @@ def get_subscription_stats_recent_tasks(
 ):
     """获取最新任务列表（最多 100 条）"""
     tz_cn = timezone(timedelta(hours=8))
-    now_cn = datetime.now(tz_cn)
-    today_start_cn = now_cn.replace(hour=0, minute=0, second=0, microsecond=0)
-    today_end_cn = now_cn.replace(hour=23, minute=59, second=59, microsecond=999999)
 
     if start_date and end_date:
         range_start_utc, range_end_utc = parse_date_range(start_date, end_date, tz_cn)
         if range_start_utc is None or range_end_utc is None:
-            range_start_utc = today_start_cn.astimezone(timezone.utc)
-            range_end_utc = today_end_cn.astimezone(timezone.utc)
+            # 日期解析失败时，不应用日期过滤（返回全部数据）
+            range_start_utc = None
+            range_end_utc = None
     else:
-        range_start_utc = today_start_cn.astimezone(timezone.utc)
-        range_end_utc = today_end_cn.astimezone(timezone.utc)
+        # 没有日期参数时，不应用日期过滤（返回全部数据）
+        range_start_utc = None
+        range_end_utc = None
 
     recent_tasks = compute_recent_tasks(
         db,

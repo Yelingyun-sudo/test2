@@ -79,8 +79,8 @@ def compute_status_distribution(
     task_model: type[TaskModel],
     start_date: str | None,
     end_date: str | None,
-    range_start_utc: datetime,
-    range_end_utc: datetime,
+    range_start_utc: datetime | None,
+    range_end_utc: datetime | None,
     status_distribution_item_cls: type,
 ) -> list:
     """
@@ -91,8 +91,8 @@ def compute_status_distribution(
         task_model: 任务模型类（EvidenceTask 或 SubscriptionTask）
         start_date: 开始日期字符串
         end_date: 结束日期字符串
-        range_start_utc: UTC 开始时间
-        range_end_utc: UTC 结束时间
+        range_start_utc: UTC 开始时间（None 表示不应用日期过滤）
+        range_end_utc: UTC 结束时间（None 表示不应用日期过滤）
         status_distribution_item_cls: StatusDistributionItem 类
 
     Returns:
@@ -103,8 +103,8 @@ def compute_status_distribution(
         func.count(task_model.id).label("count"),
     )
 
-    # 应用时间范围过滤（如果指定）
-    if start_date and end_date:
+    # 应用时间范围过滤（如果指定且有效）
+    if start_date and end_date and range_start_utc is not None and range_end_utc is not None:
         status_query = status_query.filter(
             task_model.executed_at.isnot(None),
             task_model.executed_at >= range_start_utc,
@@ -307,8 +307,8 @@ def compute_recent_tasks(
     task_model: type[TaskModel],
     start_date: str | None,
     end_date: str | None,
-    range_start_utc: datetime,
-    range_end_utc: datetime,
+    range_start_utc: datetime | None,
+    range_end_utc: datetime | None,
     tz_cn: timezone,
     item_cls: type,
     build_item_fn: Callable,
@@ -321,8 +321,8 @@ def compute_recent_tasks(
         task_model: 任务模型类（EvidenceTask 或 SubscriptionTask）
         start_date: 开始日期字符串
         end_date: 结束日期字符串
-        range_start_utc: UTC 开始时间
-        range_end_utc: UTC 结束时间
+        range_start_utc: UTC 开始时间（None 表示不应用日期过滤）
+        range_end_utc: UTC 结束时间（None 表示不应用日期过滤）
         tz_cn: 中国时区
         item_cls: Item 类（EvidenceItem 或 SubscriptionItem）
         build_item_fn: 构建 Item 对象的函数，接收 (rec, _format_dt) 参数
@@ -344,8 +344,8 @@ def compute_recent_tasks(
 
     recent_task_query = db.query(task_model)
 
-    # 应用时间范围过滤（如果指定）
-    if start_date and end_date:
+    # 应用时间范围过滤（如果指定且有效）
+    if start_date and end_date and range_start_utc is not None and range_end_utc is not None:
         recent_task_query = recent_task_query.filter(
             task_model.executed_at.isnot(None),
             task_model.executed_at >= range_start_utc,
