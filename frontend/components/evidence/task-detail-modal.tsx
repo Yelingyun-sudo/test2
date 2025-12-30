@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/tooltip";
 import { apiFetch } from "@/lib/api";
 import { formatDateTime, parseDateTime } from "@/lib/datetime";
-import { cn, formatTokenCount } from "@/lib/utils";
+import { cn, copyToClipboard, formatTokenCount } from "@/lib/utils";
 import type {
   EvidenceItem,
   TaskArtifacts,
@@ -199,10 +199,10 @@ export function TaskDetailModal({ task, onClose, failureTypeLabel }: TaskDetailM
       return;
     }
 
-    try {
-      await navigator.clipboard.writeText(buildReplayCommand(task));
+    const success = await copyToClipboard(buildReplayCommand(task));
+    if (success) {
       toast.success("复制成功");
-    } catch {
+    } else {
       toast.error("复制失败，请手动复制");
     }
   }, [task]);
@@ -214,10 +214,10 @@ export function TaskDetailModal({ task, onClose, failureTypeLabel }: TaskDetailM
       return;
     }
 
-    try {
-      await navigator.clipboard.writeText(url);
+    const success = await copyToClipboard(url);
+    if (success) {
       toast.success("复制成功");
-    } catch {
+    } else {
       toast.error("复制失败，请手动复制");
     }
   }, [task.url]);

@@ -35,3 +35,44 @@ export function formatTokenCount(value?: number | null): string {
   const g = num / 1_000_000_000;
   return Number.isInteger(g) ? `${g}G` : `${g.toFixed(1)}G`;
 }
+
+/**
+ * 复制文本到剪贴板（包含降级方案）
+ * @param text - 要复制的文本
+ * @returns Promise<boolean> - 是否复制成功
+ */
+export async function copyToClipboard(text: string): Promise<boolean> {
+  // 方案1：优先使用现代 Clipboard API（需要 HTTPS 或 localhost）
+  if (navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (err) {
+      // Clipboard API 失败，继续尝试降级方案
+      console.warn("Clipboard API failed, trying fallback:", err);
+    }
+  }
+
+  // 方案2：降级方案 - 使用传统的 execCommand 方法
+  try {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.style.position = "fixed";
+    textarea.style.left = "-999999px";
+    textarea.style.top = "-999999px";
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+
+    const successful = document.execCommand("copy");
+    document.body.removeChild(textarea);
+
+    if (successful) {
+      return true;
+    }
+  } catch (err) {
+    console.error("Fallback copy method failed:", err);
+  }
+
+  return false;
+}
