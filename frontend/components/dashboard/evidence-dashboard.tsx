@@ -22,6 +22,7 @@ import { TaskListRecent } from "@/components/evidence/task-list-recent";
 import { TaskListDrawer } from "@/components/evidence/task-list-drawer";
 import { TaskDetailModal } from "@/components/evidence/task-detail-modal";
 import { type DateRange, getDateRangeLabel } from "@/components/ui/date-range-picker";
+import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { DailyTrendChart } from "@/components/evidence/daily-trend-chart";
 import { DashboardShell } from "./shell";
@@ -228,9 +229,11 @@ export function EvidenceDashboard({ onLogout, account }: DashboardProps) {
         <div className="grid gap-4 md:grid-cols-5">
           {/* 已执行 */}
           <div className="rounded-2xl border bg-gradient-to-br from-sky-500/10 to-sky-600/10 text-sky-700 border-sky-100 p-5 shadow-sm backdrop-blur">
-            <p className="text-sm">
-              <span className="text-slate-600">{dateRangeLabel}</span>
-              <span className="text-slate-300 mx-1">·</span>
+            <p className="text-sm flex items-center gap-1.5">
+              <Badge className="bg-white/60 backdrop-blur-sm text-slate-700 border-white/80 shadow-sm hover:bg-white/70">
+                {dateRangeLabel}
+              </Badge>
+              <span className="text-slate-300">·</span>
               <span className="font-medium text-slate-700">执行</span>
             </p>
             <div className="mt-2 flex items-baseline gap-3">
@@ -255,9 +258,11 @@ export function EvidenceDashboard({ onLogout, account }: DashboardProps) {
 
           {/* 成功 */}
           <div className="rounded-2xl border bg-gradient-to-br from-emerald-500/10 to-emerald-600/10 text-emerald-700 border-emerald-100 p-5 shadow-sm backdrop-blur">
-            <p className="text-sm">
-              <span className="text-slate-600">{dateRangeLabel}</span>
-              <span className="text-slate-300 mx-1">·</span>
+            <p className="text-sm flex items-center gap-1.5">
+              <Badge className="bg-white/60 backdrop-blur-sm text-slate-700 border-white/80 shadow-sm hover:bg-white/70">
+                {dateRangeLabel}
+              </Badge>
+              <span className="text-slate-300">·</span>
               <span className="font-medium text-slate-700">成功</span>
             </p>
             <div className="mt-2 flex items-baseline gap-3">
@@ -282,9 +287,11 @@ export function EvidenceDashboard({ onLogout, account }: DashboardProps) {
 
           {/* 失败 */}
           <div className="rounded-2xl border bg-gradient-to-br from-rose-500/10 to-rose-600/10 text-rose-700 border-rose-100 p-5 shadow-sm backdrop-blur">
-            <p className="text-sm">
-              <span className="text-slate-600">{dateRangeLabel}</span>
-              <span className="text-slate-300 mx-1">·</span>
+            <p className="text-sm flex items-center gap-1.5">
+              <Badge className="bg-white/60 backdrop-blur-sm text-slate-700 border-white/80 shadow-sm hover:bg-white/70">
+                {dateRangeLabel}
+              </Badge>
+              <span className="text-slate-300">·</span>
               <span className="font-medium text-slate-700">失败</span>
             </p>
             <div className="mt-2 flex items-baseline gap-3">
@@ -309,9 +316,11 @@ export function EvidenceDashboard({ onLogout, account }: DashboardProps) {
 
           {/* 成功率 */}
           <div className="rounded-2xl border bg-gradient-to-br from-violet-100 to-violet-200/60 border-purple-100 p-5 shadow-sm">
-            <p className="text-sm">
-              <span className="text-slate-600">{dateRangeLabel}</span>
-              <span className="text-slate-300 mx-1">·</span>
+            <p className="text-sm flex items-center gap-1.5">
+              <Badge className="bg-white/60 backdrop-blur-sm text-slate-700 border-white/80 shadow-sm hover:bg-white/70">
+                {dateRangeLabel}
+              </Badge>
+              <span className="text-slate-300">·</span>
               <span className="font-medium text-slate-700">成功率</span>
             </p>
             <div className="mt-2">

@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { formatDurationSeconds } from "@/lib/datetime";
 import { formatTokenCount } from "@/lib/utils";
 import { type DateRange, getDateRangeLabel } from "@/components/ui/date-range-picker";
+import { Badge } from "@/components/ui/badge";
 
 interface ModuleSummaryData {
   total_tasks: number;
@@ -146,9 +147,11 @@ export function ModuleKPICard({
               <div className="text-4xl font-bold text-slate-900">
                 {summary?.total_tasks.toLocaleString() ?? "--"}
               </div>
-              <div className="text-sm mt-1">
-                <span className="text-slate-600">{dateRangeLabel}</span>
-                <span className="text-slate-300 mx-1">·</span>
+              <div className="text-sm mt-1 flex items-center gap-1.5">
+                <Badge className="bg-white/60 backdrop-blur-sm text-slate-700 border-white/80 shadow-sm hover:bg-white/70">
+                  {dateRangeLabel}
+                </Badge>
+                <span className="text-slate-300">·</span>
                 <span className="font-medium text-slate-700">执行</span>
               </div>
             </div>
@@ -166,9 +169,11 @@ export function ModuleKPICard({
                   </span>
                 )}
               </div>
-              <div className="text-sm mt-1">
-                <span className="text-slate-600">{dateRangeLabel}</span>
-                <span className="text-slate-300 mx-1">·</span>
+              <div className="text-sm mt-1 flex items-center justify-end gap-1.5">
+                <Badge className="bg-white/60 backdrop-blur-sm text-slate-700 border-white/80 shadow-sm hover:bg-white/70">
+                  {dateRangeLabel}
+                </Badge>
+                <span className="text-slate-300">·</span>
                 <span className="font-medium text-slate-700">成功率</span>
               </div>
             </div>
