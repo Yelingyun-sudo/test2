@@ -49,7 +49,7 @@
 
 **填写：**
 - 使用 `browser_fill_form` **一次性填写所有字段**（包括文本框和复选框）：
-  - 账号/邮箱 textbox：`wangqian674@qq.com` 注意：如果form中已经有 `@qq.com` 则只填前缀部分
+  - 账号/邮箱 textbox：`wangqian675@qq.com` 注意：如果form中已经有 `@qq.com` 则只填前缀部分
   - 密码 textbox：`test1234`
   - 确认密码 textbox（如果表单有此字段）：`test1234`
   - 服务条款 checkbox（**必填**）：勾选所有"服务条款"、"用户协议"、"同意条款"、"我同意"等复选框
@@ -146,7 +146,7 @@
     "success": false,
     "message": "注册失败：账号已存在",
     "account": "wangqian666@qq.com",
-    "password": "test1234",
+    "password": null,
     "error_type": "account_already_exists"
   }
   ```

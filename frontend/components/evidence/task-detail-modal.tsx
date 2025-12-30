@@ -97,8 +97,11 @@ export function TaskDetailModal({ task, onClose, failureTypeLabel }: TaskDetailM
     seekSeconds?: number | null;
     evidenceEntries?: Array<{ screenshot: string; json: string; text: string }> | null;
     currentEvidenceIndex?: number;
+    authEntries?: Array<{ type: 'register' | 'login'; url: string; label: string }> | null;
+    currentAuthIndex?: number;
   } | null>(null);
   const [currentEvidenceIndex, setCurrentEvidenceIndex] = useState(0);
+  const [currentAuthIndex, setCurrentAuthIndex] = useState(0);
   const [currentEvidenceImageUrl, setCurrentEvidenceImageUrl] = useState<string | null>(null);
   const [evidenceImageLoading, setEvidenceImageLoading] = useState(false);
   const [cardEvidenceIndex, setCardEvidenceIndex] = useState(0);
@@ -458,6 +461,7 @@ export function TaskDetailModal({ task, onClose, failureTypeLabel }: TaskDetailM
   useEffect(() => {
     setMediaReady({ login: false, evidence: false });
     setMediaError({ login: false, evidence: false });
+    setCurrentAuthIndex(0);
   }, [task]);
 
   useEffect(() => {
@@ -487,10 +491,28 @@ export function TaskDetailModal({ task, onClose, failureTypeLabel }: TaskDetailM
           }
         }
       }
+      // 认证截图轮播
+      else if (viewer.type === "image" && viewer.authEntries && viewer.authEntries.length > 1) {
+        if (event.key === "ArrowLeft") {
+          event.preventDefault();
+          const newIndex =
+            currentAuthIndex > 0 ? currentAuthIndex - 1 : viewer.authEntries.length - 1;
+          setCurrentAuthIndex(newIndex);
+          const newImage = viewer.authEntries[newIndex];
+          setViewer({ ...viewer, currentAuthIndex: newIndex, src: newImage.url, title: newImage.label });
+        } else if (event.key === "ArrowRight") {
+          event.preventDefault();
+          const newIndex =
+            currentAuthIndex < viewer.authEntries.length - 1 ? currentAuthIndex + 1 : 0;
+          setCurrentAuthIndex(newIndex);
+          const newImage = viewer.authEntries[newIndex];
+          setViewer({ ...viewer, currentAuthIndex: newIndex, src: newImage.url, title: newImage.label });
+        }
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [viewer, currentEvidenceIndex]);
+  }, [viewer, currentEvidenceIndex, currentAuthIndex]);
 
   // 加载当前索引的取证图片
   useEffect(() => {
@@ -905,8 +927,11 @@ export function TaskDetailModal({ task, onClose, failureTypeLabel }: TaskDetailM
                           setViewer({
                             type: "image",
                             title: currentImage.label,
-                            src: currentImage.url
+                            src: currentImage.url,
+                            authEntries: authImages.length > 1 ? authImages : null,
+                            currentAuthIndex: cardAuthIndex
                           });
+                          setCurrentAuthIndex(cardAuthIndex);
                         }}
                       >
                         {!mediaReady.login && !mediaError.login ? (
@@ -1116,7 +1141,7 @@ export function TaskDetailModal({ task, onClose, failureTypeLabel }: TaskDetailM
                     </div>
                   ) : (
                     <div className="flex w-full aspect-[16/10] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400">
-                      暂无数据
+                      不存在
                     </div>
                   );
                 })()}
@@ -1236,18 +1261,29 @@ export function TaskDetailModal({ task, onClose, failureTypeLabel }: TaskDetailM
             <div className="p-4">
               {viewer.type === "image" ? (
                 <div className="relative">
-                  {viewer.evidenceEntries && viewer.evidenceEntries.length > 1 ? (
+                  {(viewer.evidenceEntries && viewer.evidenceEntries.length > 1) ||
+                   (viewer.authEntries && viewer.authEntries.length > 1) ? (
                     <>
                       {/* 左箭头 */}
                       <button
                         type="button"
                         onClick={() => {
-                          const newIndex =
-                            currentEvidenceIndex > 0
-                              ? currentEvidenceIndex - 1
-                              : viewer.evidenceEntries!.length - 1;
-                          setCurrentEvidenceIndex(newIndex);
-                          setViewer({ ...viewer, currentEvidenceIndex: newIndex });
+                          if (viewer.evidenceEntries && viewer.evidenceEntries.length > 1) {
+                            const newIndex =
+                              currentEvidenceIndex > 0
+                                ? currentEvidenceIndex - 1
+                                : viewer.evidenceEntries.length - 1;
+                            setCurrentEvidenceIndex(newIndex);
+                            setViewer({ ...viewer, currentEvidenceIndex: newIndex });
+                          } else if (viewer.authEntries && viewer.authEntries.length > 1) {
+                            const newIndex =
+                              currentAuthIndex > 0
+                                ? currentAuthIndex - 1
+                                : viewer.authEntries.length - 1;
+                            setCurrentAuthIndex(newIndex);
+                            const newImage = viewer.authEntries[newIndex];
+                            setViewer({ ...viewer, currentAuthIndex: newIndex, src: newImage.url, title: newImage.label });
+                          }
                         }}
                         className="absolute left-4 top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/40 p-2 text-white backdrop-blur-sm transition hover:bg-black/60"
                         aria-label="上一张"
@@ -1258,12 +1294,22 @@ export function TaskDetailModal({ task, onClose, failureTypeLabel }: TaskDetailM
                       <button
                         type="button"
                         onClick={() => {
-                          const newIndex =
-                            currentEvidenceIndex < viewer.evidenceEntries!.length - 1
-                              ? currentEvidenceIndex + 1
-                              : 0;
-                          setCurrentEvidenceIndex(newIndex);
-                          setViewer({ ...viewer, currentEvidenceIndex: newIndex });
+                          if (viewer.evidenceEntries && viewer.evidenceEntries.length > 1) {
+                            const newIndex =
+                              currentEvidenceIndex < viewer.evidenceEntries.length - 1
+                                ? currentEvidenceIndex + 1
+                                : 0;
+                            setCurrentEvidenceIndex(newIndex);
+                            setViewer({ ...viewer, currentEvidenceIndex: newIndex });
+                          } else if (viewer.authEntries && viewer.authEntries.length > 1) {
+                            const newIndex =
+                              currentAuthIndex < viewer.authEntries.length - 1
+                                ? currentAuthIndex + 1
+                                : 0;
+                            setCurrentAuthIndex(newIndex);
+                            const newImage = viewer.authEntries[newIndex];
+                            setViewer({ ...viewer, currentAuthIndex: newIndex, src: newImage.url, title: newImage.label });
+                          }
                         }}
                         className="absolute right-4 top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/40 p-2 text-white backdrop-blur-sm transition hover:bg-black/60"
                         aria-label="下一张"
@@ -1272,10 +1318,18 @@ export function TaskDetailModal({ task, onClose, failureTypeLabel }: TaskDetailM
                       </button>
                       {/* 底部指示器 */}
                       <div className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2 rounded-full bg-black/40 px-4 py-2 text-sm text-white backdrop-blur-sm">
-                        {currentEvidenceIndex + 1} / {viewer.evidenceEntries.length} -{" "}
-                        {viewer.evidenceEntries[currentEvidenceIndex]
-                          ? extractEntryLabel(viewer.evidenceEntries[currentEvidenceIndex].screenshot)
-                          : extractEntryLabel(viewer.title)}
+                        {viewer.evidenceEntries ? (
+                          <>
+                            {currentEvidenceIndex + 1} / {viewer.evidenceEntries.length} -{" "}
+                            {viewer.evidenceEntries[currentEvidenceIndex]
+                              ? extractEntryLabel(viewer.evidenceEntries[currentEvidenceIndex].screenshot)
+                              : extractEntryLabel(viewer.title)}
+                          </>
+                        ) : viewer.authEntries ? (
+                          <>
+                            {currentAuthIndex + 1} / {viewer.authEntries.length} - {viewer.authEntries[currentAuthIndex]?.label}
+                          </>
+                        ) : null}
                       </div>
                     </>
                   ) : null}
