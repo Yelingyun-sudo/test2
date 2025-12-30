@@ -4,6 +4,11 @@
 
 ## 可用工具
 
+### `perform_register`
+- **功能**：浏览器自动化注册指定站点
+- **输入**：包含 `site_url` 的 JSON 字符串
+- **输出**：JSON 格式，包含 success、message、account、password、error_type
+
 ### `perform_login`
 - **功能**：浏览器自动化登录指定站点
 - **输入**：包含 `site_url`、`account`、`password` 的 JSON 字符串
@@ -18,11 +23,6 @@
 - **功能**：在登录态下提取订阅链接
 - **输入**：中文提示语，例如"查找并返回订阅地址。"
 - **输出**：JSON 格式，包含 success、message、subscription_url、error_type
-
-### `perform_register`
-- **功能**：浏览器自动化注册指定站点
-- **输入**：包含 `site_url` 的 JSON 字符串
-- **输出**：JSON 格式，包含 success、message、account、password、error_type
 
 ### 预留工具（尚未接入）
 - `perform_purchase` 暂不可用，如用户指令涉及购买，请明确说明能力受限。
@@ -118,7 +118,7 @@
 }
 ```
 
-### 示例2：缺少必要信息
+### 示例2：缺少必要信息（注意：注册只需要传入site_url）
 
 ```json
 {

@@ -51,6 +51,19 @@
 **填写：**
 - 使用 `browser_fill_form` 只填账号/密码（`account` / `password`），其他字段一律不填
 
+**调用示例：**
+```json
+{
+  "fields": [
+    {"name": "邮箱", "type": "textbox", "ref": "e14", "value": "wangqian674@qq.com"},
+    {"name": "密码", "type": "textbox", "ref": "e18", "value": "test1234"}
+  ]
+}
+```
+**重要提示**：
+- 每个字段的 `type` 参数是必需的，必须是 `textbox`、`checkbox`、`radio`、`combobox`、`slider` 之一
+- 登录表单通常只需要填写 textbox 类型的账号和密码字段
+
 **提交（先回车，失败再点按钮）：**
 - 直接调用 `browser_press_key` 按 `Enter` 提交，然后立刻 `browser_snapshot` 检查结果
 - 若仍停留在登录页且未出现明确错误提示，再用 `browser_click` 点击同一登录区域内最可能的登录按钮（role=button 或 type=submit），随后 `browser_snapshot`

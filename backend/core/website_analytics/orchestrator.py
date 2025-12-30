@@ -390,6 +390,16 @@ async def execute(
 
         operations_results = coordinator_output.get("operations_results")
         if isinstance(operations_results, dict):
+            register_result = operations_results.get("register")
+            if isinstance(register_result, dict):
+                register_result["cover_image_path"] = (
+                    _find_last_capture_relative_path_for_agent(
+                        working_dir,
+                        "registerAgent",
+                        offset=1 if register_result.get("success") is True else 0,
+                    )
+                )
+
             login_result = operations_results.get("login")
             if isinstance(login_result, dict):
                 login_result["cover_image_path"] = (

@@ -139,3 +139,14 @@
     "error_type": "unknown_error"
   }
   ```
+
+- 失败（账号已存在）：
+  ```json
+  {
+    "success": false,
+    "message": "注册失败：账号已存在",
+    "account": "wangqian666@qq.com",
+    "password": "test1234",
+    "error_type": "account_already_exists"
+  }
+  ```
