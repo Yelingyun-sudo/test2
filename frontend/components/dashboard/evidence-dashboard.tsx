@@ -569,7 +569,7 @@ export function EvidenceDashboard({ onLogout, account }: DashboardProps) {
             {stats?.daily_trend && stats.daily_trend.length > 0 ? (
               <DailyTrendChart
                 dailyTrend={stats.daily_trend}
-                days={5}
+                days={8}
                 onDateClick={handleDateClick}
               />
             ) : (

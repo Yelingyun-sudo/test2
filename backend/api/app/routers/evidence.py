@@ -533,11 +533,11 @@ def get_evidence_stats_summary(
 def get_evidence_stats_daily_trend(
     db: Session = Depends(get_db),
 ):
-    """获取取证任务的每日趋势数据（最近5天）"""
+    """获取取证任务的每日趋势数据（最近8天）"""
     tz_cn = timezone(timedelta(hours=8))
 
     daily_trend = compute_daily_trend(
-        db, EvidenceTask, tz_cn, days=5, daily_trend_item_cls=DailyTrendItem
+        db, EvidenceTask, tz_cn, days=8, daily_trend_item_cls=DailyTrendItem
     )
     return DailyTrendResponse(daily_trend=daily_trend)
 
