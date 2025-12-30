@@ -128,6 +128,16 @@ class TaskContext:
 
 settings = get_settings()
 
+# Playwright 工具白名单配置
+# registerAgent 只能使用指令中明确提到的 5 个核心工具
+REGISTER_AGENT_ALLOWED_TOOLS = {
+    "browser_navigate",  # 访问 URL
+    "browser_snapshot",  # 获取页面状态
+    "browser_click",  # 点击元素
+    "browser_fill_form",  # 填写表单
+    "browser_press_key",  # 按键提交
+}
+
 
 def _normalize_error_type(value: Any) -> str | None:
     """将任意输入规范化为合法的 ErrorType 字符串值。"""
@@ -166,7 +176,7 @@ def _infer_error_type_from_operations(output: dict[str, Any]) -> str | None:
 
 
 async def _playwright_tool_filter(context: ToolFilterContext, tool) -> bool:
-    """屏蔽特定的 Playwright 工具。
+    """屏蔽特定的 Playwright 工具（黑名单 + 白名单）。
 
     Args:
         context: 工具过滤上下文，包含 agent 信息
@@ -175,20 +185,27 @@ async def _playwright_tool_filter(context: ToolFilterContext, tool) -> bool:
     Returns:
         True 表示允许该工具，False 表示屏蔽该工具
     """
-    # 对所有 Agent 屏蔽 browser_handle_dialog
+    # === 全局黑名单（对所有 Agent 生效） ===
+
+    # 屏蔽 browser_handle_dialog
     # 该工具仅用于浏览器原生对话框（alert/confirm），无法处理页面内的 DOM 弹窗
     if tool.name == "browser_handle_dialog":
         return False
 
-    # 对所有 Agent 屏蔽 browser_run_code
+    # 屏蔽 browser_run_code
     # 该工具允许执行任意代码，存在安全风险，应使用更安全的替代工具
     if tool.name == "browser_run_code":
         return False
 
-    # 未来可以添加更复杂的逻辑，例如：
-    # if context.agent.name == "evidenceAgent" and tool.name == "some_other_tool":
-    #     return False
+    # === Agent 级别白名单 ===
 
+    agent_name = context.agent.name if context.agent else None
+
+    # registerAgent: 严格限制工具使用（只允许 5 个核心工具）
+    if agent_name == "registerAgent":
+        return tool.name in REGISTER_AGENT_ALLOWED_TOOLS
+
+    # 其他 Agent 允许所有工具（除全局黑名单外）
     return True
 
 
