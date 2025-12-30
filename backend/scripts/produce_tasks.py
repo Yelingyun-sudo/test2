@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""将 subscription_clean.jsonl 转为 Kafka 消息发送。"""
+"""将 JSONL 文件中的任务数据转为 Kafka 消息发送。
+
+支持两种任务类型：
+- subscription: 需要 url, account, password 三个字段
+- evidence: 只需要 url 字段，不允许 account 和 password 字段
+"""
 
 from __future__ import annotations
 
@@ -23,8 +28,9 @@ def parse_args() -> argparse.Namespace:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""\
 示例:
-  python %(prog)s data.jsonl           发送消息到 Kafka
-  python %(prog)s data.jsonl --batch-size 100  每批发送 100 条
+  uv run python %(prog)s data.jsonl --type subscription
+  uv run python %(prog)s data.jsonl --type evidence
+  uv run python %(prog)s data.jsonl --type subscription --batch-size 100
 """,
     )
     parser.add_argument(
@@ -34,11 +40,22 @@ def parse_args() -> argparse.Namespace:
         help="要导入的 JSONL 数据文件路径",
     )
     parser.add_argument(
+        "--type",
+        type=str,
+        choices=["subscription", "evidence"],
+        required=True,
+        help="任务类型: subscription (需要 url/account/password) 或 evidence (只需要 url)",
+    )
+    parser.add_argument(
         "--batch-size",
         type=int,
         default=50,
         help="每批发送的消息数量（默认 50）",
     )
+    # 如果没有提供任何参数（除了脚本名），显示帮助信息
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit(0)
     args = parser.parse_args()
     if args.file is None:
         parser.print_help()
@@ -88,13 +105,23 @@ def main() -> None:
     batch = []
 
     try:
-        print(f"📤 开始读取文件: {args.file}")
+        print(f"📤 开始读取文件: {args.file} (任务类型: {args.type})")
         print(f"📡 目标 Topic: {topic}")
         print()
 
         for record in load_records(args.file):
-            # 验证必需字段
-            if not all(k in record for k in ["url", "account", "password"]):
+            # 根据任务类型验证字段
+            is_valid = False
+            if args.type == "subscription":
+                # Subscription: 必须有 url, account, password
+                if all(k in record for k in ["url", "account", "password"]):
+                    is_valid = True
+            elif args.type == "evidence":
+                # Evidence: 必须有 url，且不能有 account 和 password
+                if "url" in record and "account" not in record and "password" not in record:
+                    is_valid = True
+
+            if not is_valid:
                 print(f"⚠️  跳过无效记录: {record}")
                 failed += 1
                 continue
@@ -134,3 +161,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
