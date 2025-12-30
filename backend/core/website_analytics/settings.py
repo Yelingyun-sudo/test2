@@ -80,9 +80,9 @@ class Settings(BaseSettings):
     # Kafka 任务导入
     task_importer_enabled: bool = True
     kafka_bootstrap_servers: str = "8.147.106.108:10092"
-    kafka_topic_task: str = "website-analytics"
-    kafka_topic_report_success: str = "website-analytics-report-success"
-    kafka_topic_report_failed: str = "website-analytics-report-failed"
+    kafka_topic_task: str = "test-website-analytics"
+    kafka_topic_report_success: str = "test-website-analytics-report-success"
+    kafka_topic_report_failed: str = "test-website-analytics-report-failed"
     kafka_group_id: str = "wa-importer-group"
     kafka_sasl_username: str = "user1"
     kafka_sasl_password: str = "your-password-here"
