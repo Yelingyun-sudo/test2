@@ -38,7 +38,7 @@ from website_analytics.filters import build_call_model_input_filter
 from website_analytics.formatter import format_execution_result
 from website_analytics.llm_logging import LLMTranscriptLoggerHooks
 from website_analytics.playwright_server import AutoSwitchingPlaywrightServer
-from website_analytics.output_types import ErrorType
+from website_analytics.output_types import ErrorType, OperationType
 from website_analytics.settings import get_settings
 from website_analytics.tools import (
     build_compile_evidence_report_tool,
@@ -351,7 +351,7 @@ async def execute(
 
             # 提取完整结构化输出
             if hasattr(final_output_obj, "model_dump"):
-                coordinator_output = final_output_obj.model_dump()
+                coordinator_output = final_output_obj.model_dump(mode="json")
                 coordinator_output["status"] = status_normalized
             else:
                 coordinator_output = {
@@ -396,7 +396,7 @@ async def execute(
 
         operations_results = coordinator_output.get("operations_results")
         if isinstance(operations_results, dict):
-            register_result = operations_results.get("register")
+            register_result = operations_results.get(OperationType.REGISTER.value)
             if isinstance(register_result, dict):
                 register_result["cover_image_path"] = (
                     _find_last_capture_relative_path_for_agent(
@@ -406,7 +406,7 @@ async def execute(
                     )
                 )
 
-            login_result = operations_results.get("login")
+            login_result = operations_results.get(OperationType.LOGIN.value)
             if isinstance(login_result, dict):
                 login_result["cover_image_path"] = (
                     _find_last_capture_relative_path_for_agent(
@@ -416,7 +416,7 @@ async def execute(
                     )
                 )
 
-            extract_result = operations_results.get("extract")
+            extract_result = operations_results.get(OperationType.EXTRACT.value)
             if isinstance(extract_result, dict):
                 extract_result["cover_image_path"] = (
                     _find_last_capture_relative_path_for_agent(
@@ -424,7 +424,7 @@ async def execute(
                     )
                 )
 
-            evidence_result = operations_results.get("evidence")
+            evidence_result = operations_results.get(OperationType.EVIDENCE.value)
             if isinstance(evidence_result, dict):
                 # 扫描 evidence 目录，收集所有入口的文件路径
                 entries_detail = _scan_evidence_entries(working_dir)

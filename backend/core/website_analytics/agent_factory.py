@@ -13,6 +13,7 @@ from website_analytics.output_types import (
     EvidenceOutput,
     ExtractOutput,
     LoginOutput,
+    OperationType,
     RegisterOutput,
 )
 from website_analytics.settings import get_settings
@@ -92,7 +93,7 @@ def build_coordinator_agent(
 ) -> Agent:
     tools = [
         login_agent.as_tool(
-            tool_name="perform_login",
+            tool_name=OperationType.LOGIN.value,
             tool_description="使用浏览器自动化登录指定站点。",
             max_turns=20,
             hooks=child_hooks,
@@ -100,7 +101,7 @@ def build_coordinator_agent(
             custom_output_extractor=extract_structured_output,
         ),
         register_agent.as_tool(
-            tool_name="perform_register",
+            tool_name=OperationType.REGISTER.value,
             tool_description="使用浏览器自动化注册指定站点。",
             max_turns=20,
             hooks=child_hooks,
@@ -108,7 +109,7 @@ def build_coordinator_agent(
             custom_output_extractor=extract_structured_output,
         ),
         evidence_agent.as_tool(
-            tool_name="perform_evidence",
+            tool_name=OperationType.EVIDENCE.value,
             tool_description="取证网站的一级菜单并保存截图。",
             max_turns=100,
             hooks=child_hooks,
@@ -116,7 +117,7 @@ def build_coordinator_agent(
             custom_output_extractor=extract_structured_output,
         ),
         extract_agent.as_tool(
-            tool_name="perform_extract",
+            tool_name=OperationType.EXTRACT.value,
             tool_description="在已登录状态下提取订阅链接。",
             max_turns=25,
             hooks=child_hooks,

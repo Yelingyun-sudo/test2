@@ -41,6 +41,15 @@ class ErrorType(str, Enum):
     UNKNOWN_ERROR = "unknown_error"
 
 
+class OperationType(str, Enum):
+    """操作类型枚举。"""
+
+    LOGIN = "login"
+    REGISTER = "register"
+    EVIDENCE = "evidence"
+    EXTRACT = "extract"
+
+
 # 失败类型中文标签映射（统一配置）
 FAILURE_TYPE_LABELS: dict[str, str] = {
     # 账号/套餐类
@@ -172,15 +181,15 @@ class CoordinatorOutput(BaseModel):
         description="任务失败原因，status=failed 时填写，success 时为 None",
     )
 
-    operations_executed: list[str] = Field(
+    operations_executed: list[OperationType] = Field(
         default_factory=list,
         description="实际执行的操作列表，例如 ['login', 'evidence']",
     )
 
-    operations_results: dict[str, Any] = Field(
+    operations_results: dict[OperationType, dict[str, Any]] = Field(
         default_factory=dict,
         description="""各操作的完整结果（原始 JSON）。
-        key: 操作名称（login/evidence/extract）
+        key: 操作类型枚举（OperationType.LOGIN/EVIDENCE/EXTRACT）
         value: 该操作的完整输出对象（直接保存子工具返回的 JSON，不要修改）
 
         示例：login 和 evidence 的完整 JSON 对象会原样保存。

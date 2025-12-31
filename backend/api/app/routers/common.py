@@ -104,7 +104,12 @@ def compute_status_distribution(
     )
 
     # 应用时间范围过滤（如果指定且有效）
-    if start_date and end_date and range_start_utc is not None and range_end_utc is not None:
+    if (
+        start_date
+        and end_date
+        and range_start_utc is not None
+        and range_end_utc is not None
+    ):
         status_query = status_query.filter(
             task_model.executed_at.isnot(None),
             task_model.executed_at >= range_start_utc,
@@ -250,7 +255,7 @@ def compute_daily_trend(
     # 按执行时间的日期分组（转换为中国时区后提取日期）
     # 使用 date(datetime(executed_at, '+8 hours')) 将 UTC 时间转换为中国时区后提取日期
     date_cn_expr = func.date(func.datetime(task_model.executed_at, text("'+8 hours'")))
-    
+
     daily_trend_results = (
         db.query(
             date_cn_expr.label("date"),
@@ -345,7 +350,12 @@ def compute_recent_tasks(
     recent_task_query = db.query(task_model)
 
     # 应用时间范围过滤（如果指定且有效）
-    if start_date and end_date and range_start_utc is not None and range_end_utc is not None:
+    if (
+        start_date
+        and end_date
+        and range_start_utc is not None
+        and range_end_utc is not None
+    ):
         recent_task_query = recent_task_query.filter(
             task_model.executed_at.isnot(None),
             task_model.executed_at >= range_start_utc,

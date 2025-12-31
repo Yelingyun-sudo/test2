@@ -328,7 +328,10 @@ def _compute_summary(
         ]
 
     # 构建成功计数条件
-    success_conditions = [EvidenceTask.executed_at.isnot(None), EvidenceTask.status == TaskStatus.SUCCESS]
+    success_conditions = [
+        EvidenceTask.executed_at.isnot(None),
+        EvidenceTask.status == TaskStatus.SUCCESS,
+    ]
     if time_range_conditions:
         success_conditions.extend(time_range_conditions)
     success_count_expr = case(
@@ -337,7 +340,10 @@ def _compute_summary(
     )
 
     # 构建失败计数条件
-    failed_conditions = [EvidenceTask.executed_at.isnot(None), EvidenceTask.status == TaskStatus.FAILED]
+    failed_conditions = [
+        EvidenceTask.executed_at.isnot(None),
+        EvidenceTask.status == TaskStatus.FAILED,
+    ]
     if time_range_conditions:
         failed_conditions.extend(time_range_conditions)
     failed_count_expr = case(

@@ -231,9 +231,9 @@ def get_task_artifacts(
     extract_result = operations_results.get("extract")
     if isinstance(extract_result, dict):
         # 向后兼容：优先使用 cover_image_path，如果没有则使用 last_capture_path
-        extract_image_path = extract_result.get("cover_image_path") or extract_result.get(
-            "last_capture_path"
-        )
+        extract_image_path = extract_result.get(
+            "cover_image_path"
+        ) or extract_result.get("last_capture_path")
 
     video_path = coordinator.get("video_path")
     video_seek_seconds = coordinator.get("video_seek_seconds")
