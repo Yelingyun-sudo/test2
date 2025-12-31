@@ -122,6 +122,36 @@ def _format_failure_type(
     return "unknown_error"
 
 
+def _extract_credentials(
+    exec_result: ExecutionResult | None,
+) -> tuple[str | None, str | None]:
+    """从执行结果中提取注册得到的账号密码。
+
+    Args:
+        exec_result: 任务执行结果
+
+    Returns:
+        (account, password) 元组，如果未找到则返回 (None, None)
+    """
+    if not exec_result or not exec_result.coordinator_output:
+        return None, None
+
+    try:
+        operations_results = exec_result.coordinator_output.get("operations_results") or {}
+        register_result = operations_results.get("register") or {}
+
+        account = register_result.get("account")
+        password = register_result.get("password")
+
+        # 只有注册成功才返回凭据
+        if register_result.get("success") and account and password:
+            return account, password
+    except Exception:  # pragma: no cover - 防御性处理
+        pass
+
+    return None, None
+
+
 def _mark_running(db: Session, task: EvidenceTask) -> None:
     task.status = TaskStatus.RUNNING
     task.executed_at = datetime.now(timezone.utc)
@@ -138,6 +168,8 @@ def _update_task_success(
     result: str,
     task_dir: str | None,
     llm_usage: dict[str, Any] | None = None,
+    account: str | None = None,
+    password: str | None = None,
 ) -> None:
     task.status = TaskStatus.SUCCESS
     task.duration_seconds = int(duration)
@@ -146,6 +178,12 @@ def _update_task_success(
     task.failure_type = None
     task.report_status = TaskReportStatus.PENDING
     task.llm_usage = llm_usage
+
+    # 更新账号密码（如果有）
+    if account and password:
+        task.account = account
+        task.password = password
+
     db.add(task)
     db.commit()
 
@@ -244,6 +282,10 @@ async def _run_task(task_id: int, instruction: str) -> None:
         if exec_result and exec_result.success and exec_result.task_dir:
             result_text = _extract_success_result(exec_result)
             llm_usage = exec_result.llm_usage
+
+            # 提取注册得到的凭据
+            account, password = _extract_credentials(exec_result)
+
             _update_task_success(
                 db,
                 task_obj,
@@ -251,6 +293,8 @@ async def _run_task(task_id: int, instruction: str) -> None:
                 result=result_text,
                 task_dir=task_dir_value,
                 llm_usage=llm_usage,
+                account=account,
+                password=password,
             )
             logger.info(
                 "任务成功: id=%s, url=%s, result=%s",
