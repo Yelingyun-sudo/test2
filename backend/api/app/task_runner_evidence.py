@@ -197,6 +197,8 @@ def _update_task_failure(
     failure_type: str,
     task_dir: str | None,
     llm_usage: dict[str, Any] | None = None,
+    account: str | None = None,
+    password: str | None = None,
 ) -> None:
     task.status = TaskStatus.FAILED
     task.duration_seconds = int(duration)
@@ -205,6 +207,12 @@ def _update_task_failure(
     task.failure_type = failure_type
     task.report_status = TaskReportStatus.PENDING
     task.llm_usage = llm_usage
+
+    # 即使任务失败，也保存注册得到的凭据
+    if account and password:
+        task.account = account
+        task.password = password
+
     db.add(task)
     db.commit()
 
@@ -306,6 +314,10 @@ async def _run_task(task_id: int, instruction: str) -> None:
             result_text = _extract_failure_result(exec_result, exc=exec_error)
             llm_usage = exec_result.llm_usage if exec_result else None
             failure_type = _format_failure_type(exec_error, timed_out, exec_result)
+
+            # 即使任务失败，也尝试提取注册得到的凭据
+            account, password = _extract_credentials(exec_result)
+
             _update_task_failure(
                 db,
                 task_obj,
@@ -314,6 +326,8 @@ async def _run_task(task_id: int, instruction: str) -> None:
                 failure_type=failure_type,
                 task_dir=task_dir_value,
                 llm_usage=llm_usage,
+                account=account,
+                password=password,
             )
             logger.warning(
                 "任务失败: id=%s, url=%s, failure_type=%s, result=%s",
