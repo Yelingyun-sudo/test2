@@ -553,13 +553,15 @@ def build_programmatic_evidence_entry_tool(
         entry_id: str,
         entry_index: int,
         entry_label: str,
+        total_entries: int,
     ) -> str:
         """程序化取证单个入口（异步版本）。
 
         Args:
             entry_id: 入口唯一标识
-            entry_index: 入口序号
+            entry_index: 入口序号（从1开始）
             entry_label: 菜单标签
+            total_entries: 总入口数量，用于进度判断
 
         Returns:
             JSON 字符串，包含取证结果
@@ -574,6 +576,8 @@ def build_programmatic_evidence_entry_tool(
             if not ref:
                 result_data = {
                     "entry_id": entry_id,
+                    "entry_label": entry_label,
+                    "progress": f"{entry_index}/{total_entries}",
                     "status": "failed",
                     "screenshot": None,
                     "text_snapshot": None,
@@ -634,6 +638,8 @@ def build_programmatic_evidence_entry_tool(
             # 8. 保存 JSON
             result_data = {
                 "entry_id": entry_id,
+                "entry_label": entry_label,
+                "progress": f"{entry_index}/{total_entries}",
                 "status": "success",
                 "screenshot": screenshot_path,
                 "text_snapshot": f"evidence/{prefix}.txt",
@@ -650,6 +656,8 @@ def build_programmatic_evidence_entry_tool(
         except Exception as exc:
             result_data = {
                 "entry_id": entry_id,
+                "entry_label": entry_label,
+                "progress": f"{entry_index}/{total_entries}",
                 "status": "failed",
                 "screenshot": None,
                 "text_snapshot": None,

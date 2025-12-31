@@ -22,8 +22,12 @@
 ### 3. 调用入口取证工具
 目标：对 `evidenceEntryList.txt` 中的菜单入口，依次调用 `programmatic_evidence_entry` 工具完成取证
 
-- Step1：为当前菜单入口准备输入，示例如下`{"entry_id":"entry_01","entry_label":"菜单1","entry_index":1}`
-- Step2：调用工具`programmatic_evidence_entry` 将执行程序化的菜单入口探索
+- Step1：读取 `evidenceEntryList.txt`，获取总入口数量（记为 N）
+- Step2：为当前菜单入口准备输入，示例：`{"entry_id":"entry_01","entry_label":"菜单1","entry_index":1,"total_entries":4}`
+- Step3：调用工具`programmatic_evidence_entry` 将执行程序化的菜单入口探索
+- Step4：检查进度
+  - 如果 entry_index < total_entries，继续处理下一个入口（返回Step2）
+  - 如果 entry_index == total_entries，所有入口已处理完毕，进入步骤4
 
 **执行原则**：
 - 严格按顺序逐个入口调用工具，不要并行或跳跃
