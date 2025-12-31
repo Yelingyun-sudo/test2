@@ -156,8 +156,11 @@ class LLMTranscriptLoggerHooks(RunHooks[TContext]):
         screenshot_path = captures_dir / base.with_suffix(".png")
         dom_path = captures_dir / base.with_suffix(".dom.yaml")
 
-        # DOM snapshot
+        # DOM snapshot with simple retry
         try:
+            # 等待 300ms 让页面有时间渲染
+            await asyncio.sleep(0.3)
+
             result = await self._playwright_server.call_tool("browser_snapshot", {})
             text_blocks = [
                 getattr(item, "text", "")
@@ -165,6 +168,31 @@ class LLMTranscriptLoggerHooks(RunHooks[TContext]):
                 if getattr(item, "type", "") == "text"
             ]
             dom_text = "\n".join(text_blocks).strip()
+
+            # 检查 DOM 是否为空（类似 012-loginAgent_turn_02_request.dom.yaml）
+            is_empty = (
+                not dom_text
+                or len(dom_text) < 100
+                or "Page Snapshot:\n```yaml\n\n```" in dom_text
+            )
+
+            # 如果为空，重试 1 次
+            if is_empty:
+                logging.getLogger(__name__).debug(
+                    "DOM 为空，等待 500ms 后重试: %s %s",
+                    metadata.agent_name,
+                    kind,
+                )
+                await asyncio.sleep(0.5)
+                result = await self._playwright_server.call_tool("browser_snapshot", {})
+                text_blocks = [
+                    getattr(item, "text", "")
+                    for item in getattr(result, "content", []) or []
+                    if getattr(item, "type", "") == "text"
+                ]
+                dom_text = "\n".join(text_blocks).strip()
+
+            # 保存 DOM（即使重试后仍为空也保存，保持原有行为）
             if dom_text:
                 if self._first_content_t is None:
                     page_url = _extract_page_url(dom_text)
