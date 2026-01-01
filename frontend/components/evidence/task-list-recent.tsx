@@ -45,11 +45,11 @@ export function TaskListRecent({
         <table className="w-full border-collapse">
           <colgroup>
             <col className="w-[5%]" />
-            <col className="w-[14%]" />
+            <col className="w-[13%]" />
             <col className="w-[12%]" />
-            <col className="w-[23%]" />
+            <col className="w-[25%]" />
             <col className="w-[12%]" />
-            <col className="w-[34%]" />
+            <col className="w-[33%]" />
           </colgroup>
           <thead>
             <tr className="border-b border-slate-200">
