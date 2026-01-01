@@ -269,6 +269,7 @@ def compute_daily_trend(
         )
         .filter(
             task_model.executed_at.isnot(None),
+            task_model.status.in_([TaskStatus.SUCCESS, TaskStatus.FAILED]),
             date_cn_expr >= days_ago,
         )
         .group_by(date_cn_expr)
