@@ -29,7 +29,7 @@ BASE_PLAYWRIGHT_ARGS = (
     "--isolated",
     "--grant-permissions=clipboard-read,clipboard-write",
     "--allowed-hosts=*",
-    "--save-trace",
+    # "--save-trace",  # 已禁用：节省存储空间和文件写入时间
     "--viewport-size=1280x800",
     "--save-video=1280x800",
     "--output-dir={output_dir}",

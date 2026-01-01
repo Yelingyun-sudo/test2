@@ -242,7 +242,7 @@ class AutoSwitchingPlaywrightServer(MCPServerStdio):
         # 1) 优先尝试整体关闭（如果 MCP tool 支持）。
         try:
             await _call("browser_close", {})
-            logger.debug("成功调用 browser_close，等待视频和 trace 保存完成")
+            logger.debug("成功调用 browser_close，等待视频保存完成")
             return
         except Exception as exc:
             logger.warning(

@@ -137,7 +137,9 @@ def _extract_credentials(
         return None, None
 
     try:
-        operations_results = exec_result.coordinator_output.get("operations_results") or {}
+        operations_results = (
+            exec_result.coordinator_output.get("operations_results") or {}
+        )
         register_result = operations_results.get("register") or {}
 
         account = register_result.get("account")
