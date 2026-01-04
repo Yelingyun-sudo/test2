@@ -14,7 +14,8 @@ from sqlalchemy.orm import Session
 
 from ..db import get_db
 from ..utils import resolve_task_dir
-from ..models import EvidenceTask, TaskStatus
+from ..models import EvidenceTask
+from ..enums import TaskStatus
 from ..schemas.common import FailureTypesResponse, LLMUsage
 from ..schemas.evidence import (
     DailyTrendItem,

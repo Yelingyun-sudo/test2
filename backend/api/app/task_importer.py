@@ -13,7 +13,8 @@ from sqlalchemy.exc import IntegrityError
 from website_analytics.settings import get_settings
 
 from .db import SessionLocal
-from .models import SubscriptionTask, TaskStatus, EvidenceTask
+from .models import SubscriptionTask, EvidenceTask
+from .enums import TaskStatus
 
 logger = logging.getLogger(__name__)
 

@@ -13,7 +13,8 @@ from sqlalchemy import Integer, and_, case, func, or_
 from sqlalchemy.orm import Session
 
 from ..db import get_db
-from ..models import SubscriptionTask, TaskStatus
+from ..models import SubscriptionTask
+from ..enums import TaskStatus
 from ..utils import resolve_task_dir
 from ..schemas.common import FailureTypesResponse, LLMUsage
 from ..schemas.subscription import (

@@ -11,7 +11,8 @@ from sqlalchemy.orm import Session
 from website_analytics.settings import get_settings
 
 from .db import SessionLocal
-from .models import EvidenceTask, SubscriptionTask, TaskStatus
+from .models import EvidenceTask, SubscriptionTask
+from .enums import TaskStatus
 
 TaskModel = Union[SubscriptionTask, EvidenceTask]
 

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from enum import Enum
 
 from sqlalchemy import (
     JSON,
@@ -17,22 +16,10 @@ from sqlalchemy import (
 )
 
 from ..db import Base
+from ..enums import TaskReportStatus, TaskStatus
 
 
 TZ_CHINA = timezone(timedelta(hours=8))
-
-
-class TaskStatus(str, Enum):
-    PENDING = "PENDING"  # 待执行
-    RUNNING = "RUNNING"  # 执行中
-    SUCCESS = "SUCCESS"  # 成功
-    FAILED = "FAILED"  # 失败
-
-
-class TaskReportStatus(str, Enum):
-    PENDING = "PENDING"  # 待汇报（任务已完成，等待发送）
-    SUCCESS = "SUCCESS"  # Kafka 发送成功
-    FAILED = "FAILED"  # Kafka 发送失败
 
 
 class SubscriptionTask(Base):

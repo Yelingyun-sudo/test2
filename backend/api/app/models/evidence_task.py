@@ -16,7 +16,7 @@ from sqlalchemy import (
 )
 
 from ..db import Base
-from .subscription_task import TaskReportStatus, TaskStatus
+from ..enums import TaskReportStatus, TaskStatus
 
 TZ_CHINA = timezone(timedelta(hours=8))
 

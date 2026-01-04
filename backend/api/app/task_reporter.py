@@ -10,7 +10,8 @@ from sqlalchemy.orm import Session
 from website_analytics.settings import get_settings
 
 from .db import SessionLocal
-from .models import SubscriptionTask, TaskReportStatus, TaskStatus
+from .models import SubscriptionTask
+from .enums import TaskReportStatus, TaskStatus
 
 logger = logging.getLogger(__name__)
 

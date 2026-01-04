@@ -14,7 +14,8 @@ from website_analytics.settings import get_settings
 from website_analytics.utils import to_project_relative
 
 from .db import SessionLocal
-from .models import SubscriptionTask, TaskReportStatus, TaskStatus
+from .models import SubscriptionTask
+from .enums import TaskReportStatus, TaskStatus
 
 logger = logging.getLogger(__name__)
 

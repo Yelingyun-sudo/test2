@@ -154,7 +154,7 @@ def compute_failure_stats(
     Returns:
         (失败类型分布列表, 失败总览对象)
     """
-    from ..models import TaskStatus
+    from ..enums import TaskStatus
 
     failure_type_query = db.query(
         task_model.failure_type,
@@ -247,7 +247,7 @@ def compute_daily_trend(
     Returns:
         每日趋势列表
     """
-    from ..models import TaskStatus
+    from ..enums import TaskStatus
 
     now_cn = datetime.now(tz_cn)
     days_ago = now_cn.date() - timedelta(days=days - 1)
@@ -336,7 +336,7 @@ def compute_recent_tasks(
     Returns:
         最新任务列表（最多 100 条）
     """
-    from ..models import TaskStatus
+    from ..enums import TaskStatus
 
     def _format_dt(dt):
         return format_datetime(dt, tz_cn)
