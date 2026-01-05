@@ -333,6 +333,35 @@ function EvidenceContent({ failureTypes, failureTypeLabel }: EvidenceContentProp
     setPage(1);
     setPageInput("1");
 
+    // 同步更新 URL 参数
+    const params = new URLSearchParams(searchParams.toString());
+    if (value && value !== "ALL") {
+      params.set("status", value);
+    } else {
+      params.delete("status");
+    }
+    // 如果状态不是 FAILED，删除 failure_type 参数
+    if (value !== "FAILED") {
+      params.delete("failure_type");
+    } else if (newFailureType !== "ALL") {
+      params.set("failure_type", newFailureType);
+    }
+    // 如果状态是 PENDING 或 RUNNING，删除时间范围参数
+    if (value === "PENDING" || value === "RUNNING") {
+      params.delete("start_date");
+      params.delete("end_date");
+    } else if (newDateRange.from && newDateRange.to) {
+      params.set("start_date", format(newDateRange.from, "yyyy-MM-dd"));
+      params.set("end_date", format(newDateRange.to, "yyyy-MM-dd"));
+    }
+    // 保留查询参数
+    if (query) {
+      params.set("q", query);
+    } else {
+      params.delete("q");
+    }
+    router.push(`/evidence?${params.toString()}`);
+
     // 直接获取数据，使用新值
     fetchData({
       page: 1,
@@ -347,6 +376,28 @@ function EvidenceContent({ failureTypes, failureTypeLabel }: EvidenceContentProp
     setFailureTypeFilter(value);
     setPage(1);
     setPageInput("1");
+
+    // 同步更新 URL 参数
+    const params = new URLSearchParams(searchParams.toString());
+    if (value && value !== "ALL") {
+      params.set("failure_type", value);
+    } else {
+      params.delete("failure_type");
+    }
+    // 保留其他筛选参数
+    if (statusFilter && statusFilter !== "ALL") {
+      params.set("status", statusFilter);
+    }
+    if (dateRangeFilter.from && dateRangeFilter.to) {
+      params.set("start_date", format(dateRangeFilter.from, "yyyy-MM-dd"));
+      params.set("end_date", format(dateRangeFilter.to, "yyyy-MM-dd"));
+    }
+    if (query) {
+      params.set("q", query);
+    } else {
+      params.delete("q");
+    }
+    router.push(`/evidence?${params.toString()}`);
 
     // 直接获取数据，使用新值
     fetchData({
@@ -363,7 +414,7 @@ function EvidenceContent({ failureTypes, failureTypeLabel }: EvidenceContentProp
     setPage(1);
     setPageInput("1");
 
-    // 同步更新 URL 参数
+    // 同步更新 URL 参数，保留当前的 status 和其他筛选参数
     const params = new URLSearchParams(searchParams.toString());
     if (value.from && value.to) {
       params.set("start_date", format(value.from, "yyyy-MM-dd"));
@@ -372,6 +423,20 @@ function EvidenceContent({ failureTypes, failureTypeLabel }: EvidenceContentProp
       // 如果选择"全部"，移除时间范围参数
       params.delete("start_date");
       params.delete("end_date");
+    }
+    // 从组件状态读取 status，确保保留当前筛选
+    if (statusFilter && statusFilter !== "ALL") {
+      params.set("status", statusFilter);
+    }
+    // 保留 failure_type（如果存在）
+    if (statusFilter === "FAILED" && failureTypeFilter && failureTypeFilter !== "ALL") {
+      params.set("failure_type", failureTypeFilter);
+    }
+    // 保留查询参数
+    if (query) {
+      params.set("q", query);
+    } else {
+      params.delete("q");
     }
     router.push(`/evidence?${params.toString()}`);
 
