@@ -11,6 +11,7 @@ from .common import (
     LLMUsage,
     PaginatedListResponse,
     StatusDistributionItem,
+    TaskStatsSummary,
 )
 
 
@@ -40,37 +41,6 @@ class SubscriptionArtifactsResponse(BaseModel):
     video_seek_seconds: Optional[float] = Field(None, description="视频建议 seek 秒数")
 
 
-class SubscriptionStatsSummary(BaseModel):
-    total_tasks: int = Field(..., description="总任务数")
-    today_tasks: int = Field(..., description="今日新增任务数")
-    success_count: int = Field(..., description="成功任务数")
-    failed_count: int = Field(..., description="失败任务数")
-    pending_count: int = Field(..., description="待执行任务数")
-    running_count: int = Field(..., description="执行中任务数")
-    success_rate: float = Field(..., description="成功率（0.0 - 1.0）")
-    avg_success_duration_seconds: float = Field(
-        ..., description="成功任务平均时长（秒）"
-    )
-    avg_failed_duration_seconds: float = Field(
-        ..., description="失败任务平均时长（秒）"
-    )
-    total_tokens: int = Field(..., description="所有任务总 token 数")
-    today_tokens: int = Field(..., description="今日任务总 token 数")
-    avg_success_tokens: float = Field(..., description="成功任务平均 token")
-    avg_failed_tokens: float = Field(..., description="失败任务平均 token")
-    today_success_count: int = Field(..., description="今日成功任务数")
-    today_failed_count: int = Field(..., description="今日失败任务数")
-    today_success_rate: float = Field(..., description="今日成功率（0.0 - 1.0）")
-    today_avg_success_duration_seconds: float = Field(
-        ..., description="今日成功任务平均时长（秒）"
-    )
-    today_avg_failed_duration_seconds: float = Field(
-        ..., description="今日失败任务平均时长（秒）"
-    )
-    today_avg_success_tokens: float = Field(..., description="今日成功任务平均 token")
-    today_avg_failed_tokens: float = Field(..., description="今日失败任务平均 token")
-
-
 class RecentTaskItem(BaseModel):
     id: int = Field(..., description="任务 ID")
     url: str = Field(..., description="订阅站点 URL")
@@ -81,7 +51,7 @@ class RecentTaskItem(BaseModel):
 
 
 class SubscriptionStatsResponse(BaseModel):
-    summary: Optional[SubscriptionStatsSummary] = Field(None, description="汇总统计")
+    summary: Optional[TaskStatsSummary] = Field(None, description="汇总统计")
     daily_trend: Optional[list[DailyTrendItem]] = Field(
         None, description="每日趋势（最近10天）"
     )
@@ -103,7 +73,7 @@ class SubscriptionStatsResponse(BaseModel):
 class SummaryResponse(BaseModel):
     """汇总统计响应"""
 
-    summary: SubscriptionStatsSummary = Field(..., description="汇总统计数据")
+    summary: TaskStatsSummary = Field(..., description="汇总统计数据")
 
 
 class RecentTasksResponse(BaseModel):

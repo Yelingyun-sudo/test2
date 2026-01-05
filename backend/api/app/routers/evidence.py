@@ -9,7 +9,7 @@ from typing import Callable, List
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field, ValidationError
-from sqlalchemy import Integer, and_, case, func
+from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from ..constants import TZ_CHINA as tz_cn
@@ -24,6 +24,7 @@ from ..schemas.common import (
     FailureTypesResponse,
     LLMUsage,
     StatusDistributionItem,
+    TaskStatsSummary,
 )
 from ..schemas.stats_response import (
     DailyTrendResponse,
@@ -33,7 +34,6 @@ from ..schemas.stats_response import (
 from ..schemas.evidence import (
     EvidenceItem,
     EvidenceListResponse,
-    EvidenceStatsSummary,
     RecentTasksResponse,
     SummaryResponse,
 )
@@ -317,178 +317,12 @@ def _compute_summary(
     db: Session,
     range_start_utc: datetime | None,
     range_end_utc: datetime | None,
-    start_date: str | None,
-    end_date: str | None,
     tz_cn: timezone,
-) -> EvidenceStatsSummary:
+) -> TaskStatsSummary:
     """计算汇总统计"""
-    # 构建时间范围过滤条件
-    time_range_conditions = []
-    if range_start_utc is not None and range_end_utc is not None:
-        time_range_conditions = [
-            EvidenceTask.executed_at >= range_start_utc,
-            EvidenceTask.executed_at <= range_end_utc,
-        ]
+    from .common import compute_task_summary
 
-    # 构建成功计数条件
-    success_conditions = [
-        EvidenceTask.executed_at.isnot(None),
-        EvidenceTask.status == TaskStatus.SUCCESS,
-    ]
-    if time_range_conditions:
-        success_conditions.extend(time_range_conditions)
-    success_count_expr = case(
-        (and_(*success_conditions), 1),
-        else_=0,
-    )
-
-    # 构建失败计数条件
-    failed_conditions = [
-        EvidenceTask.executed_at.isnot(None),
-        EvidenceTask.status == TaskStatus.FAILED,
-    ]
-    if time_range_conditions:
-        failed_conditions.extend(time_range_conditions)
-    failed_count_expr = case(
-        (and_(*failed_conditions), 1),
-        else_=0,
-    )
-
-    # 构建 tokens 计数条件
-    tokens_conditions = [EvidenceTask.executed_at.isnot(None)]
-    if time_range_conditions:
-        tokens_conditions.extend(time_range_conditions)
-    tokens_expr = case(
-        (
-            and_(*tokens_conditions),
-            func.coalesce(
-                func.cast(
-                    func.json_extract(EvidenceTask.llm_usage, "$.total_tokens"),
-                    Integer,
-                ),
-                0,
-            ),
-        ),
-        else_=0,
-    )
-
-    # 构建成功 tokens 平均值条件
-    success_tokens_conditions = [
-        EvidenceTask.executed_at.isnot(None),
-        EvidenceTask.status == TaskStatus.SUCCESS,
-    ]
-    if time_range_conditions:
-        success_tokens_conditions.extend(time_range_conditions)
-    success_tokens_avg_expr = case(
-        (
-            and_(*success_tokens_conditions),
-            func.cast(
-                func.json_extract(EvidenceTask.llm_usage, "$.total_tokens"),
-                Integer,
-            ),
-        ),
-        else_=None,
-    )
-
-    # 构建失败 tokens 平均值条件
-    failed_tokens_conditions = [
-        EvidenceTask.executed_at.isnot(None),
-        EvidenceTask.status == TaskStatus.FAILED,
-    ]
-    if time_range_conditions:
-        failed_tokens_conditions.extend(time_range_conditions)
-    failed_tokens_avg_expr = case(
-        (
-            and_(*failed_tokens_conditions),
-            func.cast(
-                func.json_extract(EvidenceTask.llm_usage, "$.total_tokens"),
-                Integer,
-            ),
-        ),
-        else_=None,
-    )
-
-    # 构建成功时长平均值条件
-    success_duration_conditions = [
-        EvidenceTask.executed_at.isnot(None),
-        EvidenceTask.status == TaskStatus.SUCCESS,
-    ]
-    if time_range_conditions:
-        success_duration_conditions.extend(time_range_conditions)
-    success_duration_avg_expr = case(
-        (
-            and_(*success_duration_conditions),
-            EvidenceTask.duration_seconds,
-        ),
-        else_=None,
-    )
-
-    # 构建失败时长平均值条件
-    failed_duration_conditions = [
-        EvidenceTask.executed_at.isnot(None),
-        EvidenceTask.status == TaskStatus.FAILED,
-    ]
-    if time_range_conditions:
-        failed_duration_conditions.extend(time_range_conditions)
-    failed_duration_avg_expr = case(
-        (
-            and_(*failed_duration_conditions),
-            EvidenceTask.duration_seconds,
-        ),
-        else_=None,
-    )
-
-    summary_result = db.query(
-        func.count(EvidenceTask.id).label("total_tasks"),
-        func.sum(case((EvidenceTask.status == TaskStatus.PENDING, 1), else_=0)).label(
-            "pending_count"
-        ),
-        func.sum(case((EvidenceTask.status == TaskStatus.RUNNING, 1), else_=0)).label(
-            "running_count"
-        ),
-        func.sum(success_count_expr).label("today_success_count"),
-        func.sum(failed_count_expr).label("today_failed_count"),
-        func.sum(tokens_expr).label("today_tokens"),
-        func.avg(success_tokens_avg_expr).label("today_avg_success_tokens"),
-        func.avg(failed_tokens_avg_expr).label("today_avg_failed_tokens"),
-        func.avg(success_duration_avg_expr).label("today_avg_success_duration"),
-        func.avg(failed_duration_avg_expr).label("today_avg_failed_duration"),
-    ).first()
-
-    pending_count = summary_result.pending_count or 0
-    running_count = summary_result.running_count or 0
-    today_success_count = summary_result.today_success_count or 0
-    today_failed_count = summary_result.today_failed_count or 0
-
-    # 如果指定了历史时间范围，待执行和执行中应该为0
-    # 判断是否包含今天：如果结束日期早于今天，说明是历史时间范围
-    if range_end_utc is not None:
-        now_cn = datetime.now(tz_cn)
-        today_end_cn = now_cn.replace(hour=23, minute=59, second=59, microsecond=999999)
-        today_end_utc = today_end_cn.astimezone(timezone.utc)
-        if range_end_utc < today_end_utc:
-            pending_count = 0
-            running_count = 0
-
-    total_tasks = today_success_count + today_failed_count
-    today_tokens = summary_result.today_tokens or 0
-    today_avg_success_tokens = summary_result.today_avg_success_tokens or 0.0
-    today_avg_failed_tokens = summary_result.today_avg_failed_tokens or 0.0
-    today_avg_success_duration = summary_result.today_avg_success_duration or 0.0
-    today_avg_failed_duration = summary_result.today_avg_failed_duration or 0.0
-
-    return EvidenceStatsSummary(
-        total_tasks=total_tasks,
-        pending_count=pending_count,
-        running_count=running_count,
-        today_success_count=today_success_count,
-        today_failed_count=today_failed_count,
-        today_tokens=today_tokens,
-        today_avg_success_tokens=today_avg_success_tokens,
-        today_avg_failed_tokens=today_avg_failed_tokens,
-        today_avg_success_duration_seconds=today_avg_success_duration,
-        today_avg_failed_duration_seconds=today_avg_failed_duration,
-    )
+    return compute_task_summary(db, EvidenceTask, range_start_utc, range_end_utc, tz_cn)
 
 
 def _build_evidence_item(rec: EvidenceTask, _format_dt: Callable) -> EvidenceItem:
@@ -548,9 +382,7 @@ def get_evidence_stats_summary(
         range_start_utc = None
         range_end_utc = None
 
-    summary = _compute_summary(
-        db, range_start_utc, range_end_utc, start_date, end_date, tz_cn
-    )
+    summary = _compute_summary(db, range_start_utc, range_end_utc, tz_cn)
     return SummaryResponse(summary=summary)
 
 

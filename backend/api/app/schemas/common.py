@@ -73,3 +73,26 @@ class FailureSummary(BaseModel):
 
     total_failed: int = Field(..., description="失败任务总数")
     unique_types: int = Field(..., description="失败类型数量")
+
+
+class TaskStatsSummary(BaseModel):
+    """任务统计汇总（通用）"""
+
+    total_tasks: int = Field(..., description="总执行任务数（SUCCESS + FAILED）")
+    pending_count: int = Field(..., description="待执行任务数")
+    running_count: int = Field(..., description="执行中任务数")
+    today_success_count: int = Field(..., description="时间范围内成功任务数")
+    today_failed_count: int = Field(..., description="时间范围内失败任务数")
+    today_tokens: int = Field(..., description="时间范围内总 token 数")
+    today_avg_success_tokens: float = Field(
+        ..., description="时间范围内成功任务平均 token"
+    )
+    today_avg_failed_tokens: float = Field(
+        ..., description="时间范围内失败任务平均 token"
+    )
+    today_avg_success_duration_seconds: float = Field(
+        ..., description="时间范围内成功任务平均时长（秒）"
+    )
+    today_avg_failed_duration_seconds: float = Field(
+        ..., description="时间范围内失败任务平均时长（秒）"
+    )

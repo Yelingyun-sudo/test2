@@ -4,10 +4,11 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Callable, TypeVar
 
-from sqlalchemy import case, func, text
+from sqlalchemy import Integer, and_, case, func, text
 from sqlalchemy.orm import Session
 
-from ..schemas.common import FailureTypeItem, FailureTypesResponse
+from ..enums import TaskStatus
+from ..schemas.common import FailureTypeItem, FailureTypesResponse, TaskStatsSummary
 from website_analytics.output_types import (
     FAILURE_TYPE_LABELS,
     get_failure_types_ordered,
@@ -389,3 +390,201 @@ def get_failure_types_endpoint() -> FailureTypesResponse:
     """
     types_list = get_failure_types_ordered()
     return FailureTypesResponse(items=[FailureTypeItem(**item) for item in types_list])
+
+
+def build_time_range_conditions(
+    task_model: type,
+    range_start_utc: datetime | None,
+    range_end_utc: datetime | None,
+) -> list:
+    """构建时间范围过滤条件"""
+    if range_start_utc is not None and range_end_utc is not None:
+        return [
+            task_model.executed_at >= range_start_utc,
+            task_model.executed_at <= range_end_utc,
+        ]
+    return []
+
+
+def build_tokens_count_expr(task_model: type, time_range_conditions: list):
+    """构建 tokens 计数表达式（带时间范围过滤）"""
+    tokens_conditions = [task_model.executed_at.isnot(None)]
+    if time_range_conditions:
+        tokens_conditions.extend(time_range_conditions)
+
+    return case(
+        (
+            and_(*tokens_conditions),
+            func.coalesce(
+                func.cast(
+                    func.json_extract(task_model.llm_usage, "$.total_tokens"),
+                    Integer,
+                ),
+                0,
+            ),
+        ),
+        else_=0,
+    )
+
+
+def build_status_count_expr(
+    task_model: type, status: object, time_range_conditions: list
+):
+    """构建状态计数表达式（带时间范围过滤）"""
+
+    status_conditions = [
+        task_model.executed_at.isnot(None),
+        task_model.status == status,
+    ]
+    if time_range_conditions:
+        status_conditions.extend(time_range_conditions)
+
+    return case((and_(*status_conditions), 1), else_=0)
+
+
+def build_duration_avg_expr(
+    task_model: type, status: object, time_range_conditions: list
+):
+    """构建时长平均值表达式（带时间范围过滤）"""
+
+    duration_conditions = [
+        task_model.executed_at.isnot(None),
+        task_model.status == status,
+    ]
+    if time_range_conditions:
+        duration_conditions.extend(time_range_conditions)
+
+    return case((and_(*duration_conditions), task_model.duration_seconds), else_=None)
+
+
+def build_tokens_avg_expr(
+    task_model: type, status: object, time_range_conditions: list
+):
+    """构建 tokens 平均值表达式（带时间范围过滤）"""
+
+    tokens_conditions = [
+        task_model.executed_at.isnot(None),
+        task_model.status == status,
+    ]
+    if time_range_conditions:
+        tokens_conditions.extend(time_range_conditions)
+
+    return case(
+        (
+            and_(*tokens_conditions),
+            func.cast(
+                func.json_extract(task_model.llm_usage, "$.total_tokens"),
+                Integer,
+            ),
+        ),
+        else_=None,
+    )
+
+
+def should_zero_pending_running(
+    range_end_utc: datetime | None, tz_cn: timezone
+) -> bool:
+    """判断是否应该将 pending 和 running 计数清零"""
+    if range_end_utc is None:
+        return False
+
+    now_cn = datetime.now(tz_cn)
+    today_end_cn = now_cn.replace(hour=23, minute=59, second=59, microsecond=999999)
+    today_end_utc = today_end_cn.astimezone(timezone.utc)
+
+    return range_end_utc < today_end_utc
+
+
+def compute_task_summary(
+    db: Session,
+    task_model: type,
+    range_start_utc: datetime | None,
+    range_end_utc: datetime | None,
+    tz_cn: timezone,
+) -> TaskStatsSummary:
+    """
+    计算任务统计汇总（通用函数）
+
+    Args:
+        db: 数据库会话
+        task_model: 任务模型类（SubscriptionTask 或 EvidenceTask）
+        range_start_utc: 开始时间（UTC）
+        range_end_utc: 结束时间（UTC）
+        tz_cn: 中国时区
+
+    Returns:
+        TaskStatsSummary: 统计汇总
+    """
+    # 构建时间范围条件
+    time_range_conditions = build_time_range_conditions(
+        task_model, range_start_utc, range_end_utc
+    )
+
+    # 构建各种 case 表达式
+    success_count_expr = build_status_count_expr(
+        task_model, TaskStatus.SUCCESS, time_range_conditions
+    )
+    failed_count_expr = build_status_count_expr(
+        task_model, TaskStatus.FAILED, time_range_conditions
+    )
+    tokens_expr = build_tokens_count_expr(task_model, time_range_conditions)
+    success_tokens_avg_expr = build_tokens_avg_expr(
+        task_model, TaskStatus.SUCCESS, time_range_conditions
+    )
+    failed_tokens_avg_expr = build_tokens_avg_expr(
+        task_model, TaskStatus.FAILED, time_range_conditions
+    )
+    success_duration_avg_expr = build_duration_avg_expr(
+        task_model, TaskStatus.SUCCESS, time_range_conditions
+    )
+    failed_duration_avg_expr = build_duration_avg_expr(
+        task_model, TaskStatus.FAILED, time_range_conditions
+    )
+
+    # 执行查询
+    summary_result = db.query(
+        func.sum(case((task_model.status == TaskStatus.PENDING, 1), else_=0)).label(
+            "pending_count"
+        ),
+        func.sum(case((task_model.status == TaskStatus.RUNNING, 1), else_=0)).label(
+            "running_count"
+        ),
+        func.sum(success_count_expr).label("today_success_count"),
+        func.sum(failed_count_expr).label("today_failed_count"),
+        func.sum(tokens_expr).label("today_tokens"),
+        func.avg(success_tokens_avg_expr).label("today_avg_success_tokens"),
+        func.avg(failed_tokens_avg_expr).label("today_avg_failed_tokens"),
+        func.avg(success_duration_avg_expr).label("today_avg_success_duration"),
+        func.avg(failed_duration_avg_expr).label("today_avg_failed_duration"),
+    ).first()
+
+    # 处理结果
+    pending_count = summary_result.pending_count or 0
+    running_count = summary_result.running_count or 0
+    today_success_count = summary_result.today_success_count or 0
+    today_failed_count = summary_result.today_failed_count or 0
+
+    # 历史时间范围内，pending/running 应该为 0
+    if should_zero_pending_running(range_end_utc, tz_cn):
+        pending_count = 0
+        running_count = 0
+
+    total_tasks = today_success_count + today_failed_count
+    today_tokens = summary_result.today_tokens or 0
+    today_avg_success_tokens = summary_result.today_avg_success_tokens or 0.0
+    today_avg_failed_tokens = summary_result.today_avg_failed_tokens or 0.0
+    today_avg_success_duration = summary_result.today_avg_success_duration or 0.0
+    today_avg_failed_duration = summary_result.today_avg_failed_duration or 0.0
+
+    return TaskStatsSummary(
+        total_tasks=total_tasks,
+        pending_count=pending_count,
+        running_count=running_count,
+        today_success_count=today_success_count,
+        today_failed_count=today_failed_count,
+        today_tokens=today_tokens,
+        today_avg_success_tokens=today_avg_success_tokens,
+        today_avg_failed_tokens=today_avg_failed_tokens,
+        today_avg_success_duration_seconds=today_avg_success_duration,
+        today_avg_failed_duration_seconds=today_avg_failed_duration,
+    )
