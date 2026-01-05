@@ -2,7 +2,9 @@ import asyncio
 import contextlib
 import logging
 import logging.config
+import logging.handlers
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,6 +19,11 @@ from .task_importer import run_task_importer_loop
 from .task_reporter import run_task_reporter_loop
 from .task_runner_evidence import run_evidence_runner_loop
 from .task_runner_subscription import run_subscription_runner_loop
+
+# 确保日志目录存在
+_logs_dir = Path(__file__).resolve().parents[2] / "logs"
+_logs_dir.mkdir(parents=True, exist_ok=True)
+_console_log_path = _logs_dir / "console.log"
 
 # 统一日志配置
 LOGGING_CONFIG = {
@@ -33,16 +40,24 @@ LOGGING_CONFIG = {
             "formatter": "default",
             "stream": "ext://sys.stderr",
         },
+        "file": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "formatter": "default",
+            "filename": str(_console_log_path),
+            "maxBytes": 50 * 1024 * 1024,  # 50MB
+            "backupCount": 10,
+            "encoding": "utf-8",
+        },
     },
     "root": {
         "level": "INFO",
-        "handlers": ["default"],
+        "handlers": ["default", "file"],
     },
     "loggers": {
-        "uvicorn": {"handlers": ["default"], "level": "INFO", "propagate": False},
-        "uvicorn.error": {"handlers": ["default"], "level": "INFO", "propagate": False},
+        "uvicorn": {"handlers": ["default", "file"], "level": "INFO", "propagate": False},
+        "uvicorn.error": {"handlers": ["default", "file"], "level": "INFO", "propagate": False},
         "uvicorn.access": {
-            "handlers": ["default"],
+            "handlers": ["default", "file"],
             "level": "INFO",
             "propagate": False,
         },
