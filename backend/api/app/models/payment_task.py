@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 
 from sqlalchemy import Column, Date, DateTime, Integer, String, UniqueConstraint, func
 
+from ..constants import TZ_CHINA
 from ..db import Base
-
-TZ_CHINA = timezone(timedelta(hours=8))
 
 
 class PaymentTask(Base):

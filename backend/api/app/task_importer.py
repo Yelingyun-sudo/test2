@@ -5,20 +5,19 @@ import json
 import logging
 import threading
 import time
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 
 from kafka import KafkaConsumer
 from sqlalchemy.exc import IntegrityError
 
 from website_analytics.settings import get_settings
 
+from .constants import TZ_CHINA
 from .db import SessionLocal
-from .models import SubscriptionTask, EvidenceTask
 from .enums import TaskStatus
+from .models import EvidenceTask, SubscriptionTask
 
 logger = logging.getLogger(__name__)
-
-TZ_CHINA = timezone(timedelta(hours=8))
 
 
 def _insert_subscription_task(

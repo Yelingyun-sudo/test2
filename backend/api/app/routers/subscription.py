@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, List
 
@@ -12,9 +12,10 @@ from pydantic import ValidationError
 from sqlalchemy import Integer, and_, case, func, or_
 from sqlalchemy.orm import Session
 
+from ..constants import TZ_CHINA as tz_cn
 from ..db import get_db
-from ..models import SubscriptionTask
 from ..enums import TaskStatus
+from ..models import SubscriptionTask
 from ..utils import resolve_task_dir
 from ..schemas.common import FailureTypesResponse, LLMUsage
 from ..schemas.subscription import (
@@ -94,7 +95,6 @@ def list_subscription(
     if failure_type:
         query = query.filter(SubscriptionTask.failure_type == failure_type)
 
-    tz_cn = timezone(timedelta(hours=8))
     if start_date and end_date:
         start_time, end_time = parse_date_range(start_date, end_date, tz_cn)
         if start_time and end_time:
@@ -617,7 +617,6 @@ def get_subscription_stats_summary(
     db: Session = Depends(get_db),
 ):
     """获取订阅任务的汇总统计数据"""
-    tz_cn = timezone(timedelta(hours=8))
     cn_today = datetime.now(tz_cn).date()
 
     if start_date and end_date:
@@ -646,8 +645,6 @@ def get_subscription_stats_daily_trend(
     db: Session = Depends(get_db),
 ):
     """获取订阅任务的每日趋势数据（最近10天）"""
-    tz_cn = timezone(timedelta(hours=8))
-
     daily_trend = compute_daily_trend(
         db, SubscriptionTask, tz_cn, days=10, daily_trend_item_cls=DailyTrendItem
     )
@@ -665,8 +662,6 @@ def get_subscription_stats_status_distribution(
     db: Session = Depends(get_db),
 ):
     """获取订阅任务的状态分布数据"""
-    tz_cn = timezone(timedelta(hours=8))
-
     if start_date and end_date:
         range_start_utc, range_end_utc = parse_date_range(start_date, end_date, tz_cn)
         if range_start_utc is None or range_end_utc is None:
@@ -701,8 +696,6 @@ def get_subscription_stats_recent_tasks(
     db: Session = Depends(get_db),
 ):
     """获取最新任务列表（最多 100 条）"""
-    tz_cn = timezone(timedelta(hours=8))
-
     if start_date and end_date:
         range_start_utc, range_end_utc = parse_date_range(start_date, end_date, tz_cn)
         if range_start_utc is None or range_end_utc is None:
@@ -739,8 +732,6 @@ def get_subscription_stats_failure_types(
     db: Session = Depends(get_db),
 ):
     """获取失败类型分布统计和失败总览"""
-    tz_cn = timezone(timedelta(hours=8))
-
     failure_type_distribution, failure_summary = compute_failure_stats(
         db,
         SubscriptionTask,

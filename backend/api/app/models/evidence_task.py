@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 
 from sqlalchemy import (
     JSON,
@@ -15,10 +15,9 @@ from sqlalchemy import (
     func,
 )
 
+from ..constants import TZ_CHINA
 from ..db import Base
 from ..enums import TaskReportStatus, TaskStatus
-
-TZ_CHINA = timezone(timedelta(hours=8))
 
 
 class EvidenceTask(Base):

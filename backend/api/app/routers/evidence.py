@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, List
 
@@ -12,10 +12,11 @@ from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import Integer, and_, case, func
 from sqlalchemy.orm import Session
 
+from ..constants import TZ_CHINA as tz_cn
 from ..db import get_db
-from ..utils import resolve_task_dir
-from ..models import EvidenceTask
 from ..enums import TaskStatus
+from ..models import EvidenceTask
+from ..utils import resolve_task_dir
 from ..schemas.common import FailureTypesResponse, LLMUsage
 from ..schemas.evidence import (
     DailyTrendItem,
@@ -87,8 +88,6 @@ def list_evidence(
         query = query.filter(EvidenceTask.failure_type == failure_type)
 
     # 时间范围筛选
-    tz_cn = timezone(timedelta(hours=8))
-
     # 应用时间范围过滤
     if start_date and end_date:
         range_start_utc, range_end_utc = parse_date_range(start_date, end_date, tz_cn)
@@ -118,8 +117,6 @@ def list_evidence(
         .limit(page_size)
         .all()
     )
-
-    tz_cn = timezone(timedelta(hours=8))
 
     sliced = []
     for rec in records:
@@ -535,8 +532,6 @@ def get_evidence_stats_summary(
     db: Session = Depends(get_db),
 ):
     """获取取证任务的汇总统计数据"""
-    tz_cn = timezone(timedelta(hours=8))
-
     if start_date and end_date:
         range_start_utc, range_end_utc = parse_date_range(start_date, end_date, tz_cn)
         if range_start_utc is None or range_end_utc is None:
@@ -563,8 +558,6 @@ def get_evidence_stats_daily_trend(
     db: Session = Depends(get_db),
 ):
     """获取取证任务的每日趋势数据（最近8天）"""
-    tz_cn = timezone(timedelta(hours=8))
-
     daily_trend = compute_daily_trend(
         db, EvidenceTask, tz_cn, days=8, daily_trend_item_cls=DailyTrendItem
     )
@@ -582,8 +575,6 @@ def get_evidence_stats_status_distribution(
     db: Session = Depends(get_db),
 ):
     """获取取证任务的状态分布数据"""
-    tz_cn = timezone(timedelta(hours=8))
-
     if start_date and end_date:
         range_start_utc, range_end_utc = parse_date_range(start_date, end_date, tz_cn)
         if range_start_utc is None or range_end_utc is None:
@@ -618,8 +609,6 @@ def get_evidence_stats_recent_tasks(
     db: Session = Depends(get_db),
 ):
     """获取最新取证任务列表（最多 100 条）"""
-    tz_cn = timezone(timedelta(hours=8))
-
     if start_date and end_date:
         range_start_utc, range_end_utc = parse_date_range(start_date, end_date, tz_cn)
         if range_start_utc is None or range_end_utc is None:
@@ -656,8 +645,6 @@ def get_evidence_stats_failure_types(
     db: Session = Depends(get_db),
 ):
     """获取失败类型分布统计和失败总览"""
-    tz_cn = timezone(timedelta(hours=8))
-
     failure_type_distribution, failure_summary = compute_failure_stats(
         db,
         EvidenceTask,
