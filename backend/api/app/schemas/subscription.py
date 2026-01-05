@@ -4,7 +4,14 @@ from typing import Optional, TypeAlias
 
 from pydantic import BaseModel, Field
 
-from .common import LLMUsage, PaginatedListResponse
+from .common import (
+    DailyTrendItem,
+    FailureSummary,
+    FailureTypeDistributionItem,
+    LLMUsage,
+    PaginatedListResponse,
+    StatusDistributionItem,
+)
 
 
 class SubscriptionItem(BaseModel):
@@ -64,19 +71,6 @@ class SubscriptionStatsSummary(BaseModel):
     today_avg_failed_tokens: float = Field(..., description="今日失败任务平均 token")
 
 
-class DailyTrendItem(BaseModel):
-    date: str = Field(..., description="日期 ISO 格式 YYYY-MM-DD")
-    total_count: int = Field(..., description="当日总任务数")
-    success_count: int = Field(..., description="当日成功任务数")
-    failed_count: int = Field(..., description="当日失败任务数")
-    success_rate: float = Field(..., description="当日成功率（0.0 - 1.0）")
-
-
-class StatusDistributionItem(BaseModel):
-    status: str = Field(..., description="任务状态")
-    count: int = Field(..., description="该状态的任务数量")
-
-
 class RecentTaskItem(BaseModel):
     id: int = Field(..., description="任务 ID")
     url: str = Field(..., description="订阅站点 URL")
@@ -84,18 +78,6 @@ class RecentTaskItem(BaseModel):
     executed_at: Optional[str] = Field(None, description="任务执行时间 ISO 字符串")
     duration_seconds: Optional[int] = Field(None, description="任务时长（秒）")
     result: Optional[str] = Field(None, description="任务结果")
-
-
-class FailureTypeDistributionItem(BaseModel):
-    type: str = Field(..., description="失败类型值")
-    label: str = Field(..., description="失败类型中文标签")
-    count: int = Field(..., description="该失败类型的任务数量")
-    percentage: float = Field(..., description="占失败任务总数的百分比（0.0 - 100.0）")
-
-
-class FailureSummary(BaseModel):
-    total_failed: int = Field(..., description="失败任务总数")
-    unique_types: int = Field(..., description="失败类型数量")
 
 
 class SubscriptionStatsResponse(BaseModel):
