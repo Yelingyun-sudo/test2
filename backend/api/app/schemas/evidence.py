@@ -5,12 +5,8 @@ from typing import TypeAlias
 from pydantic import BaseModel, Field
 
 from .common import (
-    DailyTrendItem,
-    FailureSummary,
-    FailureTypeDistributionItem,
     LLMUsage,
     PaginatedListResponse,
-    StatusDistributionItem,
 )
 
 
@@ -67,26 +63,7 @@ class SummaryResponse(BaseModel):
     summary: EvidenceStatsSummary
 
 
-class DailyTrendResponse(BaseModel):
-    """每日趋势响应"""
-
-    daily_trend: list[DailyTrendItem]
-
-
-class StatusDistributionResponse(BaseModel):
-    """状态分布响应"""
-
-    status_distribution: list[StatusDistributionItem]
-
-
 class RecentTasksResponse(BaseModel):
     """最新任务列表响应"""
 
     recent_tasks: list[EvidenceItem]
-
-
-class FailureTypesStatsResponse(BaseModel):
-    """失败类型统计响应"""
-
-    failure_type_distribution: list[FailureTypeDistributionItem]
-    failure_summary: FailureSummary

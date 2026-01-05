@@ -106,34 +106,9 @@ class SummaryResponse(BaseModel):
     summary: SubscriptionStatsSummary = Field(..., description="汇总统计数据")
 
 
-class DailyTrendResponse(BaseModel):
-    """每日趋势响应"""
-
-    daily_trend: list[DailyTrendItem] = Field(
-        ..., description="每日趋势数据（最近10天）"
-    )
-
-
-class StatusDistributionResponse(BaseModel):
-    """状态分布响应"""
-
-    status_distribution: list[StatusDistributionItem] = Field(
-        ..., description="状态分布数据"
-    )
-
-
 class RecentTasksResponse(BaseModel):
     """最新任务响应"""
 
     recent_tasks: list[SubscriptionItem] = Field(
         ..., description="最新任务列表（最近5条）"
     )
-
-
-class FailureTypesStatsResponse(BaseModel):
-    """失败类型统计响应"""
-
-    failure_type_distribution: list[FailureTypeDistributionItem] = Field(
-        ..., description="失败类型分布（Top 5 + 其他）"
-    )
-    failure_summary: FailureSummary = Field(..., description="失败总览")

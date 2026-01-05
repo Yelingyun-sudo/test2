@@ -25,14 +25,16 @@ from ..schemas.common import (
     LLMUsage,
     StatusDistributionItem,
 )
-from ..schemas.evidence import (
+from ..schemas.stats_response import (
     DailyTrendResponse,
+    FailureTypesStatsResponse,
+    StatusDistributionResponse,
+)
+from ..schemas.evidence import (
     EvidenceItem,
     EvidenceListResponse,
     EvidenceStatsSummary,
-    FailureTypesStatsResponse,
     RecentTasksResponse,
-    StatusDistributionResponse,
     SummaryResponse,
 )
 from .common import (

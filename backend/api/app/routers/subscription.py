@@ -25,11 +25,13 @@ from ..schemas.common import (
     LLMUsage,
     StatusDistributionItem,
 )
-from ..schemas.subscription import (
+from ..schemas.stats_response import (
     DailyTrendResponse,
     FailureTypesStatsResponse,
-    RecentTasksResponse,
     StatusDistributionResponse,
+)
+from ..schemas.subscription import (
+    RecentTasksResponse,
     SubscriptionArtifactsResponse,
     SubscriptionItem,
     SubscriptionListResponse,
