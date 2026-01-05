@@ -2,13 +2,22 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Callable, TypeVar
+from typing import Callable, TypeVar, Union
 
+from pydantic import ValidationError
 from sqlalchemy import Integer, and_, case, func, text
 from sqlalchemy.orm import Session
 
 from ..enums import TaskStatus
-from ..schemas.common import FailureTypeItem, FailureTypesResponse, TaskStatsSummary
+from ..models import EvidenceTask, SubscriptionTask
+from ..schemas.common import (
+    FailureTypeItem,
+    FailureTypesResponse,
+    LLMUsage,
+    TaskStatsSummary,
+)
+from ..schemas.evidence import EvidenceItem
+from ..schemas.subscription import SubscriptionItem
 from website_analytics.output_types import (
     FAILURE_TYPE_LABELS,
     get_failure_types_ordered,
@@ -587,4 +596,57 @@ def compute_task_summary(
         today_avg_failed_tokens=today_avg_failed_tokens,
         today_avg_success_duration_seconds=today_avg_success_duration,
         today_avg_failed_duration_seconds=today_avg_failed_duration,
+    )
+
+
+def build_task_item(
+    rec: Union[SubscriptionTask, EvidenceTask],
+    item_cls: type[Union[SubscriptionItem, EvidenceItem]],
+    format_dt: Callable[[datetime | None], str],
+) -> Union[SubscriptionItem, EvidenceItem]:
+    """
+    通用任务 Item 构建函数
+
+    用于将数据库任务记录（SubscriptionTask 或 EvidenceTask）转换为对应的响应模型
+    （SubscriptionItem 或 EvidenceItem）。
+
+    Args:
+        rec: 任务数据库记录，可以是 SubscriptionTask 或 EvidenceTask
+        item_cls: Item 类，可以是 SubscriptionItem 或 EvidenceItem
+        format_dt: 日期时间格式化函数，接受 datetime | None，返回 ISO 格式字符串
+
+    Returns:
+        构建的 Item 对象（SubscriptionItem 或 EvidenceItem）
+
+    Raises:
+        ValidationError: 当 llm_usage 数据格式错误时，会记录错误日志但不会抛出异常
+        TypeError: 当 llm_usage 数据格式错误时，会记录错误日志但不会抛出异常
+    """
+    status_value = rec.status.value if hasattr(rec.status, "value") else rec.status
+
+    # 安全地转换 llm_usage
+    llm_usage_value = None
+    if rec.llm_usage is not None:
+        try:
+            llm_usage_value = LLMUsage(**rec.llm_usage)
+        except (ValidationError, TypeError) as exc:
+            logger.error(
+                "任务 ID=%s 的 llm_usage 数据格式错误，已跳过: %s",
+                rec.id,
+                exc,
+            )
+
+    return item_cls(
+        id=int(rec.id) if rec.id is not None else 0,
+        url=rec.url,
+        account=rec.account,
+        password=rec.password,
+        status=status_value or "",
+        created_at=format_dt(rec.created_at),
+        duration_seconds=rec.duration_seconds or 0,
+        executed_at=format_dt(rec.executed_at),
+        task_dir=rec.task_dir,
+        result=rec.result,
+        failure_type=rec.failure_type,
+        llm_usage=llm_usage_value,
     )
