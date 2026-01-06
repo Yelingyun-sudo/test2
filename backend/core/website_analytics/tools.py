@@ -779,6 +779,39 @@ def build_capture_page_data_tool(
     return capture_page_data
 
 
+def build_fetch_email_code_tool() -> Tool:
+    """创建邮箱验证码获取工具（Mock 版本）。
+
+    当前为 Mock 实现，始终返回固定验证码 123456。
+    后续可替换为真实的 IMAP/POP3 邮箱读取实现。
+    """
+
+    @function_tool(
+        name_override="fetch_email_code",
+        description_override="获取发送到指定邮箱的验证码。在点击「发送验证码」按钮后调用此工具。",
+    )
+    def fetch_email_code(email: str) -> str:
+        """获取邮箱验证码。
+
+        Args:
+            email: 接收验证码的邮箱地址
+
+        Returns:
+            JSON 字符串，包含 success、code/message 字段
+        """
+        # Mock 实现：始终返回固定验证码
+        return json.dumps(
+            {
+                "success": True,
+                "code": "123456",
+                "message": f"已获取 {email} 的验证码",
+            },
+            ensure_ascii=False,
+        )
+
+    return fetch_email_code
+
+
 __all__ = [
     "build_save_page_text_tool",
     "build_save_entry_result_tool",
@@ -786,4 +819,5 @@ __all__ = [
     "build_capture_and_save_tool",
     "build_capture_page_data_tool",
     "build_programmatic_evidence_entry_tool",
+    "build_fetch_email_code_tool",
 ]

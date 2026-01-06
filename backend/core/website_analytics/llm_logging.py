@@ -71,6 +71,12 @@ class LLMTranscriptLoggerHooks(RunHooks[TContext]):
     ) -> None:
         _ = context
         agent_name = agent.name or agent.__class__.__name__
+
+        # === 只对 registerAgent 自动注入 snapshot ===
+        # 确保每次 LLM 请求时 Agent 都能看到最新页面状态，避免"盲操作"
+        if agent_name == "registerAgent" and self._playwright_server:
+            await self._inject_auto_snapshot(input_items)
+
         agent_slug = _slugify(agent_name)
         turn = self._turn_counters.get(agent_name, 0) + 1
         self._turn_counters[agent_name] = turn
@@ -142,6 +148,35 @@ class LLMTranscriptLoggerHooks(RunHooks[TContext]):
                     stats.total_reasoning_tokens += details.reasoning_tokens or 0
 
             stats.llm_turn_count += 1
+
+    async def _inject_auto_snapshot(
+        self, input_items: list[TResponseInputItem]
+    ) -> None:
+        """为 registerAgent 自动注入当前页面 snapshot。
+
+        在每次 LLM 请求前执行 browser_snapshot，将页面状态作为用户消息
+        追加到 input_items 中，确保 Agent 能看到最新页面。
+        """
+        if not self._playwright_server:
+            return
+
+        try:
+            result = await self._playwright_server.call_tool("browser_snapshot", {})
+            text_blocks = [
+                getattr(item, "text", "")
+                for item in getattr(result, "content", []) or []
+                if getattr(item, "type", "") == "text"
+            ]
+            snapshot_text = "\n".join(text_blocks).strip()
+
+            if snapshot_text:
+                # 作为用户消息注入，让 Agent 看到当前页面状态
+                input_items.append({
+                    "role": "user",
+                    "content": f"[自动获取的当前页面状态]\n{snapshot_text}",
+                })
+        except Exception as exc:  # noqa: BLE001 - 只记录，不影响主流程
+            logging.getLogger(__name__).warning("Auto snapshot failed: %s", exc)
 
     async def _capture_state(self, metadata: _TurnMetadata, kind: str) -> None:
         """可选：在每个回合的 request/response 旁保存截图和 DOM."""

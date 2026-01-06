@@ -45,11 +45,22 @@ def build_login_agent(playwright_server: MCPServerStdio, instructions: str) -> A
     )
 
 
-def build_register_agent(playwright_server: MCPServerStdio, instructions: str) -> Agent:
-    """构建注册代理。"""
+def build_register_agent(
+    playwright_server: MCPServerStdio,
+    instructions: str,
+    extra_tools: Sequence[Tool] | None = None,
+) -> Agent:
+    """构建注册代理。
+
+    Args:
+        playwright_server: Playwright MCP 服务器实例
+        instructions: 代理指令
+        extra_tools: 额外的工具列表（如邮箱验证码获取工具）
+    """
     return Agent(
         name="registerAgent",
         instructions=instructions,
+        tools=[*extra_tools] if extra_tools else [],
         mcp_servers=[playwright_server],
         model=settings.agent_model,
         output_type=RegisterOutput,

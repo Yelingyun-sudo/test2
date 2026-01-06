@@ -42,6 +42,7 @@ from website_analytics.output_types import ErrorType, OperationType
 from website_analytics.settings import get_settings
 from website_analytics.tools import (
     build_compile_evidence_report_tool,
+    build_fetch_email_code_tool,
     build_programmatic_evidence_entry_tool,
     build_save_page_text_tool,
 )
@@ -292,6 +293,9 @@ async def execute(
                 playwright_server,
                 load_instruction("login_agent.md"),
             )
+            # 创建邮箱验证码获取工具（Mock 版本）
+            fetch_email_code_tool = build_fetch_email_code_tool()
+
             register_agent = build_register_agent(
                 playwright_server,
                 load_instruction(
@@ -301,6 +305,7 @@ async def execute(
                         "{REGISTER_PASSWORD}": settings.register_password,
                     },
                 ),
+                extra_tools=[fetch_email_code_tool],
             )
             extract_agent = build_extract_agent(
                 playwright_server,

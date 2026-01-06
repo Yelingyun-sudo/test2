@@ -39,6 +39,11 @@ _TOOL_OUTPUT_TYPES: set[str] = {
     "local_shell_call_output",
 }
 
+# 需要保留完整输出的重要工具列表（这些工具的输出不会被 compact 压缩）
+_PRESERVE_TOOL_NAMES: set[str] = {
+    "fetch_email_code",  # 验证码工具的输出必须保留，否则 Agent 无法获取验证码
+}
+
 
 def compact_tool_outputs(
     data: CallModelData[Any],
@@ -50,6 +55,15 @@ def compact_tool_outputs(
     cloned_input: list[TResponseInputItem] = []
     tool_output_indexes: list[int] = []
     perform_compaction = enabled and keep_last >= 0
+
+    # 构建 call_id -> tool_name 映射（用于白名单检查）
+    call_id_to_tool_name: dict[str, str] = {}
+    for item in data.model_data.input:
+        if isinstance(item, dict) and item.get("type") == "function_call":
+            call_id = item.get("call_id")
+            tool_name = item.get("name")
+            if call_id and tool_name:
+                call_id_to_tool_name[call_id] = tool_name
 
     for item in data.model_data.input:
         cloned = copy.deepcopy(item)
@@ -73,6 +87,11 @@ def compact_tool_outputs(
             entry = cloned_input[idx]
             if isinstance(entry, dict):
                 entry_dict = cast(dict[str, Any], entry)
+                # 通过 call_id 查找工具名称，检查是否在白名单中
+                call_id = entry_dict.get("call_id") or ""
+                tool_name = call_id_to_tool_name.get(call_id, "")
+                if tool_name in _PRESERVE_TOOL_NAMES:
+                    continue  # 跳过白名单中的工具，保留其完整输出
                 entry_dict["output"] = _placeholder_output(entry_dict)
 
     return ModelInputData(

@@ -31,6 +31,7 @@ class ErrorType(str, Enum):
     # 业务流程类
     COPY_BUTTON_NOT_FOUND = "copy_button_not_found"
     SUBSCRIPTION_URL_INVALID = "subscription_url_invalid"
+    EMAIL_VERIFICATION_FAILED = "email_verification_failed"
 
     # 任务限制类
     TASK_TIMEOUT = "task_timeout"
@@ -68,6 +69,7 @@ FAILURE_TYPE_LABELS: dict[str, str] = {
     # 业务流程类
     "copy_button_not_found": "未找到复制按钮",
     "subscription_url_invalid": "订阅地址异常",
+    "email_verification_failed": "邮箱验证失败",
     # 任务限制类
     "task_timeout": "任务执行超时",
     "task_step_limit": "任务步骤超限",
@@ -101,6 +103,7 @@ def get_failure_types_ordered() -> list[dict[str, str]]:
         # 业务流程类
         "copy_button_not_found",
         "subscription_url_invalid",
+        "email_verification_failed",
         # 任务限制类
         "task_timeout",
         "task_step_limit",
