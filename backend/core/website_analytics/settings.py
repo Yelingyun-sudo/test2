@@ -68,6 +68,16 @@ class Settings(BaseSettings):
     register_account: str = "my-account@example.com"
     register_password: str = "mypassword"
 
+    # IMAP 邮箱配置（用于获取注册验证码）
+    imap_server: str = "imap.example.com"
+    imap_port: int = 993
+    imap_username: str = ""
+    imap_password: str = ""
+    imap_timeout_seconds: int = 30
+    imap_fetch_max_retries: int = 3
+    imap_fetch_retry_interval: int = 2
+    imap_email_max_age_seconds: int = 120
+
     # 任务调度
     task_runner_enabled_subscription: bool = True
     task_runner_enabled_evidence: bool = True

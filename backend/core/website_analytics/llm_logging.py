@@ -171,10 +171,12 @@ class LLMTranscriptLoggerHooks(RunHooks[TContext]):
 
             if snapshot_text:
                 # 作为用户消息注入，让 Agent 看到当前页面状态
-                input_items.append({
-                    "role": "user",
-                    "content": f"[自动获取的当前页面状态]\n{snapshot_text}",
-                })
+                input_items.append(
+                    {
+                        "role": "user",
+                        "content": f"[自动获取的当前页面状态]\n{snapshot_text}",
+                    }
+                )
         except Exception as exc:  # noqa: BLE001 - 只记录，不影响主流程
             logging.getLogger(__name__).warning("Auto snapshot failed: %s", exc)
 

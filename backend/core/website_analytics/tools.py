@@ -1,13 +1,22 @@
 from __future__ import annotations
 
+import asyncio
+import email
 import json
+import logging
+from email.utils import parsedate_to_datetime
 import os
 import re
 from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+import aioimaplib
 from agents import Tool, function_tool
+
+from website_analytics.settings import get_settings
+
+logger = logging.getLogger(__name__)
 
 
 def build_save_page_text_tool(task_dir: Path) -> Tool:
@@ -779,35 +788,379 @@ def build_capture_page_data_tool(
     return capture_page_data
 
 
-def build_fetch_email_code_tool() -> Tool:
-    """创建邮箱验证码获取工具（Mock 版本）。
+def _extract_verification_code(text: str) -> str | None:
+    """从邮件文本中提取验证码。
 
-    当前为 Mock 实现，始终返回固定验证码 123456。
-    后续可替换为真实的 IMAP/POP3 邮箱读取实现。
+    支持多种常见格式：
+    - 中文：验证码是：123456
+    - 英文：verification code: 123456
+    - 方括号：[123456]
+    - 独立数字：6 位数字
+    - 全角数字：验证码是：１２３４５６（自动转换为半角）
+    - 空格分隔：1 2 3 4 5 6（自动移除空格）
+
+    Args:
+        text: 邮件正文内容
+
+    Returns:
+        验证码字符串，未找到则返回 None
     """
+    if not text:
+        return None
+
+    # 预处理：全角数字转半角，统一处理
+    # 将全角数字（０-９）转换为半角数字（0-9）
+    text_normalized = text.translate(str.maketrans('０１２３４５６７８９', '0123456789'))
+
+    # 预处理：移除可能的空格分隔（但保留关键词后的正常空格）
+    # 对于常见的验证码位置，尝试移除数字之间的空格
+    # 例如："1 2 3 4 5 6" → "123456"
+    # 注意：只处理数字之间的空格，避免误处理其他内容
+    text_normalized = re.sub(r'(\d)\s+(\d)', r'\1\2', text_normalized)
+
+    # 多种验证码匹配模式（按优先级排序）
+    patterns = [
+        r"验证码[是为：:]\s*[：:]?\s*(\d{4,8})",
+        r"验证码[是为]?\s*[：:]\s*(\d{4,8})",
+        r"verification\s*code[:\s]+(\d{4,8})",
+        r"code[:\s]+(\d{4,8})",
+        r"OTP[:\s]+(\d{4,8})",
+        r"pin[:\s]+(\d{4,8})",
+        r"\[(\d{4,8})\]",
+        r"(?<![0-9])(\d{6})(?![0-9])",
+        r"(?<![0-9])(\d{4,8})(?![0-9])",
+    ]
+
+    # 先在预处理后的文本上匹配
+    for pattern in patterns:
+        match = re.search(pattern, text_normalized, re.IGNORECASE)
+        if match:
+            return match.group(1)
+
+    # 如果预处理后的文本没有匹配到，再尝试原始文本
+    # （以防预处理破坏了某些格式）
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            return match.group(1)
+
+    return None
+
+
+def _parse_email_body(msg: email.message.Message) -> str:
+    """从邮件对象中提取正文（纯文本优先）。
+
+    Args:
+        msg: email.message.Message 对象
+
+    Returns:
+        邮件正文字符串（纯文本或 HTML）
+    """
+    body_text = ""
+    body_html = ""
+
+    if msg.is_multipart():
+        for part in msg.walk():
+            content_type = part.get_content_type()
+            content_disposition = str(part.get("Content-Disposition", ""))
+
+            if "attachment" in content_disposition:
+                continue
+
+            if content_type == "text/plain":
+                payload = part.get_payload(decode=True)
+                if payload:
+                    body_text = payload.decode("utf-8", errors="ignore")
+            elif content_type == "text/html":
+                payload = part.get_payload(decode=True)
+                if payload:
+                    body_html = payload.decode("utf-8", errors="ignore")
+    else:
+        payload = msg.get_payload(decode=True)
+        if payload:
+            body_text = payload.decode("utf-8", errors="ignore")
+
+    return body_text if body_text else body_html
+
+
+def _parse_email_date(msg: email.message.Message) -> datetime | None:
+    """从邮件对象中提取发送时间。
+
+    Args:
+        msg: email.message.Message 对象
+
+    Returns:
+        邮件发送时间（UTC），解析失败则返回 None
+    """
+    date_str = msg.get("Date")
+    if not date_str:
+        return None
+
+    try:
+        # 解析 RFC 2822 格式的日期
+        # 示例：Tue,  6 Jan 2026 08:32:49 +0000 (UTC)
+        email_datetime = parsedate_to_datetime(date_str)
+
+        # 转换为 UTC
+        if email_datetime.tzinfo is None:
+            # 无时区信息，假设为 UTC
+            return email_datetime.replace(tzinfo=UTC)
+        else:
+            # 转换为 UTC
+            return email_datetime.astimezone(UTC)
+    except (ValueError, TypeError, AttributeError):
+        return None
+
+
+def build_fetch_email_code_tool() -> Tool:
+    """创建邮箱验证码获取工具（真实 IMAP 实现）。
+
+    通过 aioimaplib 连接邮箱，读取最新邮件并提取验证码。
+    配置项通过环境变量加载（IMAP_SERVER、IMAP_PORT 等）。
+    """
+    settings = get_settings()
 
     @function_tool(
         name_override="fetch_email_code",
         description_override="获取发送到指定邮箱的验证码。在点击「发送验证码」按钮后调用此工具。",
     )
-    def fetch_email_code(email: str) -> str:
-        """获取邮箱验证码。
+    async def fetch_email_code(email_address: str) -> str:
+        """异步获取邮箱验证码。
 
         Args:
-            email: 接收验证码的邮箱地址
+            email_address: 接收验证码的邮箱地址（用于日志，当前实现使用配置的邮箱）
 
         Returns:
             JSON 字符串，包含 success、code/message 字段
         """
-        # Mock 实现：始终返回固定验证码
-        return json.dumps(
-            {
-                "success": True,
-                "code": "123456",
-                "message": f"已获取 {email} 的验证码",
-            },
-            ensure_ascii=False,
-        )
+        imap_client = None
+
+        try:
+            # 1. 参数验证
+            if (
+                not settings.imap_server
+                or not settings.imap_username
+                or not settings.imap_password
+            ):
+                return json.dumps(
+                    {
+                        "success": False,
+                        "message": "IMAP 配置未完整设置（需要 IMAP_SERVER、IMAP_USERNAME、IMAP_PASSWORD）",
+                    },
+                    ensure_ascii=False,
+                )
+
+            # 2. 连接 IMAP 服务器
+            logger.info(
+                "正在连接 IMAP 服务器：%s:%d", settings.imap_server, settings.imap_port
+            )
+            imap_client = aioimaplib.IMAP4_SSL(
+                host=settings.imap_server,
+                port=settings.imap_port,
+                timeout=settings.imap_timeout_seconds,
+            )
+            await imap_client.wait_hello_from_server()
+            logger.info("IMAP 连接成功")
+
+            # 3. 登录
+            login_response = await imap_client.login(
+                settings.imap_username,
+                settings.imap_password,
+            )
+            if login_response.result != "OK":
+                error_msg = login_response.lines[0].decode("utf-8", errors="ignore")
+                logger.warning("IMAP 登录失败：%s", error_msg)
+                return json.dumps(
+                    {
+                        "success": False,
+                        "message": f"IMAP 登录失败：{error_msg}",
+                    },
+                    ensure_ascii=False,
+                )
+            logger.info("IMAP 登录成功")
+
+            # 4. 选择 INBOX 邮箱
+            select_response = await imap_client.select("INBOX")
+            if select_response.result != "OK":
+                logger.warning("无法选择 INBOX 邮箱")
+                return json.dumps(
+                    {
+                        "success": False,
+                        "message": "无法选择 INBOX 邮箱",
+                    },
+                    ensure_ascii=False,
+                )
+            logger.debug("已选择 INBOX 邮箱")
+
+            # 5-10. 搜索邮件并提取验证码（添加重试机制）
+            for attempt in range(settings.imap_fetch_max_retries):
+                # 搜索未读邮件
+                logger.debug("开始搜索未读邮件（尝试 %d/%d）", attempt + 1, settings.imap_fetch_max_retries)
+                search_response = await imap_client.search("UNSEEN")
+
+                if search_response.result != "OK":
+                    if attempt < settings.imap_fetch_max_retries - 1:
+                        logger.warning("搜索邮件失败，将重试")
+                        await asyncio.sleep(settings.imap_fetch_retry_interval)
+                        continue
+                    logger.error("搜索邮件失败（已重试 %d 次）", settings.imap_fetch_max_retries)
+                    return json.dumps(
+                        {
+                            "success": False,
+                            "message": "搜索邮件失败",
+                        },
+                        ensure_ascii=False,
+                    )
+
+                # 获取邮件 ID 列表
+                email_ids_bytes = search_response.lines[0]
+                if not email_ids_bytes or email_ids_bytes == b"":
+                    # 未读邮件为空，可能验证码还没到，等待重试
+                    if attempt < settings.imap_fetch_max_retries - 1:
+                        logger.debug("未读邮件为空，等待重试")
+                        await asyncio.sleep(settings.imap_fetch_retry_interval)
+                        continue
+                    logger.warning("未读邮件为空（已重试 %d 次）", settings.imap_fetch_max_retries)
+                    return json.dumps(
+                        {
+                            "success": False,
+                            "message": f"未读邮件为空（已重试 {settings.imap_fetch_max_retries} 次）",
+                        },
+                        ensure_ascii=False,
+                    )
+
+                email_ids = email_ids_bytes.decode("utf-8").split()
+                if not email_ids:
+                    if attempt < settings.imap_fetch_max_retries - 1:
+                        logger.debug("未读邮件为空，等待重试")
+                        await asyncio.sleep(settings.imap_fetch_retry_interval)
+                        continue
+                    logger.warning("未读邮件为空（已重试 %d 次）", settings.imap_fetch_max_retries)
+                    return json.dumps(
+                        {
+                            "success": False,
+                            "message": f"未读邮件为空（已重试 {settings.imap_fetch_max_retries} 次）",
+                        },
+                        ensure_ascii=False,
+                    )
+
+                logger.debug("搜索到 %d 封未读邮件", len(email_ids))
+
+                # 读取最新一封未读邮件
+                latest_email_id = email_ids[-1]
+                logger.debug("正在获取邮件 ID: %s", latest_email_id)
+                fetch_response = await imap_client.fetch(latest_email_id, "(RFC822)")
+                if fetch_response.result != "OK":
+                    if attempt < settings.imap_fetch_max_retries - 1:
+                        logger.warning("读取邮件失败（ID: %s），将重试", latest_email_id)
+                        await asyncio.sleep(settings.imap_fetch_retry_interval)
+                        continue
+                    logger.error("读取邮件失败（ID: %s）", latest_email_id)
+                    return json.dumps(
+                        {
+                            "success": False,
+                            "message": f"读取邮件失败（ID: {latest_email_id}）",
+                        },
+                        ensure_ascii=False,
+                    )
+                logger.debug("成功获取邮件 ID: %s", latest_email_id)
+
+                # 解析邮件内容
+                # aioimaplib 返回格式：lines[1] 包含邮件原始数据
+                raw_email = fetch_response.lines[1]
+                msg = email.message_from_bytes(raw_email)
+
+                # 立即标记邮件为已读，避免重复读取和时序问题
+                try:
+                    store_response = await imap_client.store(latest_email_id, '+FLAGS', '\\Seen')
+                    if store_response.result == "OK":
+                        logger.debug("邮件已标记为已读（ID: %s）", latest_email_id)
+                    else:
+                        logger.warning("标记邮件为已读失败（ID: %s）", latest_email_id)
+                except Exception as exc:
+                    # 标记失败不影响后续处理，仅记录日志
+                    logger.warning("标记邮件为已读时发生异常（ID: %s）: %s", latest_email_id, exc)
+
+                # 检查邮件时间（防止读取旧邮件）
+                email_date = _parse_email_date(msg)
+                if email_date:
+                    email_age = (datetime.now(UTC) - email_date).total_seconds()
+                    if email_age > settings.imap_email_max_age_seconds:
+                        # 邮件太旧，跳过并重试
+                        logger.debug("邮件太旧（%d 秒前），跳过", int(email_age))
+                        if attempt < settings.imap_fetch_max_retries - 1:
+                            await asyncio.sleep(settings.imap_fetch_retry_interval)
+                            continue
+                        logger.warning("邮件太旧（%d 秒前），已重试 %d 次", int(email_age), settings.imap_fetch_max_retries)
+                        return json.dumps(
+                            {
+                                "success": False,
+                                "message": f"邮件太旧（{int(email_age)} 秒前），已重试 {settings.imap_fetch_max_retries} 次",
+                            },
+                            ensure_ascii=False,
+                        )
+
+                # 提取正文
+                body = _parse_email_body(msg)
+
+                # 提取验证码
+                code = _extract_verification_code(body)
+
+                if code:
+                    # 成功提取验证码
+                    logger.info("成功提取验证码（邮箱: %s）", email_address)
+                    return json.dumps(
+                        {
+                            "success": True,
+                            "code": code,
+                            "message": f"已获取 {email_address} 的验证码",
+                        },
+                        ensure_ascii=False,
+                    )
+
+                # 邮件中没有验证码，可能不是验证码邮件，等待重试
+                if attempt < settings.imap_fetch_max_retries - 1:
+                    logger.debug("未能从邮件中提取验证码，等待重试")
+                    await asyncio.sleep(settings.imap_fetch_retry_interval)
+                    continue
+
+            # 所有重试都失败
+            logger.warning("未能从邮件中提取到验证码（已重试 %d 次）", settings.imap_fetch_max_retries)
+            return json.dumps(
+                {
+                    "success": False,
+                    "message": f"未能从邮件中提取到验证码（已重试 {settings.imap_fetch_max_retries} 次）",
+                },
+                ensure_ascii=False,
+            )
+
+        except asyncio.TimeoutError:
+            logger.warning("IMAP 连接超时（%d 秒）", settings.imap_timeout_seconds)
+            return json.dumps(
+                {
+                    "success": False,
+                    "message": f"连接超时（{settings.imap_timeout_seconds} 秒）",
+                },
+                ensure_ascii=False,
+            )
+        except Exception as exc:
+            logger.error("获取验证码失败：%s: %s", type(exc).__name__, str(exc), exc_info=True)
+            return json.dumps(
+                {
+                    "success": False,
+                    "message": f"获取验证码失败：{type(exc).__name__}: {str(exc)}",
+                },
+                ensure_ascii=False,
+            )
+
+        finally:
+            # 11. 清理连接
+            if imap_client:
+                try:
+                    logger.debug("正在断开 IMAP 连接")
+                    await imap_client.logout()
+                except Exception:
+                    pass  # 忽略清理过程中的异常
 
     return fetch_email_code
 

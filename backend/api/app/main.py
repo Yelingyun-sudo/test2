@@ -54,8 +54,16 @@ LOGGING_CONFIG = {
         "handlers": ["default", "file"],
     },
     "loggers": {
-        "uvicorn": {"handlers": ["default", "file"], "level": "INFO", "propagate": False},
-        "uvicorn.error": {"handlers": ["default", "file"], "level": "INFO", "propagate": False},
+        "uvicorn": {
+            "handlers": ["default", "file"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "uvicorn.error": {
+            "handlers": ["default", "file"],
+            "level": "INFO",
+            "propagate": False,
+        },
         "uvicorn.access": {
             "handlers": ["default", "file"],
             "level": "INFO",

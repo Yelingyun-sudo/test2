@@ -23,6 +23,7 @@ dependencies = [
     "psutil>=6.1,<7",
     "kafka-python>=2.0,<3",
     "nest-asyncio>=1.6.0",
+    "aioimaplib>=1.0,<2",
 ]
 
 # Local dev install only; use `pip install -e .`, not intended for distribution.
