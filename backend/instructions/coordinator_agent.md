@@ -77,6 +77,7 @@
   - **业务流程类**：
     - `copy_button_not_found`：未找到订阅复制按钮
     - `subscription_url_invalid`：订阅地址异常（非有效 http 地址）
+    - `email_verification_failed`：邮箱验证码获取失败
   - **任务限制类**：
     - `task_timeout`：任务执行超时
     - `task_step_limit`：任务执行步骤超限

@@ -1,0 +1,34 @@
+# 邮箱账号配置
+# 每组配置对应一个可用的邮箱账号
+accounts:
+  - enabled: true
+    register_account: "33794048@qq.com"
+    register_password: "Teb12ut54@"
+    imap_server: "imap.qq.com"
+    imap_port: 993
+    imap_username: "33794048@qq.com"
+    imap_password: "kqirtitqpsvbbggh"
+
+  - enabled: false
+    register_account: "qw330650@163.com"
+    register_password: "Teb12ut54@"
+    imap_server: "imap.163.com"
+    imap_port: 993
+    imap_username: "qw330650@163.com"
+    imap_password: "PHgjGPSp3mCsgZUC"
+
+  - enabled: false
+    register_account: "simplelife567@163.com"
+    register_password: "Teb12ut54@"
+    imap_server: "imap.163.com"
+    imap_port: 993
+    imap_username: "simplelife567@163.com"
+    imap_password: "SQeahyvhXT7NePcm"
+
+  - enabled: false
+    register_account: "user-99634008-e5c6-474e-bd09-88bf9d42a93b@mailslurp.biz"
+    register_password: "Teb12ut54@"
+    imap_server: "mailslurpimap.click"
+    imap_port: 8993
+    imap_username: "Sh9vCSu3urBxc4ZRrhV3NYNgWrakXm4H"
+    imap_password: "QVnEvlzOl4KPTw0gsUsoNI6k0r9j97Up"

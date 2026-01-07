@@ -64,18 +64,9 @@ class Settings(BaseSettings):
     llm_snapshot: bool = True
     llm_snapshot_fullpage: bool = True
 
-    # 注册相关
-    register_account: str = "my-account@example.com"
-    register_password: str = "mypassword"
-
-    # IMAP 邮箱配置（用于获取注册验证码）
-    imap_server: str = "imap.example.com"
-    imap_port: int = 993
-    imap_username: str = ""
-    imap_password: str = ""
-    imap_timeout_seconds: int = 30
-    imap_fetch_max_retries: int = 3
-    imap_fetch_retry_interval: int = 2
+    # IMAP 通用配置（用于获取注册验证码）
+    imap_fetch_max_retries: int = 6
+    imap_fetch_retry_interval: int = 15
     imap_email_max_age_seconds: int = 120
 
     # 任务调度

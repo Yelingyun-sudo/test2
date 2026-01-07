@@ -9,12 +9,15 @@ import os
 import re
 from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import aioimaplib
 from agents import Tool, function_tool
 
 from website_analytics.settings import get_settings
+
+if TYPE_CHECKING:
+    from website_analytics.models import EmailAccount
 
 logger = logging.getLogger(__name__)
 
@@ -912,11 +915,17 @@ def _parse_email_date(msg: email.message.Message) -> datetime | None:
         return None
 
 
-def build_fetch_email_code_tool() -> Tool:
+def build_fetch_email_code_tool(account: "EmailAccount") -> Tool:
     """创建邮箱验证码获取工具（真实 IMAP 实现）。
 
     通过 aioimaplib 连接邮箱，读取最新邮件并提取验证码。
-    配置项通过环境变量加载（IMAP_SERVER、IMAP_PORT 等）。
+    使用传入的 EmailAccount 配置进行连接。
+
+    Args:
+        account: 要使用的邮箱账号配置
+
+    Returns:
+        工具声明
     """
     settings = get_settings()
 
@@ -928,7 +937,7 @@ def build_fetch_email_code_tool() -> Tool:
         """异步获取邮箱验证码。
 
         Args:
-            email_address: 接收验证码的邮箱地址（用于日志，当前实现使用配置的邮箱）
+            email_address: 接收验证码的邮箱地址
 
         Returns:
             JSON 字符串，包含 success、code/message 字段
@@ -936,36 +945,24 @@ def build_fetch_email_code_tool() -> Tool:
         imap_client = None
 
         try:
-            # 1. 参数验证
-            if (
-                not settings.imap_server
-                or not settings.imap_username
-                or not settings.imap_password
-            ):
-                return json.dumps(
-                    {
-                        "success": False,
-                        "message": "IMAP 配置未完整设置（需要 IMAP_SERVER、IMAP_USERNAME、IMAP_PASSWORD）",
-                    },
-                    ensure_ascii=False,
-                )
+            # 1. 记录使用的账号
+            logger.info(f"使用邮箱账号: {account.register_account}")
 
             # 2. 连接 IMAP 服务器
             logger.info(
-                "正在连接 IMAP 服务器：%s:%d", settings.imap_server, settings.imap_port
+                "正在连接 IMAP 服务器：%s:%d", account.imap_server, account.imap_port
             )
             imap_client = aioimaplib.IMAP4_SSL(
-                host=settings.imap_server,
-                port=settings.imap_port,
-                timeout=settings.imap_timeout_seconds,
+                host=account.imap_server,
+                port=account.imap_port,
             )
             await imap_client.wait_hello_from_server()
             logger.info("IMAP 连接成功")
 
             # 3. 登录
             login_response = await imap_client.login(
-                settings.imap_username,
-                settings.imap_password,
+                account.imap_username,
+                account.imap_password,
             )
             if login_response.result != "OK":
                 error_msg = login_response.lines[0].decode("utf-8", errors="ignore")
@@ -1135,11 +1132,11 @@ def build_fetch_email_code_tool() -> Tool:
             )
 
         except asyncio.TimeoutError:
-            logger.warning("IMAP 连接超时（%d 秒）", settings.imap_timeout_seconds)
+            logger.warning("IMAP 连接超时")
             return json.dumps(
                 {
                     "success": False,
-                    "message": f"连接超时（{settings.imap_timeout_seconds} 秒）",
+                    "message": "连接超时",
                 },
                 ensure_ascii=False,
             )
