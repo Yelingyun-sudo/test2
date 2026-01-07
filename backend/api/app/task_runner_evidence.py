@@ -7,15 +7,14 @@ from typing import Any
 
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
-
 from website_analytics.cli import run_single_instruction_async
 from website_analytics.orchestrator import ExecutionResult
 from website_analytics.settings import get_settings
 from website_analytics.utils import to_project_relative
 
 from .db import SessionLocal
-from .models import EvidenceTask
 from .enums import TaskReportStatus, TaskStatus
+from .models import EvidenceTask
 
 logger = logging.getLogger(__name__)
 
@@ -38,32 +37,60 @@ def _extract_success_result(exec_result: ExecutionResult | None) -> str:
 
     返回格式：
     - "取证完成。成功 3/3 个入口。报告：evidence/report.md"
-    - "取证部分成功。成功 2/3 个入口。报告：evidence/report.md"
+    - "注册成功 → 登录成功 → 取证完成。成功 3/3 个入口。报告：evidence/report.md"
+    - "注册（账号已存在）→ 登录成功 → 取证完成。成功 3/3 个入口。报告：evidence/report.md"
     """
     if not exec_result or not exec_result.coordinator_output:
         return "任务结果不可用"
     try:
         coordinator = exec_result.coordinator_output
         operations_results = coordinator.get("operations_results") or {}
-        evidence_result = operations_results.get("evidence") or {}
 
-        # 提取核心信息
+        # 收集操作流程步骤
+        steps = []
+
+        # 1. 提取注册状态（如果有）
+        register_result = operations_results.get("register")
+        if register_result:
+            register_message = register_result.get("message", "")
+            if "账号已存在" in register_message:
+                steps.append("注册（账号已存在）")
+            elif register_result.get("success"):
+                steps.append("注册成功")
+
+        # 2. 提取登录状态（如果有）
+        login_result = operations_results.get("login")
+        if login_result and login_result.get("success"):
+            steps.append("登录成功")
+
+        # 3. 提取取证信息
+        evidence_result = operations_results.get("evidence") or {}
         entries_total = evidence_result.get("entries_total", 0)
         entries_success = evidence_result.get("entries_success", 0)
         entries_failed = evidence_result.get("entries_failed", 0)
         report_file = evidence_result.get("report_file", "")
         message = evidence_result.get("message", "")
 
-        # 构建摘要
+        # 构建取证摘要
         if entries_total > 0:
-            summary = f"取证完成。成功 {entries_success}/{entries_total} 个入口"
+            evidence_summary = (
+                f"取证完成。成功 {entries_success}/{entries_total} 个入口"
+            )
             if entries_failed > 0:
-                summary = f"取证部分成功。成功 {entries_success}/{entries_total} 个入口"
+                evidence_summary = (
+                    f"取证部分成功。成功 {entries_success}/{entries_total} 个入口"
+                )
         else:
-            summary = message or "取证完成"
+            evidence_summary = message or "取证完成"
 
         if report_file:
-            summary += f"。报告：{report_file}"
+            evidence_summary += f"。报告：{report_file}"
+
+        # 4. 组合完整描述
+        if steps:
+            summary = " → ".join(steps) + " → " + evidence_summary
+        else:
+            summary = evidence_summary
 
         return summary
     except Exception as exc:  # pragma: no cover - 防御性处理
