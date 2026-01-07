@@ -1,8 +1,30 @@
 {
+  // Python 解释器
   "python.defaultInterpreterPath": "${workspaceFolder}/backend/.venv/bin/python",
+  
+  // 启用 Pylance LSP
+  "python.languageServer": "None",
+  
+  // 完整的导入路径配置
   "python.analysis.extraPaths": [
-    "${workspaceFolder}/backend"
+    "${workspaceFolder}/backend",
+    "${workspaceFolder}/backend/core",
+    "${workspaceFolder}/backend/api"
   ],
+  
+  // 类型检查模式
+  "python.analysis.typeCheckingMode": "basic",
+  
+  // 自动导入补全
   "python.analysis.autoImportCompletions": true,
-  "python.languageServer": "None"
+  
+  // Python 文件格式化配置
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll": "explicit",
+      "source.organizeImports": "explicit"
+    }
+  }
 }

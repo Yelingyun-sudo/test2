@@ -64,7 +64,6 @@
 - `error_type`：仅当 `status="failed"` 时填写，取值范围（按业务优先级排序）：
   - **账号/套餐类**：
     - `account_banned`：账号被封禁
-    - `account_already_exists`：账号已存在（注意：后续如果正常登录，则整个任务不应该）
     - `plan_expired`：订阅套餐已失效
   - **网站访问类**：
     - `site_server_error`：网站无法访问-服务器错误
