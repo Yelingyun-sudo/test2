@@ -3,15 +3,14 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
-from dataclasses import dataclass
-from datetime import datetime
 import random
 import string
+from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from agents import set_tracing_disabled
-
 from website_analytics.cli import run_single_instruction
 from website_analytics.output_types import ErrorType
 from website_analytics.utils import LOGS_DIR, to_project_relative
@@ -195,7 +194,9 @@ async def _run_case(case: Case, headless: bool) -> dict[str, Any]:
     coordinator = _extract_coordinator(exec_result)
     passed, reason = _evaluate_case(case, coordinator)
     task_dir = (
-        to_project_relative(exec_result.task_dir) if exec_result and exec_result.task_dir else None
+        to_project_relative(exec_result.task_dir)
+        if exec_result and exec_result.task_dir
+        else None
     )
     return {
         "case_id": case.id,
@@ -238,7 +239,9 @@ async def main_async(args: argparse.Namespace) -> None:
 
     result_file = run_dir / "eval_results.json"
     meta_file = run_dir / "meta.json"
-    result_file.write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8")
+    result_file.write_text(
+        json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     meta = {
         "case_files": [str(p) for p in case_files],
         "max_concurrent": max_concurrent,
@@ -246,7 +249,9 @@ async def main_async(args: argparse.Namespace) -> None:
         "run_dir": str(run_dir),
         "timestamp": datetime.now().isoformat(),
     }
-    meta_file.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+    meta_file.write_text(
+        json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     print(f"结果已保存到 {result_file}")
 
 
