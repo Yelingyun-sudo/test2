@@ -3,7 +3,7 @@
 
 支持两种任务类型：
 - subscription: 需要 url, account, password 三个字段
-- evidence: 只需要 url 字段，不允许 account 和 password 字段
+- evidence: 需要 url 字段，可选 account 和 password 字段（如果存在必须为空字符串）
 """
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ def parse_args() -> argparse.Namespace:
         type=str,
         choices=["subscription", "evidence"],
         required=True,
-        help="任务类型: subscription (需要 url/account/password) 或 evidence (只需要 url)",
+        help="任务类型: subscription (需要 url/account/password) 或 evidence (需要 url，account/password 可选且须为空)",
     )
     parser.add_argument(
         "--batch-size",
@@ -117,9 +117,16 @@ def main() -> None:
                 if all(k in record for k in ["url", "account", "password"]):
                     is_valid = True
             elif args.type == "evidence":
-                # Evidence: 必须有 url，且不能有 account 和 password
-                if "url" in record and "account" not in record and "password" not in record:
-                    is_valid = True
+                # Evidence: 必须有 url，允许 account/password 字段但必须为空字符串
+                if "url" in record:
+                    # 检查 account 字段（如果存在，必须为空）
+                    if "account" in record and record["account"] != "":
+                        is_valid = False
+                    # 检查 password 字段（如果存在，必须为空）
+                    elif "password" in record and record["password"] != "":
+                        is_valid = False
+                    else:
+                        is_valid = True
 
             if not is_valid:
                 print(f"⚠️  跳过无效记录: {record}")
@@ -161,4 +168,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

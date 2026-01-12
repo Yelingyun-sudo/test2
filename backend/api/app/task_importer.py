@@ -9,7 +9,6 @@ from datetime import date, datetime, timezone
 
 from kafka import KafkaConsumer
 from sqlalchemy.exc import IntegrityError
-
 from website_analytics.settings import get_settings
 
 from .constants import TZ_CHINA
@@ -69,10 +68,17 @@ def _process_record(session, record: dict) -> str:
     now = datetime.now(timezone.utc)
     today = now.astimezone(TZ_CHINA).date()
 
-    if "account" in record and "password" in record and "url" in record:
+    # 检查字段是否存在且值为非空字符串（去除首尾空白后）
+    has_credentials = (
+        record.get("account", "").strip()
+        and record.get("password", "").strip()
+        and record.get("url", "").strip()
+    )
+
+    if has_credentials:
         success = _insert_subscription_task(session, record, now, today)
         return "subscription_inserted" if success else "subscription_skipped"
-    elif "url" in record:
+    elif record.get("url", "").strip():
         success = _insert_evidence_task(session, record, now, today)
         return "evidence_inserted" if success else "evidence_skipped"
     else:
