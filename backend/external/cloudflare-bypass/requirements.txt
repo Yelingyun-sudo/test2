@@ -1,0 +1,18 @@
+# Cloudflare Bypass Dependencies
+
+# Python 3.12+ 需要 setuptools (distutils 已移除)
+setuptools>=69.0.0
+
+# Selenium with undetected-chromedriver
+undetected-chromedriver>=3.5.0
+selenium>=4.15.0
+
+# PyAutoGUI for OS-level mouse control
+pyautogui>=0.9.54
+
+# Additional dependencies for PyAutoGUI on Linux
+python-xlib>=0.33
+Pillow>=10.0.0
+
+# For JSON output
+# (built-in json module is sufficient)
