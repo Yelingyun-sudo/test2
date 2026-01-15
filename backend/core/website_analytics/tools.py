@@ -813,13 +813,15 @@ def _extract_verification_code(text: str) -> str | None:
 
     # 预处理：全角数字转半角，统一处理
     # 将全角数字（０-９）转换为半角数字（0-9）
-    text_normalized = text.translate(str.maketrans('０１２３４５６７８９', '0123456789'))
+    text_normalized = text.translate(
+        str.maketrans("０１２３４５６７８９", "0123456789")
+    )
 
     # 预处理：移除可能的空格分隔（但保留关键词后的正常空格）
     # 对于常见的验证码位置，尝试移除数字之间的空格
     # 例如："1 2 3 4 5 6" → "123456"
     # 注意：只处理数字之间的空格，避免误处理其他内容
-    text_normalized = re.sub(r'(\d)\s+(\d)', r'\1\2', text_normalized)
+    text_normalized = re.sub(r"(\d)\s+(\d)", r"\1\2", text_normalized)
 
     # 多种验证码匹配模式（按优先级排序）
     patterns = [
@@ -992,7 +994,11 @@ def build_fetch_email_code_tool(account: "EmailAccount") -> Tool:
             # 5-10. 搜索邮件并提取验证码（添加重试机制）
             for attempt in range(settings.imap_fetch_max_retries):
                 # 搜索未读邮件
-                logger.debug("开始搜索未读邮件（尝试 %d/%d）", attempt + 1, settings.imap_fetch_max_retries)
+                logger.debug(
+                    "开始搜索未读邮件（尝试 %d/%d）",
+                    attempt + 1,
+                    settings.imap_fetch_max_retries,
+                )
                 search_response = await imap_client.search("UNSEEN")
 
                 if search_response.result != "OK":
@@ -1000,7 +1006,9 @@ def build_fetch_email_code_tool(account: "EmailAccount") -> Tool:
                         logger.warning("搜索邮件失败，将重试")
                         await asyncio.sleep(settings.imap_fetch_retry_interval)
                         continue
-                    logger.error("搜索邮件失败（已重试 %d 次）", settings.imap_fetch_max_retries)
+                    logger.error(
+                        "搜索邮件失败（已重试 %d 次）", settings.imap_fetch_max_retries
+                    )
                     return json.dumps(
                         {
                             "success": False,
@@ -1017,7 +1025,9 @@ def build_fetch_email_code_tool(account: "EmailAccount") -> Tool:
                         logger.debug("未读邮件为空，等待重试")
                         await asyncio.sleep(settings.imap_fetch_retry_interval)
                         continue
-                    logger.warning("未读邮件为空（已重试 %d 次）", settings.imap_fetch_max_retries)
+                    logger.warning(
+                        "未读邮件为空（已重试 %d 次）", settings.imap_fetch_max_retries
+                    )
                     return json.dumps(
                         {
                             "success": False,
@@ -1032,7 +1042,9 @@ def build_fetch_email_code_tool(account: "EmailAccount") -> Tool:
                         logger.debug("未读邮件为空，等待重试")
                         await asyncio.sleep(settings.imap_fetch_retry_interval)
                         continue
-                    logger.warning("未读邮件为空（已重试 %d 次）", settings.imap_fetch_max_retries)
+                    logger.warning(
+                        "未读邮件为空（已重试 %d 次）", settings.imap_fetch_max_retries
+                    )
                     return json.dumps(
                         {
                             "success": False,
@@ -1049,7 +1061,9 @@ def build_fetch_email_code_tool(account: "EmailAccount") -> Tool:
                 fetch_response = await imap_client.fetch(latest_email_id, "(RFC822)")
                 if fetch_response.result != "OK":
                     if attempt < settings.imap_fetch_max_retries - 1:
-                        logger.warning("读取邮件失败（ID: %s），将重试", latest_email_id)
+                        logger.warning(
+                            "读取邮件失败（ID: %s），将重试", latest_email_id
+                        )
                         await asyncio.sleep(settings.imap_fetch_retry_interval)
                         continue
                     logger.error("读取邮件失败（ID: %s）", latest_email_id)
@@ -1069,14 +1083,18 @@ def build_fetch_email_code_tool(account: "EmailAccount") -> Tool:
 
                 # 立即标记邮件为已读，避免重复读取和时序问题
                 try:
-                    store_response = await imap_client.store(latest_email_id, '+FLAGS', '\\Seen')
+                    store_response = await imap_client.store(
+                        latest_email_id, "+FLAGS", "\\Seen"
+                    )
                     if store_response.result == "OK":
                         logger.debug("邮件已标记为已读（ID: %s）", latest_email_id)
                     else:
                         logger.warning("标记邮件为已读失败（ID: %s）", latest_email_id)
                 except Exception as exc:
                     # 标记失败不影响后续处理，仅记录日志
-                    logger.warning("标记邮件为已读时发生异常（ID: %s）: %s", latest_email_id, exc)
+                    logger.warning(
+                        "标记邮件为已读时发生异常（ID: %s）: %s", latest_email_id, exc
+                    )
 
                 # 检查邮件时间（防止读取旧邮件）
                 email_date = _parse_email_date(msg)
@@ -1088,7 +1106,11 @@ def build_fetch_email_code_tool(account: "EmailAccount") -> Tool:
                         if attempt < settings.imap_fetch_max_retries - 1:
                             await asyncio.sleep(settings.imap_fetch_retry_interval)
                             continue
-                        logger.warning("邮件太旧（%d 秒前），已重试 %d 次", int(email_age), settings.imap_fetch_max_retries)
+                        logger.warning(
+                            "邮件太旧（%d 秒前），已重试 %d 次",
+                            int(email_age),
+                            settings.imap_fetch_max_retries,
+                        )
                         return json.dumps(
                             {
                                 "success": False,
@@ -1122,7 +1144,10 @@ def build_fetch_email_code_tool(account: "EmailAccount") -> Tool:
                     continue
 
             # 所有重试都失败
-            logger.warning("未能从邮件中提取到验证码（已重试 %d 次）", settings.imap_fetch_max_retries)
+            logger.warning(
+                "未能从邮件中提取到验证码（已重试 %d 次）",
+                settings.imap_fetch_max_retries,
+            )
             return json.dumps(
                 {
                     "success": False,
@@ -1141,7 +1166,9 @@ def build_fetch_email_code_tool(account: "EmailAccount") -> Tool:
                 ensure_ascii=False,
             )
         except Exception as exc:
-            logger.error("获取验证码失败：%s: %s", type(exc).__name__, str(exc), exc_info=True)
+            logger.error(
+                "获取验证码失败：%s: %s", type(exc).__name__, str(exc), exc_info=True
+            )
             return json.dumps(
                 {
                     "success": False,

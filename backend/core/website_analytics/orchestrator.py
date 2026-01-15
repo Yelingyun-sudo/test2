@@ -34,11 +34,12 @@ from website_analytics.batch_reporter import (
     print_task_start,
     save_task_summary,
 )
+from website_analytics.cloudflare_bypass import build_bypass_cloudflare_tool
 from website_analytics.filters import build_call_model_input_filter
 from website_analytics.formatter import format_execution_result
 from website_analytics.llm_logging import LLMTranscriptLoggerHooks
-from website_analytics.playwright_server import AutoSwitchingPlaywrightServer
 from website_analytics.output_types import ErrorType, OperationType
+from website_analytics.playwright_server import AutoSwitchingPlaywrightServer
 from website_analytics.settings import get_settings
 from website_analytics.tools import (
     build_compile_evidence_report_tool,
@@ -256,6 +257,7 @@ async def execute(
 
     try:
         playwright_args = build_playwright_args(working_dir, headless=headless)
+        logger.info("[调试] Playwright 启动参数: %s", " ".join(playwright_args))
         playwright_env = {
             key: value
             for key, value in os.environ.items()
@@ -299,14 +301,19 @@ async def execute(
 
             selected_account = get_random_email_account()
             if selected_account is None:
-                raise ValueError("无可用的邮箱账号配置，请检查 backend/email_accounts.yaml")
+                raise ValueError(
+                    "无可用的邮箱账号配置，请检查 backend/email_accounts.yaml"
+                )
 
             logger.info(f"已选择邮箱账号: {selected_account.register_account}")
 
             # 2. 创建绑定了账号的邮箱验证码获取工具
             fetch_email_code_tool = build_fetch_email_code_tool(selected_account)
 
-            # 3. 创建注册 agent，使用选中账号的信息
+            # 3. 创建 Cloudflare 绕过工具
+            bypass_cloudflare_tool = build_bypass_cloudflare_tool(playwright_server)
+
+            # 4. 创建注册 agent，使用选中账号的信息
             register_agent = build_register_agent(
                 playwright_server,
                 load_instruction(
@@ -316,7 +323,7 @@ async def execute(
                         "{REGISTER_PASSWORD}": selected_account.register_password,
                     },
                 ),
-                extra_tools=[fetch_email_code_tool],
+                extra_tools=[fetch_email_code_tool, bypass_cloudflare_tool],
             )
             extract_agent = build_extract_agent(
                 playwright_server,

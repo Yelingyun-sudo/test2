@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import logging
 import sys
 from pathlib import Path
 
@@ -69,6 +70,9 @@ def _read_batch_file(file_path: Path) -> list[str]:
 
 
 def main() -> None:
+    # 配置日志级别为 INFO，确保调试信息可见
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+
     # 禁用 tracing 功能，避免 401 错误
     set_tracing_disabled(True)
 

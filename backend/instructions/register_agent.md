@@ -15,9 +15,18 @@
      - 调用 `browser_click` 点击该按钮
      - 继续执行 Step2
    - **真正的人机验证**（Cloudflare 挑战页/滑块验证/图片验证码）：
-     - 立即失败退出
-     - `success=false`、`error_type="human_verification_failed"`
-     - `message` 为"Cloudflare/人机验证导致无法继续"
+     - **调用 `bypass_cloudflare` 工具尝试绕过**：
+       - 工具调用示例：`bypass_cloudflare(url="https://example.com/")`
+       - 传入当前访问的 `site_url`
+     - **处理返回结果**：
+       - **成功**：工具返回 `{"success": true, "cf_clearance": "...", ...}`（且没有 `requires_navigation` 字段）
+         - 页面已自动刷新并加载真实内容
+         - User-Agent 和 Cookies 已自动设置
+         - 继续执行 Step2
+       - **失败**：工具返回 `{"success": false, "message": "..."}`
+         - 立即失败退出
+         - `success=false`、`error_type="human_verification_failed"`
+         - `message` 为"注册失败：Cloudflare/人机验证导致无法继续"
 
 ### Step2. 探索注册入口
 

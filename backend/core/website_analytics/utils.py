@@ -24,7 +24,8 @@ LOGS_DIR = PROJECT_ROOT / "logs"
 
 BASE_PLAYWRIGHT_ARGS = (
     "@playwright/mcp@latest",
-    "--browser=chrome",
+    "--browser=chromium",
+    "--executable-path=/Applications/Chromium.app/Contents/MacOS/Chromium",
     "--no-sandbox",
     "--isolated",
     "--grant-permissions=clipboard-read,clipboard-write",
@@ -49,7 +50,10 @@ def load_instruction(filename: str, replacements: dict[str, str] | None = None) 
     return text
 
 
-def build_playwright_args(output_dir: Path, headless: bool = False) -> list[str]:
+def build_playwright_args(
+    output_dir: Path,
+    headless: bool = False,
+) -> list[str]:
     """构建 Playwright 参数。
 
     Args:
