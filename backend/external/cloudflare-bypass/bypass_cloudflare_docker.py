@@ -555,7 +555,65 @@ class CloudflareBypassDocker:
                         }
                     }
                 }
-                
+
+                // 方法4: 通过 hidden input 反查容器（最通用的方法）
+                if (!result.found) {
+                    var input = document.querySelector('input[type="hidden"][name="cf-turnstile-response"]');
+                    if (input) {
+                        // 向上查找包含 display: grid 的父容器
+                        var parent = input.parentElement;
+                        while (parent && parent !== document.body) {
+                            var style = window.getComputedStyle(parent);
+                            var display = style.display;
+
+                            // 检查是否是网格布局容器
+                            if (display === 'grid' || parent.style.display === 'grid') {
+                                var rect = parent.getBoundingClientRect();
+                                if (rect.width > 0 && rect.height > 0) {
+                                    result.found = true;
+                                    result.x = rect.left;
+                                    result.y = rect.top;
+                                    result.width = rect.width;
+                                    result.height = rect.height;
+                                    result.tag = parent.tagName;
+                                    result.id = parent.id;
+                                    result.isContainer = true;
+                                    result.method = 'hidden-input';
+                                    break;
+                                }
+                            }
+
+                            parent = parent.parentElement;
+                        }
+                    }
+                }
+
+                // 方法5: 兜底 - 查找任何带随机 ID 的 grid 容器
+                if (!result.found) {
+                    var gridContainers = document.querySelectorAll('div[style*="display: grid"], div[style*="display:grid"]');
+                    for (var container of gridContainers) {
+                        // 检查是否包含 template 或 hidden input
+                        var hasTemplate = container.querySelector('template');
+                        var hasInput = container.querySelector('input[type="hidden"][name="cf-turnstile-response"]');
+
+                        if (hasTemplate || hasInput) {
+                            var rect = container.getBoundingClientRect();
+                            if (rect.width > 0 && rect.height > 0 && rect.top > 0) {
+                                result.found = true;
+                                result.x = rect.left;
+                                result.y = rect.top;
+                                result.width = rect.width;
+                                result.height = rect.height;
+                                result.tag = container.tagName;
+                                result.id = container.id;
+                                result.isContainer = true;
+                                result.method = 'grid-style';
+                                break;
+                            }
+                        }
+                    }
+                }
+
                 return result;
             """)
 
@@ -916,7 +974,58 @@ class CloudflareBypassDocker:
                         }
                     }
                 }
-                
+
+                // 方法3: 通过 hidden input 反查容器
+                var input = document.querySelector('input[type="hidden"][name="cf-turnstile-response"]');
+                if (input) {
+                    var parent = input.parentElement;
+                    while (parent && parent !== document.body) {
+                        var style = window.getComputedStyle(parent);
+                        var display = style.display;
+
+                        if (display === 'grid' || parent.style.display === 'grid') {
+                            var rect = parent.getBoundingClientRect();
+                            if (rect.width > 0 && rect.height > 0 && rect.top > 0) {
+                                return {
+                                    found: true,
+                                    x: rect.left,
+                                    y: rect.top,
+                                    width: rect.width,
+                                    height: rect.height,
+                                    tag: parent.tagName,
+                                    id: parent.id,
+                                    method: 'hidden-input'
+                                };
+                            }
+                        }
+
+                        parent = parent.parentElement;
+                    }
+                }
+
+                // 方法4: 查找 grid 容器
+                var gridContainers = document.querySelectorAll('div[style*="display: grid"], div[style*="display:grid"]');
+                for (var container of gridContainers) {
+                    var hasTemplate = container.querySelector('template');
+                    var hasInput = container.querySelector('input[type="hidden"][name="cf-turnstile-response"]');
+
+                    if (hasTemplate || hasInput) {
+                        var rect = container.getBoundingClientRect();
+                        if (rect.width > 0 && rect.height > 0 && rect.top > 0) {
+                            return {
+                                found: true,
+                                x: rect.left,
+                                y: rect.top,
+                                width: rect.width,
+                                height: rect.height,
+                                tag: container.tagName,
+                                id: container.id,
+                                method: 'grid-style'
+                            };
+                        }
+                    }
+                }
+
                 return null;
             """)
             return result if result and result.get("found") else None

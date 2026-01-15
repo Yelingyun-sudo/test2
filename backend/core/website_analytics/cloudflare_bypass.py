@@ -85,107 +85,6 @@ async def _verify_cookie_with_curl(
         return False, f"error: {exc}"
 
 
-async def _get_playwright_user_agent(
-    playwright_server: "AutoSwitchingPlaywrightServer",
-) -> str:
-    """获取 Playwright 浏览器的 User-Agent。
-
-    Args:
-        playwright_server: Playwright MCP 服务器实例
-
-    Returns:
-        Playwright 浏览器的 User-Agent 字符串
-    """
-    try:
-        ua_script = "() => navigator.userAgent"
-        result = await playwright_server.call_tool(
-            "browser_evaluate",
-            {"function": ua_script},
-        )
-        # 解析返回结果
-        ua_text = result.content[0].text
-
-        # [调试] 打印原始返回值，使用 repr() 显示所有隐藏字符
-        logger.warning("[调试-原始] browser_evaluate 返回: %r", ua_text)
-        logger.warning(
-            "[调试-原始] 长度: %d, 首10字符: %r, 末10字符: %r",
-            len(ua_text),
-            ua_text[:10],
-            ua_text[-10:],
-        )
-
-        # 优先用正则提取 UA 主体，避免尾部引号或包装字符干扰
-        import re
-
-        match = re.search(r"Mozilla/5\.0.*?Safari/[\d.]+", ua_text)
-        if match:
-            ua_text = match.group(0)
-            logger.warning("[调试-清理后] User-Agent: %r", ua_text)
-            return ua_text
-
-        # 迭代清理所有可能的包装字符（最多 5 层）
-        for _ in range(5):
-            old = ua_text
-            # 移除前缀
-            if ua_text.startswith("### Result\n"):
-                ua_text = ua_text[12:]  # len("### Result\n") = 12
-            elif ua_text.startswith("### Result"):
-                ua_text = ua_text[10:]  # len("### Result") = 10
-            # 移除包装字符
-            ua_text = ua_text.strip()
-            ua_text = ua_text.strip('"')
-            ua_text = ua_text.strip("'")
-            ua_text = ua_text.strip("`")
-            ua_text = ua_text.strip()
-            if old == ua_text:
-                break  # 没有变化，停止循环
-
-        logger.warning("[调试-清理后] User-Agent: %r", ua_text)
-        return ua_text
-    except Exception as exc:
-        logger.warning("[调试] 获取 Playwright UA 失败：%s", exc)
-        return f"获取失败: {exc}"
-
-
-def _compare_user_agents(script_ua: str, playwright_ua: str) -> None:
-    """对比脚本获取的和 Playwright 的 User-Agent 并输出警告。
-
-    Args:
-        script_ua: 脚本获取的 User-Agent
-        playwright_ua: Playwright 浏览器的 User-Agent
-    """
-    logger.info("[调试] 脚本 User-Agent: %s", script_ua)
-    logger.info("[调试] Playwright User-Agent: %s", playwright_ua)
-
-    if script_ua == playwright_ua:
-        logger.info("[调试] User-Agent 匹配 ✓")
-    else:
-        # 在警告中包含完整 UA 信息，确保用户能看到具体差异
-        logger.warning(
-            "[调试] User-Agent 不匹配！这可能导致 cookie 失效\n"
-            "  脚本 UA:       %s\n"
-            "  Playwright UA: %s",
-            script_ua,
-            playwright_ua,
-        )
-
-        # 提取 Chrome 版本号进行对比
-        import re
-
-        script_chrome = re.search(r"Chrome/(\d+)", script_ua)
-        playwright_chrome = re.search(r"Chrome/(\d+)", playwright_ua)
-
-        if script_chrome and playwright_chrome:
-            script_ver = script_chrome.group(1)
-            playwright_ver = playwright_chrome.group(1)
-            if script_ver != playwright_ver:
-                logger.warning(
-                    "[调试] Chrome 版本不同：脚本=%s, Playwright=%s",
-                    script_ver,
-                    playwright_ver,
-                )
-
-
 async def _inject_stealth_script(
     playwright_server: "AutoSwitchingPlaywrightServer",
 ) -> bool:
@@ -439,7 +338,6 @@ def build_bypass_cloudflare_tool(
             )
 
         cf_clearance = result.get("cf_clearance")
-        script_ua = result.get("user_agent", "")
 
         if not cf_clearance:
             logger.warning("脚本返回成功但未获取到 cf_clearance cookie")
@@ -452,14 +350,13 @@ def build_bypass_cloudflare_tool(
             )
 
         logger.info(
-            "[调试] 脚本绕过成功：cf_clearance=%s..., user_agent=%s",
+            "[调试] 脚本绕过成功：cf_clearance=%s...",
             cf_clearance[:20] if len(cf_clearance) > 20 else cf_clearance,
-            script_ua,
         )
 
         # 2. [调试] 用 curl 验证 cookie 是否有效
         curl_valid, curl_status = await _verify_cookie_with_curl(
-            url, cf_clearance, script_ua
+            url, cf_clearance, result.get("user_agent", "")
         )
         if not curl_valid:
             logger.warning(
@@ -467,37 +364,15 @@ def build_bypass_cloudflare_tool(
                 curl_status,
             )
 
-        # 3. [调试] 获取 Playwright 的 User-Agent 并对比
-        playwright_ua = await _get_playwright_user_agent(playwright_server)
-        _compare_user_agents(script_ua, playwright_ua)
-
-        # 4. 提取域名（用于兜底方案）
+        # 3. 提取域名（用于兜底方案）
         parsed = urlparse(url)
         domain = parsed.netloc
         logger.debug("目标域名：%s", domain)
 
-        # 5. 设置 User-Agent
-        try:
-            await playwright_server.call_tool(
-                "browser_set_user_agent",
-                {"user_agent": script_ua},
-            )
-            logger.info("成功设置 User-Agent")
-        except Exception:
-            try:
-                await playwright_server.call_tool(
-                    "set_user_agent",
-                    {"user_agent": script_ua},
-                )
-                logger.info("成功设置 User-Agent（使用 set_user_agent）")
-            except Exception as exc:
-                logger.warning("设置 User-Agent 失败：%s", exc)
-                logger.warning("将继续进行，但 User-Agent 可能不匹配")
-
-        # 6. 注入反检测 JS
+        # 4. 注入反检测 JS
         await _inject_stealth_script(playwright_server)
 
-        # 7. 导航到目标 URL
+        # 5. 导航到目标 URL
         try:
             logger.debug("导航到目标 URL：%s", url)
             await playwright_server.call_tool(
@@ -521,7 +396,7 @@ def build_bypass_cloudflare_tool(
                 ensure_ascii=False,
             )
 
-        # 8. 清除旧 cookies
+        # 6. 清除旧 cookies
         try:
             await playwright_server.call_tool("browser_clear_cookies", {})
             logger.info("成功清除旧 cookies")
@@ -533,7 +408,7 @@ def build_bypass_cloudflare_tool(
                 logger.warning("清除 cookies 失败：%s", exc)
                 logger.warning("将继续进行，但可能残留旧 cookies")
 
-        # 9. 添加新 cookies（使用 url 参数，参考测试程序）
+        # 7. 添加新 cookies（使用 url 参数，参考测试程序）
         all_cookies_dict = result.get("cookies", {})
         if not all_cookies_dict and cf_clearance:
             all_cookies_dict = {"cf_clearance": cf_clearance}
@@ -578,7 +453,7 @@ def build_bypass_cloudflare_tool(
                 logger.warning("MCP API 添加 cookies 失败：%s", exc)
                 logger.info("将尝试使用 browser_evaluate 作为兜底方案")
 
-        # 10. 兜底方案：通过 browser_evaluate 直接设置 cookie
+        # 8. 兜底方案：通过 browser_evaluate 直接设置 cookie
         cookie_script = f"""
         () => {{
             document.cookie = "cf_clearance={cf_clearance}; domain=.{domain}; path=/; secure";
@@ -608,7 +483,7 @@ def build_bypass_cloudflare_tool(
             else:
                 logger.warning("兜底方案失败（不影响主流程）：%s", exc)
 
-        # 11. 刷新页面以应用 cookies
+        # 9. 刷新页面以应用 cookies
         try:
             logger.debug("刷新页面以应用 cookies...")
             await playwright_server.call_tool(
@@ -632,7 +507,7 @@ def build_bypass_cloudflare_tool(
                 ensure_ascii=False,
             )
 
-        # 12. 验证是否绕过成功
+        # 10. 验证是否绕过成功
         try:
             snapshot_result = await playwright_server.call_tool(
                 "browser_snapshot",
