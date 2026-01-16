@@ -465,7 +465,7 @@ async def execute(
                         if first_screenshot:
                             evidence_result["cover_image_path"] = first_screenshot
 
-        coordinator_output["video_path"] = _find_last_video_relative_path(working_dir)
+        coordinator_output["video_path"] = await _find_video_with_retry(working_dir)
         seek_seconds = getattr(llm_hooks, "get_video_seek_seconds", lambda: None)()
         coordinator_output["video_seek_seconds"] = (
             round(seek_seconds, 1) if seek_seconds is not None else None
@@ -532,7 +532,7 @@ async def execute(
                         first_screenshot = entries_detail[0].get("screenshot")
                         if first_screenshot:
                             evidence_result["cover_image_path"] = first_screenshot
-        coordinator_output["video_path"] = _find_last_video_relative_path(working_dir)
+        coordinator_output["video_path"] = await _find_video_with_retry(working_dir)
         seek_seconds = getattr(llm_hooks, "get_video_seek_seconds", lambda: None)()
         coordinator_output["video_seek_seconds"] = (
             round(seek_seconds, 1) if seek_seconds is not None else None
@@ -616,6 +616,39 @@ def _find_last_capture_relative_path_for_agent(
         return best.relative_to(task_dir).as_posix()
     except ValueError:
         return str(best)
+
+
+async def _find_video_with_retry(
+    task_dir: Path,
+    max_retries: int = 5,
+    retry_delay: float = 0.5,
+) -> str | None:
+    """带重试逻辑的视频文件查找，处理 Playwright 异步写入的情况。
+
+    Args:
+        task_dir: 任务目录
+        max_retries: 最大重试次数（默认 5 次）
+        retry_delay: 重试间隔（秒，默认 0.5 秒）
+
+    Returns:
+        视频文件相对路径（如 videos/xxx.webm 或 page-xxx.webm），如果未找到则返回 None
+    """
+    for attempt in range(max_retries):
+        video_path = _find_last_video_relative_path(task_dir)
+        if video_path:
+            if attempt > 0:
+                logger.info(f"视频在第 {attempt + 1} 次尝试时找到")
+            return video_path
+
+        # 如果未找到且还有重试机会，等待后重试
+        if attempt < max_retries - 1:
+            logger.debug(
+                f"视频未找到，等待 {retry_delay}s 后重试（第 {attempt + 1}/{max_retries} 次）"
+            )
+            await asyncio.sleep(retry_delay)
+
+    logger.warning(f"视频查找失败：已重试 {max_retries} 次")
+    return None
 
 
 def _find_last_video_relative_path(task_dir: Path) -> str | None:
