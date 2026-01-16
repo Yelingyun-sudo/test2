@@ -668,7 +668,14 @@ export function TaskDetailModal({ task, onClose, failureTypeLabel }: TaskDetailM
         </div>
 
         <div className="px-6 pb-6">
-          <div className="mb-2 text-sm font-semibold text-slate-700">任务日志</div>
+          <div className="mb-2 flex items-baseline gap-2 text-sm font-semibold text-slate-700">
+            <span>任务日志</span>
+            {task.task_dir && (
+              <span className="font-mono text-xs text-slate-500">
+                ({task.task_dir.split("/").pop() || task.task_dir})
+              </span>
+            )}
+          </div>
           <div className="grid gap-4 lg:grid-cols-3">
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="mb-3 flex items-center justify-between">

@@ -613,20 +613,39 @@ def _find_last_capture_relative_path_for_agent(
 
 
 def _find_last_video_relative_path(task_dir: Path) -> str | None:
-    """返回任务目录下最新的视频文件相对路径（例如 page-2025-...Z.webm）。"""
-    page_candidates = sorted(task_dir.glob("page-*.webm"))
-    if page_candidates:
-        best = page_candidates[-1]
-        try:
-            return best.relative_to(task_dir).as_posix()
-        except ValueError:
-            return str(best)
+    """返回任务目录下最新的视频文件相对路径（例如 page-2025-...Z.webm 或 videos/xxx.webm）。
 
-    candidates = list(task_dir.glob("*.webm"))
+    查找优先级：
+    1. 根目录下的 page-*.webm 文件
+    2. 根目录下的 *.webm 文件
+    3. videos/ 子目录下的 *.webm 文件
+    """
+    # 收集所有候选文件
+    candidates: list[Path] = []
+
+    # 1. 优先查找根目录下的 page-*.webm 文件
+    page_candidates = sorted(task_dir.glob("page-*.webm"))
+    candidates.extend(page_candidates)
+
+    # 2. 查找根目录下的其他 *.webm 文件
+    root_candidates = [
+        p for p in task_dir.glob("*.webm") if not p.name.startswith("page-")
+    ]
+    candidates.extend(root_candidates)
+
+    # 3. 查找 videos/ 子目录下的 *.webm 文件
+    videos_dir = task_dir / "videos"
+    if videos_dir.exists() and videos_dir.is_dir():
+        video_files = list(videos_dir.glob("*.webm"))
+        candidates.extend(video_files)
+
     if not candidates:
         return None
 
+    # 选择最新的文件（按修改时间）
     best = max(candidates, key=lambda path: path.stat().st_mtime)
+
+    # 返回相对于 task_dir 的相对路径
     try:
         return best.relative_to(task_dir).as_posix()
     except ValueError:
