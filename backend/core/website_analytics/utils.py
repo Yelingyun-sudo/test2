@@ -24,8 +24,9 @@ LOGS_DIR = PROJECT_ROOT / "logs"
 
 BASE_PLAYWRIGHT_ARGS = (
     "@playwright/mcp@latest",
-    "--browser=chromium",
-    "--executable-path=/Applications/Chromium.app/Contents/MacOS/Chromium",
+    "--browser=chrome",
+    # "--browser=chromium",
+    # "--executable-path=/Applications/Chromium.app/Contents/MacOS/Chromium",
     "--no-sandbox",
     "--isolated",
     "--grant-permissions=clipboard-read,clipboard-write",
