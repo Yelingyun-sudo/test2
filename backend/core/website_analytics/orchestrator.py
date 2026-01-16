@@ -310,8 +310,14 @@ async def execute(
             # 2. 创建绑定了账号的邮箱验证码获取工具
             fetch_email_code_tool = build_fetch_email_code_tool(selected_account)
 
-            # 3. 创建 Cloudflare 绕过工具
-            bypass_cloudflare_tool = build_bypass_cloudflare_tool(playwright_server)
+            # 3. 创建 Cloudflare 绕过工具（根据配置决定是否启用）
+            extra_tools = [fetch_email_code_tool]
+            if settings.cloudflare_bypass_enabled:
+                logger.info("Cloudflare 绕过工具已启用")
+                bypass_cloudflare_tool = build_bypass_cloudflare_tool(playwright_server)
+                extra_tools.append(bypass_cloudflare_tool)
+            else:
+                logger.info("Cloudflare 绕过工具已禁用（通过配置）")
 
             # 4. 创建注册 agent，使用选中账号的信息
             register_agent = build_register_agent(
@@ -323,7 +329,7 @@ async def execute(
                         "{REGISTER_PASSWORD}": selected_account.register_password,
                     },
                 ),
-                extra_tools=[fetch_email_code_tool, bypass_cloudflare_tool],
+                extra_tools=extra_tools,
             )
             extract_agent = build_extract_agent(
                 playwright_server,

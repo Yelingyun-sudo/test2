@@ -59,6 +59,9 @@ class Settings(BaseSettings):
     # 清理缓冲时间（秒），预留给 Playwright 清理和孤儿进程检测的额外时间
     playwright_cleanup_buffer_seconds: int = 120
 
+    # Cloudflare 绕过工具（用于注册流程）
+    cloudflare_bypass_enabled: bool = False
+
     # 取证与截图
     evidence_max_menu_entries: int = 3
     llm_snapshot: bool = True
