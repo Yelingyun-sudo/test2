@@ -34,6 +34,23 @@ CF_CHALLENGE_KEYWORDS = [
 ]
 
 
+def _extract_base_url(url: str) -> str:
+    """从 URL 中提取协议+域名部分（去除路径和 hash）。
+
+    Args:
+        url: 完整 URL
+
+    Returns:
+        base_url，格式为 "scheme://netloc/"
+
+    Examples:
+        "https://www.en-guide.top/#/login" -> "https://www.en-guide.top/"
+        "http://ouucloud.top/register?id=123" -> "http://ouucloud.top/"
+    """
+    parsed = urlparse(url)
+    return f"{parsed.scheme}://{parsed.netloc}/"
+
+
 async def _verify_cookie_with_curl(
     url: str, cf_clearance: str, user_agent: str
 ) -> tuple[bool, str]:
@@ -349,14 +366,25 @@ def build_bypass_cloudflare_tool(
                 ensure_ascii=False,
             )
 
+        # 提取 URL：优先使用脚本返回的 final_url
+        original_url = url
+        final_url = result.get("final_url") or original_url
+        base_url = _extract_base_url(final_url)
+
         logger.info(
             "[调试] 脚本绕过成功：cf_clearance=%s...",
             cf_clearance[:20] if len(cf_clearance) > 20 else cf_clearance,
         )
+        logger.info(
+            "URL 信息 - 原始: %s, 最终: %s, Base: %s",
+            original_url,
+            final_url,
+            base_url,
+        )
 
         # 2. [调试] 用 curl 验证 cookie 是否有效
         curl_valid, curl_status = await _verify_cookie_with_curl(
-            url, cf_clearance, result.get("user_agent", "")
+            base_url, cf_clearance, result.get("user_agent", "")
         )
         if not curl_valid:
             logger.warning(
@@ -365,19 +393,19 @@ def build_bypass_cloudflare_tool(
             )
 
         # 3. 提取域名（用于兜底方案）
-        parsed = urlparse(url)
+        parsed = urlparse(final_url)
         domain = parsed.netloc
         logger.debug("目标域名：%s", domain)
 
         # 4. 注入反检测 JS
         await _inject_stealth_script(playwright_server)
 
-        # 5. 导航到目标 URL
+        # 5. 导航到最终 URL
         try:
-            logger.debug("导航到目标 URL：%s", url)
+            logger.debug("导航到最终 URL：%s", final_url)
             await playwright_server.call_tool(
                 "browser_navigate",
-                {"url": url},
+                {"url": final_url},
             )
             logger.info("导航完成")
 
@@ -417,7 +445,7 @@ def build_bypass_cloudflare_tool(
             {
                 "name": name,
                 "value": value,
-                "url": url,  # 使用 url 而不是 domain（测试程序验证有效）
+                "url": base_url,  # 使用 base_url（仅协议+域名）
                 "path": "/",
                 "secure": True,
                 "httpOnly": False,
@@ -432,8 +460,9 @@ def build_bypass_cloudflare_tool(
                 {"cookies": cookies_to_add},
             )
             logger.info(
-                "成功添加 %d 个 cookies（使用 browser_add_cookies）: %s",
+                "成功添加 %d 个 cookies（使用 browser_add_cookies, base_url=%s）: %s",
                 len(cookies_to_add),
+                base_url,
                 list(all_cookies_dict.keys()),
             )
             cookies_added_via_api = True
@@ -444,8 +473,9 @@ def build_bypass_cloudflare_tool(
                     {"cookies": cookies_to_add},
                 )
                 logger.info(
-                    "成功添加 %d 个 cookies（使用 add_cookies）: %s",
+                    "成功添加 %d 个 cookies（使用 add_cookies, base_url=%s）: %s",
                     len(cookies_to_add),
+                    base_url,
                     list(all_cookies_dict.keys()),
                 )
                 cookies_added_via_api = True
@@ -485,10 +515,10 @@ def build_bypass_cloudflare_tool(
 
         # 9. 刷新页面以应用 cookies
         try:
-            logger.debug("刷新页面以应用 cookies...")
+            logger.debug("刷新页面以应用 cookies（访问 final_url）...")
             await playwright_server.call_tool(
                 "browser_navigate",
-                {"url": url},
+                {"url": final_url},
             )
             logger.info("页面刷新完成")
 
