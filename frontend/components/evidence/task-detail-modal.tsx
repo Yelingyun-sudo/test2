@@ -102,7 +102,7 @@ export function TaskDetailModal({ task, onClose, failureTypeLabel }: TaskDetailM
   } | null>(null);
   const [currentEvidenceIndex, setCurrentEvidenceIndex] = useState(0);
   const [currentAuthIndex, setCurrentAuthIndex] = useState(0);
-  const [currentEvidenceImageUrl, setCurrentEvidenceImageUrl] = useState<string | null>(null);
+  const currentEvidenceImageUrlRef = useRef<string | null>(null);
   const [evidenceImageLoading, setEvidenceImageLoading] = useState(false);
   const [cardEvidenceIndex, setCardEvidenceIndex] = useState(0);
   const [cardEvidenceImageUrls, setCardEvidenceImageUrls] = useState<(string | null)[]>([]);
@@ -536,11 +536,13 @@ export function TaskDetailModal({ task, onClose, failureTypeLabel }: TaskDetailM
     fetchArtifactBlobUrl(task.id, entry.screenshot, controller.signal)
       .then((url) => {
         if (!controller.signal.aborted && url) {
-          // 释放旧的 URL
-          if (currentEvidenceImageUrl) {
-            URL.revokeObjectURL(currentEvidenceImageUrl);
+          // 释放旧的 URL（从 ref 读取）
+          const oldUrl = currentEvidenceImageUrlRef.current;
+          if (oldUrl) {
+            URL.revokeObjectURL(oldUrl);
           }
-          setCurrentEvidenceImageUrl(url);
+          // 更新 ref
+          currentEvidenceImageUrlRef.current = url;
           setViewer((prev) => {
             if (!prev || prev.type !== "image") return prev;
             return {
@@ -564,16 +566,19 @@ export function TaskDetailModal({ task, onClose, failureTypeLabel }: TaskDetailM
     return () => {
       controller.abort();
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentEvidenceIndex, viewer?.type, viewer?.evidenceEntries?.length, task?.id, fetchArtifactBlobUrl]);
 
   // 清理图片 URL
   useEffect(() => {
     return () => {
-      if (currentEvidenceImageUrl) {
-        URL.revokeObjectURL(currentEvidenceImageUrl);
+      const url = currentEvidenceImageUrlRef.current;
+      if (url) {
+        URL.revokeObjectURL(url);
+        currentEvidenceImageUrlRef.current = null;
       }
     };
-  }, [currentEvidenceImageUrl]);
+  }, []); // 空依赖数组，仅在组件卸载时清理
 
   useEffect(() => {
     if (!viewer || viewer.type !== "video") return;
@@ -1045,7 +1050,7 @@ export function TaskDetailModal({ task, onClose, failureTypeLabel }: TaskDetailM
                                 artifactsControllerRef.current?.signal
                               );
                               if (imageUrl) {
-                                setCurrentEvidenceImageUrl(imageUrl);
+                                currentEvidenceImageUrlRef.current = imageUrl;
                                 setViewer({
                                   type: "image",
                                   title: "取证截图",
@@ -1347,7 +1352,7 @@ export function TaskDetailModal({ task, onClose, failureTypeLabel }: TaskDetailM
                   ) : (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={viewer.src ?? currentEvidenceImageUrl ?? ""}
+                      src={viewer.src ?? currentEvidenceImageUrlRef.current ?? ""}
                       alt={viewer.title}
                       className="max-h-[80vh] w-full rounded-xl bg-white object-contain"
                     />
