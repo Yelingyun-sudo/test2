@@ -194,7 +194,7 @@ async def _run_python_bypass(url: str, timeout: int = DEFAULT_BYPASS_TIMEOUT) ->
         "--max-wait",
         "60",
         "--browser",
-        "chromium",
+        "chrome",  # 使用 Google Chrome 而非 Chromium
     ]
 
     logger.info("正在调用 Python 脚本绕过 Cloudflare：%s", url)

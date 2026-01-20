@@ -153,9 +153,38 @@ class CloudflareBypassDocker:
 
         return None  # 返回 None 让 undetected-chromedriver 自动检测
 
+    def _detect_snap_chromium(self, browser_path: str) -> bool:
+        """检测是否为 Snap 包的 Chromium"""
+        try:
+            result = subprocess.run(
+                [browser_path, "--version"], capture_output=True, text=True, timeout=10
+            )
+            return "snap" in result.stdout.lower()
+        except Exception:
+            return False
+
+    def _diagnose_environment(self):
+        """诊断运行环境"""
+        self.logger.info("=== 环境诊断 ===")
+
+        # 检查 DISPLAY
+        display = os.environ.get("DISPLAY")
+        self.logger.info(f"DISPLAY: {display or '未设置'}")
+
+        # 检查用户
+        user = os.environ.get("USER", "unknown")
+        self.logger.info(f"当前用户: {user}")
+        if user == "root":
+            self.logger.warning("以 root 用户运行,确保使用 --no-sandbox")
+
+        self.logger.info("================")
+
     def _setup_driver(self):
         """配置 undetected-chromedriver"""
         self.logger.info("初始化浏览器...")
+
+        # 诊断环境
+        self._diagnose_environment()
 
         options = uc.ChromeOptions()
         options.add_argument("--disable-blink-features=AutomationControlled")
@@ -167,6 +196,13 @@ class CloudflareBypassDocker:
         # Docker 环境特定设置
         options.add_argument("--disable-setuid-sandbox")
 
+        # 新增: 解决 root 环境和 Snap 包问题
+        options.add_argument("--remote-debugging-port=0")  # 避免端口冲突
+        options.add_argument("--disable-features=VizDisplayCompositor")  # Snap 兼容
+        options.add_argument("--disable-backgrounding-occluded-windows")  # 防止后台挂起
+        options.add_argument("--disable-renderer-backgrounding")  # 保持渲染活跃
+        options.add_argument("--disable-background-timer-throttling")  # 防止计时器节流
+
         # 确定使用哪个浏览器
         browser_path = None
 
@@ -174,33 +210,68 @@ class CloudflareBypassDocker:
             # 强制使用 Chromium，自动检测版本
             self.logger.info("使用本地 Chromium")
 
-            # 查找 Chromium 路径
+            # 查找 Chromium 路径(优先级:标准安装 > Snap)
             chromium_paths = [
                 "/Applications/Chromium.app/Contents/MacOS/Chromium",  # macOS
-                "/usr/bin/chromium",  # Linux
-                "/usr/bin/chromium-browser",  # Linux (alternative)
+                "/usr/bin/chromium",  # Linux 标准安装
+                "/usr/bin/chromium-browser",  # Linux (可能是 wrapper)
+                "/snap/bin/chromium",  # Snap 包(最后尝试)
             ]
             chromium_path = None
             for path in chromium_paths:
                 if os.path.exists(path):
+                    # 检查是否为 Snap 包
+                    if self._detect_snap_chromium(path):
+                        self.logger.warning(f"检测到 Snap 包 Chromium: {path}")
+                        self.logger.warning(
+                            "Snap 包可能导致兼容性问题,建议安装 .deb 版本的 Chrome/Chromium"
+                        )
                     chromium_path = path
                     break
 
             if not chromium_path:
                 raise RuntimeError(
-                    "Chromium 未安装，请先安装：brew install --cask chromium"
+                    "Chromium 未安装,请先安装:apt install chromium-browser 或 "
+                    "wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && "
+                    "apt install ./google-chrome-stable_current_amd64.deb"
                 )
+
+            # 关键修复:设置二进制路径
+            options.binary_location = chromium_path
+            self.logger.info(f"设置 Chromium 路径: {chromium_path}")
 
             # 获取 Chromium 版本号
             browser_version = self._get_browser_version(chromium_path)
             if browser_version:
                 self.logger.info(f"检测到 Chromium 版本: {browser_version}")
-                options.binary_location = chromium_path
-                driver = uc.Chrome(options=options, version_main=browser_version)
+                try:
+                    driver = uc.Chrome(options=options, version_main=browser_version)
+                except Exception as e:
+                    self.logger.error(f"启动浏览器失败: {e}")
+                    # 提供诊断信息
+                    if chromium_path and self._detect_snap_chromium(chromium_path):
+                        self.logger.error("检测到使用 Snap 包,这是已知问题")
+                        self.logger.error("解决方案:")
+                        self.logger.error("1. 移除 Snap Chromium: snap remove chromium")
+                        self.logger.error("2. 安装 Google Chrome: wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && apt install ./google-chrome-stable_current_amd64.deb")
+                    if not os.environ.get("DISPLAY"):
+                        self.logger.error("DISPLAY 环境变量未设置")
+                    raise
             else:
                 self.logger.warning("无法获取 Chromium 版本，使用自动检测")
-                options.binary_location = chromium_path
-                driver = uc.Chrome(options=options, version_main=None)
+                try:
+                    driver = uc.Chrome(options=options, version_main=None)
+                except Exception as e:
+                    self.logger.error(f"启动浏览器失败: {e}")
+                    # 提供诊断信息
+                    if chromium_path and self._detect_snap_chromium(chromium_path):
+                        self.logger.error("检测到使用 Snap 包,这是已知问题")
+                        self.logger.error("解决方案:")
+                        self.logger.error("1. 移除 Snap Chromium: snap remove chromium")
+                        self.logger.error("2. 安装 Google Chrome: wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && apt install ./google-chrome-stable_current_amd64.deb")
+                    if not os.environ.get("DISPLAY"):
+                        self.logger.error("DISPLAY 环境变量未设置")
+                    raise
 
             return driver
 
@@ -223,16 +294,37 @@ class CloudflareBypassDocker:
             # 如果找到了 Chrome 路径，获取版本号
             if chrome_path:
                 browser_version = self._get_browser_version(chrome_path)
+                # 关键修复:设置二进制路径
+                options.binary_location = chrome_path
+                self.logger.info(f"设置 Chrome 路径: {chrome_path}")
                 if browser_version:
                     self.logger.info(f"检测到 Chrome 版本: {browser_version}")
-                    driver = uc.Chrome(options=options, version_main=browser_version)
+                    try:
+                        driver = uc.Chrome(options=options, version_main=browser_version)
+                    except Exception as e:
+                        self.logger.error(f"启动浏览器失败: {e}")
+                        if not os.environ.get("DISPLAY"):
+                            self.logger.error("DISPLAY 环境变量未设置")
+                        raise
                 else:
                     self.logger.warning("无法获取 Chrome 版本，使用自动检测")
-                    driver = uc.Chrome(options=options, version_main=None)
+                    try:
+                        driver = uc.Chrome(options=options, version_main=None)
+                    except Exception as e:
+                        self.logger.error(f"启动浏览器失败: {e}")
+                        if not os.environ.get("DISPLAY"):
+                            self.logger.error("DISPLAY 环境变量未设置")
+                        raise
             else:
                 # 没找到路径，让 undetected-chromedriver 自动检测
                 self.logger.info("未找到 Chrome 路径，使用自动检测")
-                driver = uc.Chrome(options=options, version_main=None)
+                try:
+                    driver = uc.Chrome(options=options, version_main=None)
+                except Exception as e:
+                    self.logger.error(f"启动浏览器失败: {e}")
+                    if not os.environ.get("DISPLAY"):
+                        self.logger.error("DISPLAY 环境变量未设置")
+                    raise
 
             return driver
 
@@ -256,22 +348,40 @@ class CloudflareBypassDocker:
             chromedriver_path = os.environ.get("CHROMEDRIVER_PATH")
             if chromedriver_path and os.path.exists(chromedriver_path):
                 self.logger.info(f"使用系统 chromedriver: {chromedriver_path}")
-                driver = uc.Chrome(
-                    options=options,
-                    browser_executable_path=browser_path,
-                    driver_executable_path=chromedriver_path,
-                    version_main=browser_version,
-                )
+                try:
+                    driver = uc.Chrome(
+                        options=options,
+                        browser_executable_path=browser_path,
+                        driver_executable_path=chromedriver_path,
+                        version_main=browser_version,
+                    )
+                except Exception as e:
+                    self.logger.error(f"启动浏览器失败: {e}")
+                    if not os.environ.get("DISPLAY"):
+                        self.logger.error("DISPLAY 环境变量未设置")
+                    raise
             else:
-                driver = uc.Chrome(
-                    options=options,
-                    browser_executable_path=browser_path,
-                    version_main=browser_version,
-                )
+                try:
+                    driver = uc.Chrome(
+                        options=options,
+                        browser_executable_path=browser_path,
+                        version_main=browser_version,
+                    )
+                except Exception as e:
+                    self.logger.error(f"启动浏览器失败: {e}")
+                    if not os.environ.get("DISPLAY"):
+                        self.logger.error("DISPLAY 环境变量未设置")
+                    raise
         else:
             # 默认：让 undetected-chromedriver 自动使用系统 Chrome
             self.logger.info("使用本地 Chrome (默认)")
-            driver = uc.Chrome(options=options, version_main=None)
+            try:
+                driver = uc.Chrome(options=options, version_main=None)
+            except Exception as e:
+                self.logger.error(f"启动浏览器失败: {e}")
+                if not os.environ.get("DISPLAY"):
+                    self.logger.error("DISPLAY 环境变量未设置")
+                raise
 
         return driver
 
