@@ -13,6 +13,7 @@ cd backend
 uv venv --python 3.12
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 uv pip install -e .         # 或 pip install -e .
+npx playwright install ffmpeg
 ```
 
 ## 配置

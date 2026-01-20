@@ -298,3 +298,25 @@ docker build --no-cache -t cloudflare-bypass .
 ```bash
 ./run_bypass.sh https://0109.cave01-s0in7j02.top/ --retry 3 --max-wait 60
 ```
+
+## 测试命令行
+
+```bash
+cloudflare人机验证
+uv run python -m website_analytics.main --instruction '访问 https://0109.cave01-s0in7j02.top/ 注册账号并完成巡检'
+uv run python -m website_analytics.main --instruction '访问 http://ouucloud.top 注册账号并完成巡检'
+uv run python -m website_analytics.main --instruction '访问 https://xn--9kqz23b19z.com 注册账号并完成巡检'
+
+需要邮箱验证码
+uv run python -m website_analytics.main --instruction '访问 https://u.wuhenlink.cc 注册账号并完成巡检'
+
+不需要邮箱验证码 + 邮箱完整
+uv run python -m website_analytics.main --instruction '访问 https://a04.ffvipaffb04.cc 注册账号并登录，最终完成取证'
+uv run python -m website_analytics.main --instruction '访问 https://zsigzoiupqwasdfl.hl-jsq.bond 注册账号并登录，最终完成取证'
+uv run python -m website_analytics.main --instruction '访问 https://a11.qytvipaffa01.cc 注册账号并登录，最终完成取证'
+
+不需要邮箱验证码 + 邮箱前缀
+uv run python -m website_analytics.main --instruction '访问 http://www.yueqianvpn.com 注册账号并登录，最终完成取证'
+uv run python -m website_analytics.main --instruction '登录 https://a11.qytvipaffa01.cc 用户名和密码分别是 wangqian674@163.com 和 test1234，并完成取证'
+uv run python -m website_analytics.main --instruction '访问 https://a04.ffvipaffb04.cc 注册账号并登录，最终完成取证'
+```bash
