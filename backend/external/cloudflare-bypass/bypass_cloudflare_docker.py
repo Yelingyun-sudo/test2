@@ -13,6 +13,7 @@ import argparse
 import json
 import os
 import random
+import subprocess
 import sys
 import time
 from dataclasses import dataclass, field
@@ -132,8 +133,6 @@ class CloudflareBypassDocker:
 
     def _get_browser_version(self, browser_path: str) -> int:
         """获取浏览器主版本号"""
-        import subprocess
-
         try:
             result = subprocess.run(
                 [browser_path, "--version"], capture_output=True, text=True, timeout=10
@@ -253,7 +252,9 @@ class CloudflareBypassDocker:
                         self.logger.error("检测到使用 Snap 包,这是已知问题")
                         self.logger.error("解决方案:")
                         self.logger.error("1. 移除 Snap Chromium: snap remove chromium")
-                        self.logger.error("2. 安装 Google Chrome: wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && apt install ./google-chrome-stable_current_amd64.deb")
+                        self.logger.error(
+                            "2. 安装 Google Chrome: wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && apt install ./google-chrome-stable_current_amd64.deb"
+                        )
                     if not os.environ.get("DISPLAY"):
                         self.logger.error("DISPLAY 环境变量未设置")
                     raise
@@ -268,7 +269,9 @@ class CloudflareBypassDocker:
                         self.logger.error("检测到使用 Snap 包,这是已知问题")
                         self.logger.error("解决方案:")
                         self.logger.error("1. 移除 Snap Chromium: snap remove chromium")
-                        self.logger.error("2. 安装 Google Chrome: wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && apt install ./google-chrome-stable_current_amd64.deb")
+                        self.logger.error(
+                            "2. 安装 Google Chrome: wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && apt install ./google-chrome-stable_current_amd64.deb"
+                        )
                     if not os.environ.get("DISPLAY"):
                         self.logger.error("DISPLAY 环境变量未设置")
                     raise
@@ -300,7 +303,9 @@ class CloudflareBypassDocker:
                 if browser_version:
                     self.logger.info(f"检测到 Chrome 版本: {browser_version}")
                     try:
-                        driver = uc.Chrome(options=options, version_main=browser_version)
+                        driver = uc.Chrome(
+                            options=options, version_main=browser_version
+                        )
                     except Exception as e:
                         self.logger.error(f"启动浏览器失败: {e}")
                         if not os.environ.get("DISPLAY"):

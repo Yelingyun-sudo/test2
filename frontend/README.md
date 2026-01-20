@@ -11,8 +11,10 @@
 cd frontend
 pnpm install          # 或 npm/yarn
 pnpm dev              # 开发
-pnpm build            # 构建
 pnpm lint             # 代码检查
+
+pnpm build            # 构建
+pnpm start
 ```
 
 ## 环境变量
