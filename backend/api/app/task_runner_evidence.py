@@ -1,5 +1,13 @@
 from __future__ import annotations
-
+"""这个就是取证任务执行器"""
+"""核心职责是：不断地从数据库中领取“待处理”的任务，驱动浏览器去完成登录、截图、取证等操作，并把最终的结果写回数据库。"""
+"""
+整个文件分为三层：
+1. 指令与结果处理层（辅助函数）
+2. 数据库状态管理层（状态流转）
+3. 核心执行层（工匠干活）
+4. 调度与并发控制层（工头调度）
+"""
 import asyncio
 import logging
 from datetime import datetime, timezone
@@ -18,7 +26,8 @@ from .models import EvidenceTask
 
 logger = logging.getLogger(__name__)
 
-
+# 构建任务指令字符串
+# 作用：把数据库里的任务记录翻译成发给 AI Agent 的自然语言指令。
 def _build_instruction(task: EvidenceTask) -> str:
     """构建证据任务执行指令。
 
@@ -31,7 +40,8 @@ def _build_instruction(task: EvidenceTask) -> str:
     else:
         return f"访问 {task.url} 注册账号并登录，最终完成取证"
 
-
+# 从执行结果提取成功信息
+# 作用：AI Agent 干完活会返回一大堆复杂的 JSON 数据，这两个函数负责从中提炼出人类能看懂的简报。
 def _extract_success_result(exec_result: ExecutionResult | None) -> str:
     """从 ExecutionResult 提取成功结果（取证摘要）。
 
@@ -96,13 +106,20 @@ def _extract_success_result(exec_result: ExecutionResult | None) -> str:
     except Exception as exc:  # pragma: no cover - 防御性处理
         return f"解析任务结果失败: {exc}"
 
-
+# 从执行结果提取失败信息
+"""
+当任务执行失败时可能会有各种错误来源，按照优先级顺序，从这些杂乱的信息中“挖掘”出最有价值的错误原因，最终返回一个清晰的字符串给用户或日志。
+第一优先级：协调器的输出消息（最详细）
+第二优先级：执行结果对象的默认消息（次详细） 尝试直接读取 exec_result.message 属性。这通常是执行框架自带的错误摘要。
+第三优先级：Python 异常信息（兜底信息）
+"""
 def _extract_failure_result(
     exec_result: ExecutionResult | None,
     exc: Exception | None = None,
 ) -> str:
     """从 ExecutionResult 提取失败结果信息。"""
     # 优先使用 ExecutionResult 中的消息
+    # 如果执行结果对象 exec_result 存在，并且里面有 coordinator_output（通常是字典类型的详细输出），它就尝试从中提取 message 字段。
     if exec_result and exec_result.coordinator_output:
         try:
             message = exec_result.coordinator_output.get("message")
@@ -124,7 +141,23 @@ def _extract_failure_result(
 
     return "任务失败，未提供错误信息"
 
-
+# 格式化失败类型
+"""
+给失败任务贴标签
+上一个函数 _extract_failure_result 是为了弄清楚“发生了什么具体事”（详细的错误日志），那么这个函数就是为了弄清楚“这属于哪一类问题”（分类标签）。
+核心逻辑：三层判定顺序
+第一优先级：执行超时
+第二优先级：业务层错误
+    判定：如果没有超时，任务正常跑完了，但是结果判定为失败。
+    逻辑：去 coordinator_output（协调器输出）里找 error_type 字段。
+    价值：这是最宝贵的错误信息。
+    比如你的 AI 任务跑完后，发现“网页登录失败”，它会在结果里填 error_type: "login_failed"。
+    或者“网页打不开”，填 error_type: "page_unreachable"。
+    这能让用户精准知道是业务流程的哪一步出了问题，而不是只看到一个模糊的“未知错误”。
+第三优先级：兜底分类
+    判定：既没超时，执行结果里也没有明确的 error_type。
+    逻辑：统一归类为 "unknown_error"。
+"""
 def _format_failure_type(
     exc: Exception | None,
     timed_out: bool,
@@ -149,7 +182,8 @@ def _format_failure_type(
     # 统一为 unknown_error，异常详情在 result 字段中
     return "unknown_error"
 
-
+# 提取注册得到的账号密码
+"""作用：这是一个非常贴心的功能。如果任务是因为“没有账号”而自动注册的，它会从执行结果里把新注册的账号密码抠出来。"""
 def _extract_credentials(
     exec_result: ExecutionResult | None,
 ) -> tuple[str | None, str | None]:
@@ -181,7 +215,8 @@ def _extract_credentials(
 
     return None, None
 
-
+# 更新任务状态为 RUNNING
+"""作用：抢到任务后，先把状态改成 RUNNING，锁住这个任务，防止被其他进程重复执行。"""
 def _mark_running(db: Session, task: EvidenceTask) -> None:
     task.status = TaskStatus.RUNNING
     task.executed_at = datetime.now(timezone.utc)
@@ -189,7 +224,11 @@ def _mark_running(db: Session, task: EvidenceTask) -> None:
     db.commit()
     db.refresh(task)
 
-
+# 更新任务为成功状态
+"""
+作用：任务结束后，更新最终状态。
+细节：不仅记录成功或失败，还记录了耗时（duration）、失败原因（failure_type）、Token 消耗（llm_usage），甚至会把刚才提取到的新账号密码回填进数据库。
+"""
 def _update_task_success(
     db: Session,
     task: EvidenceTask,
@@ -217,7 +256,7 @@ def _update_task_success(
     db.add(task)
     db.commit()
 
-
+# 更新任务为失败状态
 def _update_task_failure(
     db: Session,
     task: EvidenceTask,
@@ -246,7 +285,7 @@ def _update_task_failure(
     db.add(task)
     db.commit()
 
-
+# 从数据库查询 PENDING 状态的任务
 def _get_pending_batch(db: Session, limit: int = 1) -> list[EvidenceTask]:
     return (
         db.query(EvidenceTask)
@@ -277,7 +316,16 @@ def _get_running_batch_before(
         .all()
     )
 
-
+#核心执行层
+# 执行单个任务的核心函数
+# 由async def process_once调用
+"""
+流程：
+超时控制：设置了一个总超时时间（包含清理浏览器的时间），防止任务无限卡死。
+调用大脑：调用 run_single_instruction_async，这通常是启动 Playwright 浏览器、连接 LLM 进行决策的核心入口。
+结果回写：根据执行结果调用前面的 _update_task_... 函数更新数据库。
+容错性：哪怕任务失败了，它也会尝试保存已经注册好的账号密码，防止资源浪费。
+"""
 async def _run_task(task_id: int, instruction: str) -> None:
     settings = get_settings()
     start_time = datetime.now(timezone.utc)
@@ -369,7 +417,20 @@ async def _run_task(task_id: int, instruction: str) -> None:
     finally:
         db.close()
 
-
+# 4. 调度与并发控制层（工头调度）
+# 这是整个文件最精妙的部分，负责管理并发和任务分发
+# 单次调度：查询并标记任务
+"""作用：它是“工头”，负责从任务池（数据库）里捞活。"""
+"""
+恢复机制：
+    它有一个 recovering（恢复模式）逻辑。程序刚启动时，它会先查有没有上次意外中断导致状态卡在 RUNNING 的“僵尸任务”。
+    如果有，优先重跑这些僵尸任务（数据恢复）。
+    如果没有，才去捞 PENDING 的新任务。
+并发控制：
+    它接收一个 semaphore（信号量）。
+    捞到任务后，它不会傻等任务做完，而是用 asyncio.create_task 把任务扔后台跑（异步非阻塞），然后立刻结束，准备下一次调度。这保证了调度器永远不会被具体的任务卡住。
+"""
+"""process_once调用_run_task"""
 async def process_once(
     semaphore: asyncio.Semaphore,
     *,
@@ -413,7 +474,12 @@ async def process_once(
 
     return recovering
 
-
+# 主循环：每隔 N 秒检查并调度任务
+"""作用：程序的入口，一个永不停止的 while True 循环。"""
+"""
+资源管理：它创建了一个 Semaphore（信号量），比如设置最大并发数为 3。这意味着哪怕数据库里有 100 个任务，同时跑的也只有 3 个，保护你的电脑不被挤爆。
+节奏控制：每次循环睡几秒（interval），避免疯狂查询数据库浪费资源。
+"""
 async def run_evidence_runner_loop() -> None:
     settings = get_settings()
     interval = max(1, settings.task_runner_interval_seconds)

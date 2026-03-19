@@ -99,7 +99,7 @@ def get_account_manager() -> EmailAccountManager:
         _manager = EmailAccountManager(config_file)
     return _manager
 
-
+# 随机选择邮箱账号用于注册
 def get_random_email_account() -> EmailAccount | None:
     """获取随机邮箱账号（便捷函数）
 

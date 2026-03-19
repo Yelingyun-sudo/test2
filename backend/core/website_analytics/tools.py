@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
+# 创建保存页面文本工具
 def build_save_page_text_tool(task_dir: Path) -> Tool:
     evidence_dir = task_dir / "evidence"
     evidence_dir.mkdir(parents=True, exist_ok=True)
@@ -88,6 +88,26 @@ def build_save_entry_result_tool(task_dir: Path) -> Tool:
 
     return save_entry_result
 
+# 创建取证报告工具
+# 它的核心作用是：扫描所有搜集到的证据文件，生成一份人类可读的 Markdown 格式取证报告。
+"""1. 核心工作流程
+这个工具的逻辑非常清晰，就像整理档案一样：
+
+收集素材：
+它会去 evidence 目录下找所有的 .json 文件（这是上一个工具生成的每一条取证记录）。它会自动忽略已经生成的 report.json，确保只处理原始数据。
+校验与核查：
+这一步非常关键，它不仅是汇总，还在做“质检”：
+读取每个 JSON 文件，看里面的状态是成功还是失败。
+核对实物：JSON 里说有截图，它真的会去检查那个截图文件存不存在；说有文本快照，也会检查文件在不在。
+如果发现“账实不符”（比如 JSON 说成功，但截图文件丢了），会记录为异常。
+智能命名：
+它会尝试读取 evidenceEntryList.txt 来获取菜单的标准名称。如果这个文件不存在（可能上一步跑丢了），它也很聪明，会直接从文件名里提取名称（比如把 01_user_profile.json 解析为 user profile），绝不耽误干活。
+生成报告：
+它会生成一个格式非常漂亮的 Markdown 文件（默认叫 report.md），内容结构包括：
+统计概览：总共取证多少个，成功多少，失败多少，以及生成时间。
+总览表格：一目了然地列出所有入口的名称、状态、以及查看链接。
+详细记录：每个入口单独一个章节，直接把截图嵌入进去（Markdown 语法），方便你在阅读报告时直接看图。
+附录：列出了所有处理过的文件，以及具体的报错原因（比如哪个文件缺截图，哪个 JSON 解析失败）。"""
 
 def build_compile_evidence_report_tool(task_dir: Path) -> Tool:
     evidence_dir = task_dir / "evidence"
@@ -488,7 +508,23 @@ def _find_ref_by_label(snapshot_text: str, label: str) -> str | None:
 
     return None
 
+"""2. 工作流程（八步走）
+这个工具被调用时，会按顺序执行以下步骤：
 
+环境准备：在指定目录下创建一个 evidence 文件夹，专门用来存放证据。
+获取快照：通过 playwright_server 获取当前网页的 DOM 快照，看看页面上有哪些按钮和菜单。
+寻找目标：根据传入的 entry_label（菜单名称），在快照里找对应的按钮。如果找不到，直接记录失败并退出。
+模拟点击：找到了就自动调用 browser_click 点击这个菜单。
+智能等待：这是一个亮点。它不会傻傻地等固定时间，而是循环检查：
+        菜单还在不在？
+        页面元素够不够多（防止空白页）？
+        页面元素是不是稳定了（防止还在加载中）？
+        最多等 4 秒，超时也不报错，直接进行下一步（容错性很好）。
+全屏截图：页面稳住后，自动截图保存为 PNG。
+提取文本：抓取网页的 innerText（纯文本内容），并清理掉调试用的干扰字符，保存为 TXT。
+生成报告：最后生成一个 JSON 文件，记录这次操作是成功还是失败，以及截图和文本的路径。
+"""
+# 创建程序化取证入口工具
 def build_programmatic_evidence_entry_tool(
     task_dir: Path,
     playwright_server: Any,
@@ -916,7 +952,7 @@ def _parse_email_date(msg: email.message.Message) -> datetime | None:
     except (ValueError, TypeError, AttributeError):
         return None
 
-
+# 构建邮箱验证码获取工具
 def build_fetch_email_code_tool(account: "EmailAccount") -> Tool:
     """创建邮箱验证码获取工具（真实 IMAP 实现）。
 

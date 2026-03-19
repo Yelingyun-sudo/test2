@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(sqlite3:*)",
+      "Bash(apt list:*)",
+      "Bash(sudo apt-get:*)"
+    ]
+  }
+}

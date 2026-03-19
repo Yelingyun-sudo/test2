@@ -3,7 +3,7 @@
   "python.defaultInterpreterPath": "${workspaceFolder}/backend/.venv/bin/python",
   
   // 启用 Pylance LSP
-  "python.languageServer": "None",
+  "python.languageServer": "Jedi",
   
   // 完整的导入路径配置
   "python.analysis.extraPaths": [

@@ -1,4 +1,5 @@
 from __future__ import annotations
+"""SQLAlchemy 模型，定义表结构"""
 
 from datetime import datetime
 

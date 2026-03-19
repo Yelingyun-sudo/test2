@@ -21,7 +21,7 @@ sys.path.insert(0, str(ROOT / "core"))
 
 from website_analytics.settings import get_settings  # noqa: E402
 
-
+# 解析命令行参数
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=__doc__,
@@ -62,7 +62,7 @@ def parse_args() -> argparse.Namespace:
         sys.exit(0)
     return args
 
-
+# 从 JSONL 文件加载任务数据
 def load_records(data_path: Path):
     """从 JSONL 文件加载记录"""
     if not data_path.exists():
@@ -80,7 +80,7 @@ def load_records(data_path: Path):
                 print(f"⚠️  第 {line_no} 行 JSON 解析失败: {exc}")
                 continue
 
-
+# 创建 KafkaProducer 实例
 def create_producer(settings) -> KafkaProducer:
     """创建 Kafka producer"""
     return KafkaProducer(
@@ -92,7 +92,7 @@ def create_producer(settings) -> KafkaProducer:
         value_serializer=lambda v: json.dumps(v).encode("utf-8"),
     )
 
-
+# 主函数：验证记录、批量发送任务到 Kafka
 def main() -> None:
     args = parse_args()
     settings = get_settings()

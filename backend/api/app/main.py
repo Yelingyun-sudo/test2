@@ -77,6 +77,7 @@ LOGGING_CONFIG = {
 logging.config.dictConfig(LOGGING_CONFIG)
 
 
+# FastAPI 启动时初始化 run_evidence_runner_loop
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()

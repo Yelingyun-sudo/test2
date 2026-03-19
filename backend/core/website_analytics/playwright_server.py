@@ -57,7 +57,7 @@ def _parse_open_tabs(text: str) -> list[TabInfo]:
 
     return tabs
 
-
+# 上下文管理器，启动/管理 Playwright
 class AutoSwitchingPlaywrightServer(MCPServerStdio):
     """Playwright MCP server that auto-selects newly opened or active tabs.
 

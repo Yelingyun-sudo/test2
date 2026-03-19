@@ -1,5 +1,6 @@
 import type { LLMUsage, PaginatedListResponse } from "./common";
 
+// 、对应数据库中的一条取证任务记录，也是列表页展示的一行数据。
 export type EvidenceItem = {
   id: number;
   url: string;
@@ -15,12 +16,15 @@ export type EvidenceItem = {
   llm_usage?: LLMUsage | null;
 };
 
+// 定义单个取证条目的细节。
 export type EvidenceEntryDetail = {
   json: string;
+  // 截图文件路径
   screenshot: string;
   text: string;
 };
 
+// 定义任务产出的文件资源清单。
 export type TaskArtifacts = {
   register_image_path: string | null;
   login_image_path: string | null;

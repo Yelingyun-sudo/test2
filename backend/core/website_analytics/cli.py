@@ -68,7 +68,7 @@ def _read_batch_file(file_path: Path) -> list[str]:
         print(f"错误：读取文件失败 - {exc}", file=sys.stderr)
         raise SystemExit(1) from exc
 
-
+# CLI 主入口（命令行模式）
 def main() -> None:
     # 配置日志级别为 INFO，确保调试信息可见
     logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -108,7 +108,7 @@ def main() -> None:
         print(f"执行失败：{exc}", file=sys.stderr)
         raise SystemExit(2) from exc
 
-
+# 同步执行入口，CLI 使用
 def run_single_instruction(
     instruction: str, *, headless: bool = False
 ) -> ExecutionResult:
@@ -124,7 +124,7 @@ def run_single_instruction(
         )
     )
 
-
+# 异步执行入口，供调度器调用
 async def run_single_instruction_async(
     instruction: str, *, headless: bool = False
 ) -> ExecutionResult:

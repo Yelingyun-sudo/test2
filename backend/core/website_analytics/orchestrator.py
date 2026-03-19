@@ -32,14 +32,14 @@ from website_analytics.batch_reporter import (
     print_batch_summary,
     print_task_complete,
     print_task_start,
-    save_task_summary,
+    save_task_summary, ##
 )
 from website_analytics.cloudflare_bypass import build_bypass_cloudflare_tool
 from website_analytics.filters import build_call_model_input_filter
 from website_analytics.formatter import format_execution_result
 from website_analytics.llm_logging import LLMTranscriptLoggerHooks
 from website_analytics.output_types import ErrorType, OperationType
-from website_analytics.playwright_server import AutoSwitchingPlaywrightServer
+from website_analytics.playwright_server import AutoSwitchingPlaywrightServer #上下文管理器，启动/管理 Playwright
 from website_analytics.settings import get_settings
 from website_analytics.tools import (
     build_compile_evidence_report_tool,
@@ -50,12 +50,16 @@ from website_analytics.tools import (
 from website_analytics.utils import (
     LOGS_DIR,
     build_playwright_args,
-    generate_task_directory,
+    generate_task_directory, #生成任务目录（backend/logs/{task_i
     load_instruction,
     to_project_relative,
 )
 
-
+"""
+作用：最终任务输出标准格式
+包含：是否成功、退出码、任务目录、AI 输出、Token 消耗
+提供 message 属性：安全提取用户提示信息
+"""
 @dataclass
 class ExecutionResult:
     success: bool
@@ -71,7 +75,11 @@ class ExecutionResult:
             return self.coordinator_output["message"]
         return "无输出信息"
 
-
+"""
+作用：统计 AI 大模型 Token 消耗
+统计项：输入 / 输出 / 缓存 / 推理 Token、总调用次数
+提供 to_dict()：转为 JSON 可存储格式
+"""
 @dataclass
 class LLMUsageStats:
     """LLM token 使用统计（运行时累加）。"""
@@ -108,7 +116,11 @@ class LLMUsageStats:
 
         return result
 
-
+"""
+作用：任务全局上下文，贯穿整个执行过程
+存储：任务目录、ID、指令、开始时间、Token 统计
+让所有代理 / 工具都能访问任务公共信息
+"""
 @dataclass
 class TaskContext:
     """任务执行上下文，贯穿整个任务生命周期。"""
@@ -131,6 +143,7 @@ class TaskContext:
 settings = get_settings()
 
 # Playwright 工具白名单配置
+#注册代理工具白名单，只允许5个浏览器操作，目的是安全加固，防止注册AI执行危险操作
 # registerAgent 只能使用指令中明确提到的 5 个核心工具
 REGISTER_AGENT_ALLOWED_TOOLS = {
     "browser_navigate",  # 访问 URL
@@ -140,7 +153,12 @@ REGISTER_AGENT_ALLOWED_TOOLS = {
     "browser_press_key",  # 按键提交
 }
 
-
+"""
+normalize_error_type + _infer_error_type_from_operations
+统一错误类型格式化
+从子任务失败中自动推断错误原因
+让错误报告标准化、易排查
+"""
 def _normalize_error_type(value: Any) -> str | None:
     """将任意输入规范化为合法的 ErrorType 字符串值。"""
     if value is None:
@@ -176,7 +194,14 @@ def _infer_error_type_from_operations(output: dict[str, Any]) -> str | None:
 
     return None
 
+# _playwright_tool_filter（核心安全函数）
 
+"""
+这是全局工具权限过滤器
+全局黑名单：屏蔽危险工具（执行任意代码、处理系统弹窗）
+注册代理白名单：仅允许 5 个基础操作
+其他代理：放行所有合法工具
+"""
 async def _playwright_tool_filter(context: ToolFilterContext, tool) -> bool:
     """屏蔽特定的 Playwright 工具（黑名单 + 白名单）。
 
@@ -210,7 +235,41 @@ async def _playwright_tool_filter(context: ToolFilterContext, tool) -> bool:
     # 其他 Agent 允许所有工具（除全局黑名单外）
     return True
 
-
+# 核心主函数，协调整个流程
+# 这是整个文件的入口与核心，接收指令 → 执行全流程 → 返回结果。
+#使用 Runner.run() 运行 coordinatorAgent
+"""
+执行流程（分步拆解）
+1初始化任务环境
+    创建任务目录（存放日志、截图、视频、报告）
+    开启日志、配置 AI 钩子
+2启动浏览器服务
+    用 Playwright 启动受控浏览器
+    加载工具过滤、视频录制、截图功能
+3加载账号与工具
+    随机选取一个邮箱账号
+    加载：验证码获取、Cloudflare 绕过、取证、保存文本工具
+4创建 5 个 AI 子代理
+    login_agent：登录网站
+    register_agent：注册账号（严格权限控制）
+    extract_agent：提取网站数据
+    evidence_agent：自动取证、生成报告
+    coordinator_agent：总指挥，调度前 4 个代理
+5运行总指挥代理
+    执行最大 50 轮 AI 思考
+    传入指令、上下文、钩子、配置
+    全自动完成注册→登录→提取→取证
+6结果格式化
+    统一成功 / 失败状态
+    自动绑定截图、视频、报告路径
+    统计 Token 消耗
+7异常捕获
+    任何错误都会被捕获
+    生成标准失败结果
+    记录日志与报告
+8返回最终结果
+    前端 / 调用方直接使用结构化结果
+"""
 async def execute(
     instruction: str,
     *,
@@ -561,7 +620,8 @@ async def execute(
 
 _CAPTURE_PREFIX_RE = re.compile(r"^(?P<seq>\\d+)-")
 
-
+# 查找截图路径
+# 查找任务目录中最后一张截图，用于报告封面
 def _find_last_capture_relative_path(task_dir: Path) -> str | None:
     """返回任务目录下最后一次 capture 的相对路径（例如 captures/004-xxx.png）。"""
     captures_dir = task_dir / "captures"
@@ -618,6 +678,7 @@ def _find_last_capture_relative_path_for_agent(
         return str(best)
 
 
+# 查找自动化过程的录屏文件
 async def _find_video_with_retry(
     task_dir: Path,
     max_retries: int = 5,
@@ -693,7 +754,7 @@ def _find_last_video_relative_path(task_dir: Path) -> str | None:
 
 _EVIDENCE_ENTRY_PREFIX_RE = re.compile(r"^(?P<index>\d{2})_(?P<label>.+)$")
 
-
+# 扫描取证目录，收集所有取证条目（文本 + 截图）
 def _scan_evidence_entries(task_dir: Path) -> list[dict[str, str]]:
     """扫描 evidence 目录，收集所有入口的文件路径。
 
@@ -757,6 +818,7 @@ def _scan_evidence_entries(task_dir: Path) -> list[dict[str, str]]:
     return result
 
 
+# 保存任务总结 JSON，用于批量报告与复盘
 def _save_single_task_summary(
     context: TaskContext,
     result: ExecutionResult,

@@ -54,6 +54,7 @@ router = APIRouter(
 )
 
 
+# 分页查询取证任务列表
 @router.get(
     "/list",
     response_model=EvidenceListResponse,
@@ -156,6 +157,7 @@ class TaskArtifacts(BaseModel):
     video_seek_seconds: float | None
 
 
+# 获取任务产物元信息
 @router.get(
     "/{task_id}/artifacts",
     response_model=TaskArtifacts,
@@ -221,6 +223,7 @@ def get_task_artifacts(
         raise HTTPException(status_code=500, detail=f"解析任务摘要失败: {str(e)}")
 
 
+# 获取具体产物文件（截图/视频）
 @router.get(
     "/{task_id}/artifact",
     summary="获取任务产物文件内容（截图、视频）",
@@ -307,9 +310,23 @@ def _build_evidence_item(rec: EvidenceTask, _format_dt: Callable) -> EvidenceIte
     return build_task_item(rec, EvidenceItem, _format_dt)
 
 
+
+┌──────────────────┬──────────────────────┬─────────────────────────┐
+│      Agent       │      提示词文件       │           功能          │
+├──────────────────┼──────────────────────┼─────────────────────────┤
+│ coordinatorAgent │ coordinator_agent.md │ 流程协调，调度其他 Agent │
+├──────────────────┼──────────────────────┼─────────────────────────┤
+│ registerAgent    │ register_agent.md    │ 自动注册账号             │
+├──────────────────┼──────────────────────┼─────────────────────────┤
+│ loginAgent       │ login_agent.md       │ 登录已有账号             │
+├──────────────────┼──────────────────────┼─────────────────────────┤
+│ evidenceAgent    │ evidence_agent.md    │ 网站菜单取证             │
+├──────────────────┼──────────────────────┼─────────────────────────┤
+│ extractAgent     │ extract_agent.md     │ 提取订阅链接             │
+└──────────────────┴──────────────────────┴─────────────────────────┘
 # ===== 专用统计端点 =====
 
-
+# 获取汇总统计
 @router.get(
     "/stats/summary",
     response_model=SummaryResponse,
