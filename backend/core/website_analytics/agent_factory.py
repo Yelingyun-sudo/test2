@@ -14,6 +14,7 @@ from website_analytics.output_types import (
     ExtractOutput,
     LoginOutput,
     OperationType,
+    PaymentOutput,
     RegisterOutput,
 )
 from website_analytics.settings import get_settings
@@ -25,11 +26,12 @@ async def extract_structured_output(result: RunResult) -> str:
     """提取 agent 的结构化输出并序列化为 JSON。
 
     适用于所有具有结构化输出的 subagent。
+    使用 model_dump(mode='json') 确保只包含定义的字段，且值是 JSON 兼容的。
     """
     if hasattr(result.final_output, "model_dump"):
-        # Pydantic model
+        # Pydantic model - 使用 mode='json' 只序列化定义的字段
         return json.dumps(
-            result.final_output.model_dump(), ensure_ascii=False, indent=2
+            result.final_output.model_dump(mode="json"), ensure_ascii=False, indent=2
         )
     return str(result.final_output)
 
@@ -92,11 +94,29 @@ def build_evidence_agent(
     )
 
 
+####新增的支付代理
+def build_payment_agent(
+    playwright_server: MCPServerStdio,
+    instructions: str,
+    extra_tools: Sequence[Tool] | None = None,
+) -> Agent:
+    """构建支付代理，用于提取支付二维码。"""
+    return Agent(
+        name="paymentAgent",
+        instructions=instructions,  # 加载 payment_agent.md 的指令
+        tools=[*extra_tools] if extra_tools else [],  # 添加支付截图等额外工具
+        mcp_servers=[playwright_server],  # Playwright 浏览器控制能力
+        model=settings.agent_model,  # 使用的 LLM 模型
+        output_type=AgentOutputSchema(PaymentOutput, strict_json_schema=False),
+    )
+
+
 def build_coordinator_agent(
     login_agent: Agent,
     register_agent: Agent,
     extract_agent: Agent,
     evidence_agent: Agent,
+    payment_agent: Agent,
     coordinator_instructions: str,
     child_hooks: RunHooks | None = None,
     run_config: RunConfig | None = None,
@@ -131,6 +151,14 @@ def build_coordinator_agent(
             tool_name=OperationType.EXTRACT.value,
             tool_description="在已登录状态下提取订阅链接。",
             max_turns=25,
+            hooks=child_hooks,
+            run_config=run_config,
+            custom_output_extractor=extract_structured_output,
+        ),
+        payment_agent.as_tool(
+            tool_name=OperationType.PAYMENT.value,
+            tool_description="在已登录状态下进入支付页面并提取支付二维码。",
+            max_turns=30,
             hooks=child_hooks,
             run_config=run_config,
             custom_output_extractor=extract_structured_output,

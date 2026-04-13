@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { ChevronDown, ChevronUp, List, CheckSquare, ListChecks, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronUp, List, CheckSquare, ListChecks, CreditCard, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -14,13 +14,15 @@ import { formatDateTime, formatDurationSeconds } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
 import { TaskDetailModal as EvidenceTaskDetailModal } from "@/components/evidence/task-detail-modal";
 import { TaskDetailModal as SubscriptionTaskDetailModal } from "@/components/subscription/task-detail-modal";
+import { TaskDetailModal as PaymentTaskDetailModal } from "@/components/payment/task-detail-modal";
 import type { EvidenceItem } from "@/types/evidence";
 import type { SubscriptionItem } from "@/types/subscription";
+import type { PaymentItem } from "@/types/payment";
 import { STATUS_LABELS, STATUS_STYLES, type TaskStatus } from "@/types/common";
 
 interface RecentTask {
   id: number;
-  module: "evidence" | "subscription";
+  module: "evidence" | "subscription" | "payment";
   moduleLabel: string;
   status: string;
   url: string;
@@ -33,20 +35,22 @@ interface RecentTask {
 interface RecentTasksListProps {
   evidenceTasks: EvidenceItem[];
   subscriptionTasks: SubscriptionItem[];
+  paymentTasks: PaymentItem[];
   failureTypeLabel?: Record<string, string>;
 }
 
 export function RecentTasksList({
   evidenceTasks,
   subscriptionTasks,
+  paymentTasks,
   failureTypeLabel = {}
 }: RecentTasksListProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [selectedTaskType, setSelectedTaskType] = useState<string>("all");
   const [selectedTaskStatus, setSelectedTaskStatus] = useState<string>("all");
   const [selectedTask, setSelectedTask] = useState<{
-    type: "evidence" | "subscription";
-    task: EvidenceItem | SubscriptionItem;
+    type: "evidence" | "subscription" | "payment";
+    task: EvidenceItem | SubscriptionItem | PaymentItem;
   } | null>(null);
 
   // 合并任务并添加模块标识
@@ -73,23 +77,34 @@ export function RecentTasksList({
         duration_seconds: task.duration_seconds || null,
         result: task.result || null,
         failure_type: task.failure_type || null
+      })),
+      ...paymentTasks.map((task) => ({
+        id: task.id,
+        module: "payment" as const,
+        moduleLabel: "支付链接任务",
+        status: task.status,
+        url: task.url,
+        executed_at: task.executed_at || null,
+        duration_seconds: task.duration_seconds || null,
+        result: task.result || null,
+        failure_type: task.failure_type || null
       }))
     ]
       .sort((a, b) => {
         // 按执行时间排序，执行中的任务优先
         if (a.status === "RUNNING" && b.status !== "RUNNING") return -1;
         if (a.status !== "RUNNING" && b.status === "RUNNING") return 1;
-        
+
         // 按执行时间倒序
         if (a.executed_at && b.executed_at) {
           return new Date(b.executed_at).getTime() - new Date(a.executed_at).getTime();
         }
         if (a.executed_at) return -1;
         if (b.executed_at) return 1;
-        
+
         return b.id - a.id;
       });
-  }, [evidenceTasks, subscriptionTasks]);
+  }, [evidenceTasks, subscriptionTasks, paymentTasks]);
 
   // 应用过滤条件
   const mergedTasks: RecentTask[] = useMemo(() => {
@@ -97,12 +112,7 @@ export function RecentTasksList({
 
     // 任务类型过滤
     if (selectedTaskType !== "all") {
-      if (selectedTaskType === "payment") {
-        // 支付链接任务目前无数据，返回空数组
-        filtered = [];
-      } else {
-        filtered = filtered.filter((task) => task.module === selectedTaskType);
-      }
+      filtered = filtered.filter((task) => task.module === selectedTaskType);
     }
 
     // 任务状态过滤
@@ -119,10 +129,15 @@ export function RecentTasksList({
       if (evidenceTask) {
         setSelectedTask({ type: "evidence", task: evidenceTask });
       }
-    } else {
+    } else if (task.module === "subscription") {
       const subscriptionTask = subscriptionTasks.find((t) => t.id === task.id);
       if (subscriptionTask) {
         setSelectedTask({ type: "subscription", task: subscriptionTask });
+      }
+    } else if (task.module === "payment") {
+      const paymentTask = paymentTasks.find((t) => t.id === task.id);
+      if (paymentTask) {
+        setSelectedTask({ type: "payment", task: paymentTask });
       }
     }
   };
@@ -142,12 +157,17 @@ export function RecentTasksList({
     }
   };
 
-  const getModuleIcon = (module: "evidence" | "subscription") => {
-    return module === "evidence" ? (
-      <CheckSquare className="h-4 w-4" />
-    ) : (
-      <ListChecks className="h-4 w-4" />
-    );
+  const getModuleIcon = (module: "evidence" | "subscription" | "payment") => {
+    switch (module) {
+      case "evidence":
+        return <CheckSquare className="h-4 w-4" />;
+      case "subscription":
+        return <ListChecks className="h-4 w-4" />;
+      case "payment":
+        return <CreditCard className="h-4 w-4" />;
+      default:
+        return <List className="h-4 w-4" />;
+    }
   };
 
   return (
@@ -233,7 +253,11 @@ export function RecentTasksList({
                     <div className="flex items-center gap-2">
                       <div className={cn(
                         "flex-shrink-0",
-                        task.module === "evidence" ? "text-blue-600" : "text-purple-600"
+                        task.module === "evidence"
+                          ? "text-blue-600"
+                          : task.module === "subscription"
+                          ? "text-purple-600"
+                          : "text-emerald-600"
                       )}>
                         {getModuleIcon(task.module)}
                       </div>
@@ -294,20 +318,26 @@ export function RecentTasksList({
       )}
 
       {/* 任务详情弹窗 */}
-      {selectedTask && (
-        selectedTask.type === "evidence" ? (
-          <EvidenceTaskDetailModal
-            task={selectedTask.task as EvidenceItem}
-            onClose={() => setSelectedTask(null)}
-            failureTypeLabel={failureTypeLabel}
-          />
-        ) : (
-          <SubscriptionTaskDetailModal
-            task={selectedTask.task as SubscriptionItem}
-            onClose={() => setSelectedTask(null)}
-            failureTypeLabel={failureTypeLabel}
-          />
-        )
+      {selectedTask && selectedTask.type === "evidence" && (
+        <EvidenceTaskDetailModal
+          task={selectedTask.task as EvidenceItem}
+          onClose={() => setSelectedTask(null)}
+          failureTypeLabel={failureTypeLabel}
+        />
+      )}
+      {selectedTask && selectedTask.type === "subscription" && (
+        <SubscriptionTaskDetailModal
+          task={selectedTask.task as SubscriptionItem}
+          onClose={() => setSelectedTask(null)}
+          failureTypeLabel={failureTypeLabel}
+        />
+      )}
+      {selectedTask && selectedTask.type === "payment" && (
+        <PaymentTaskDetailModal
+          task={selectedTask.task as PaymentItem}
+          onClose={() => setSelectedTask(null)}
+          failureTypeLabel={failureTypeLabel}
+        />
       )}
     </div>
   );

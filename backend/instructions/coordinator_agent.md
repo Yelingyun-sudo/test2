@@ -24,8 +24,10 @@
 - **输入**：中文提示语，例如"查找并返回订阅地址。"
 - **输出**：JSON 格式，包含 success、message、subscription_url、error_type
 
-### 预留工具（尚未接入）
-- `purchase` 暂不可用，如用户指令涉及购买，请明确说明能力受限。
+### `payment`
+- **功能**：在登录态下进入支付页面，提取微信/支付宝支付二维码
+- **输入**：中文提示语，例如"进入支付页面并提取支付二维码。"
+- **输出**：JSON 格式，包含 success、message、payment_code、qr_code_image、error_type
 
 ## 执行原则
 

@@ -2,22 +2,20 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Callable, TypeVar, Union
+from typing import Any, Callable, TypeVar, Union
 
 from pydantic import ValidationError
 from sqlalchemy import Integer, and_, case, func, text
 from sqlalchemy.orm import Session
 
 from ..enums import TaskStatus
-from ..models import EvidenceTask, SubscriptionTask
+from ..models import EvidenceTask, PaymentTask, SubscriptionTask
 from ..schemas.common import (
     FailureTypeItem,
     FailureTypesResponse,
     LLMUsage,
     TaskStatsSummary,
 )
-from ..schemas.evidence import EvidenceItem
-from ..schemas.subscription import SubscriptionItem
 from website_analytics.output_types import (
     FAILURE_TYPE_LABELS,
     get_failure_types_ordered,
@@ -84,6 +82,7 @@ def format_datetime(dt: datetime | None, tz_cn: timezone) -> str:
     return dt.astimezone(tz_cn).isoformat()
 
 
+# 计算任务状态分布，也是服务于routers里面的各种.py
 def compute_status_distribution(
     db: Session,
     task_model: type[TaskModel],
@@ -140,6 +139,7 @@ def compute_status_distribution(
     return status_distribution
 
 
+# 服务于routers里面的各种.py
 def compute_failure_stats(
     db: Session,
     task_model: type[TaskModel],
@@ -237,6 +237,7 @@ def compute_failure_stats(
     return failure_type_distribution, failure_summary
 
 
+# 计算每日趋势的工具函数，服务于routers里面的各项.py
 def compute_daily_trend(
     db: Session,
     task_model: type[TaskModel],
@@ -600,23 +601,23 @@ def compute_task_summary(
 
 
 def build_task_item(
-    rec: Union[SubscriptionTask, EvidenceTask],
-    item_cls: type[Union[SubscriptionItem, EvidenceItem]],
+    rec: Union[SubscriptionTask, EvidenceTask, PaymentTask],
+    item_cls: type,
     format_dt: Callable[[datetime | None], str],
-) -> Union[SubscriptionItem, EvidenceItem]:
+) -> Any:
     """
     通用任务 Item 构建函数
 
-    用于将数据库任务记录（SubscriptionTask 或 EvidenceTask）转换为对应的响应模型
-    （SubscriptionItem 或 EvidenceItem）。
+    用于将数据库任务记录（SubscriptionTask、EvidenceTask 或 PaymentTask）转换为对应的响应模型
+    （SubscriptionItem、EvidenceItem 或 PaymentItem）。
 
     Args:
-        rec: 任务数据库记录，可以是 SubscriptionTask 或 EvidenceTask
-        item_cls: Item 类，可以是 SubscriptionItem 或 EvidenceItem
+        rec: 任务数据库记录，可以是 SubscriptionTask、EvidenceTask 或 PaymentTask
+        item_cls: Item 类，可以是 SubscriptionItem、EvidenceItem 或 PaymentItem
         format_dt: 日期时间格式化函数，接受 datetime | None，返回 ISO 格式字符串
 
     Returns:
-        构建的 Item 对象（SubscriptionItem 或 EvidenceItem）
+        构建的 Item 对象（SubscriptionItem、EvidenceItem 或 PaymentItem）
 
     Raises:
         ValidationError: 当 llm_usage 数据格式错误时，会记录错误日志但不会抛出异常

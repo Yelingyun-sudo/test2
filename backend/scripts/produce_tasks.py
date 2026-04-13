@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """将 JSONL 文件中的任务数据转为 Kafka 消息发送。
 
-支持两种任务类型：
-- subscription: 需要 url, account, password 三个字段
-- evidence: 需要 url 字段，可选 account 和 password 字段（如果存在必须为空字符串）
+支持三种任务类型：
+- subscription: 需要 url, account, password 三个字段，task_type 默认为 "subscription"
+- payment: 需要 url, account, password 三个字段，task_type 为 "payment"
+- evidence: 需要 url 字段，可选 account 和 password 字段（如果存在必须为空字符串），task_type 默认为 "evidence"
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ sys.path.insert(0, str(ROOT / "core"))
 
 from website_analytics.settings import get_settings  # noqa: E402
 
+
 # 解析命令行参数
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -30,6 +32,7 @@ def parse_args() -> argparse.Namespace:
 示例:
   uv run python %(prog)s data.jsonl --type subscription
   uv run python %(prog)s data.jsonl --type evidence
+  uv run python %(prog)s data.jsonl --type payment
   uv run python %(prog)s data.jsonl --type subscription --batch-size 100
 """,
     )
@@ -42,9 +45,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--type",
         type=str,
-        choices=["subscription", "evidence"],
+        choices=["subscription", "evidence", "payment"],
         required=True,
-        help="任务类型: subscription (需要 url/account/password) 或 evidence (需要 url，account/password 可选且须为空)",
+        help="任务类型: subscription (需要 url/account/password) / evidence (需要 url，account/password 可选且须为空) / payment (需要 url/account/password)",
     )
     parser.add_argument(
         "--batch-size",
@@ -80,15 +83,23 @@ def load_records(data_path: Path):
                 print(f"⚠️  第 {line_no} 行 JSON 解析失败: {exc}")
                 continue
 
-# 创建 KafkaProducer 实例
+# 修改前（带 SASL 认证） 使用阿里云服务器，创建 KafkaProducer 实例
+# def create_producer(settings) -> KafkaProducer:
+#     """创建 Kafka producer"""
+#     return KafkaProducer(
+#         bootstrap_servers=[settings.kafka_bootstrap_servers],
+#         security_protocol="SASL_PLAINTEXT",
+#         sasl_mechanism="SCRAM-SHA-512",
+#         sasl_plain_username=settings.kafka_sasl_username,
+#         sasl_plain_password=settings.kafka_sasl_password,
+#         value_serializer=lambda v: json.dumps(v).encode("utf-8"),
+#     )
+
+# 修改后（无 SASL 认证），使用本机kafka服务器
 def create_producer(settings) -> KafkaProducer:
     """创建 Kafka producer"""
     return KafkaProducer(
         bootstrap_servers=[settings.kafka_bootstrap_servers],
-        security_protocol="SASL_PLAINTEXT",
-        sasl_mechanism="SCRAM-SHA-512",
-        sasl_plain_username=settings.kafka_sasl_username,
-        sasl_plain_password=settings.kafka_sasl_password,
         value_serializer=lambda v: json.dumps(v).encode("utf-8"),
     )
 
@@ -114,10 +125,19 @@ def main() -> None:
             is_valid = False
             if args.type == "subscription":
                 # Subscription: 必须有 url, account, password
+                # 自动添加 task_type 字段，用于任务区分
                 if all(k in record for k in ["url", "account", "password"]):
+                    record["task_type"] = "subscription"
+                    is_valid = True
+            elif args.type == "payment":
+                # Payment: 必须有 url, account, password
+                # 自动添加 task_type 字段，用于任务区分
+                if all(k in record for k in ["url", "account", "password"]):
+                    record["task_type"] = "payment"
                     is_valid = True
             elif args.type == "evidence":
                 # Evidence: 必须有 url，允许 account/password 字段但必须为空字符串
+                # 自动添加 task_type 字段
                 if "url" in record:
                     # 检查 account 字段（如果存在，必须为空）
                     if "account" in record and record["account"] != "":
@@ -126,6 +146,7 @@ def main() -> None:
                     elif "password" in record and record["password"] != "":
                         is_valid = False
                     else:
+                        record["task_type"] = "evidence"
                         is_valid = True
 
             if not is_valid:

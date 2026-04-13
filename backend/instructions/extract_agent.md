@@ -15,14 +15,27 @@
 - 需要先进入的入口："一键订阅"、"Clash订阅"、其他包含"订阅"的按钮/链接
 - 若出现“点击被遮罩/弹窗拦截”的情况，先回到第 1 步。
 
-### 3. 触发复制
-- 如果看到直接复制类按钮，直接 `browser_click` 它，然后稍等片刻（可 0.5s）便于剪贴板写入。
-- 如果入口会打开弹窗，先点击入口，再在弹窗内寻找“复制订阅地址/复制/复制Clash订阅”等按钮并点击。
-- 禁止跳步：未经过“看起来会触发复制”的点击，不要直接读取剪贴板。
-- 若出现“点击被遮罩/弹窗拦截”的情况，先回到第 1 步。
+### 3. 安装剪贴板拦截器（必须在点击复制按钮之前执行）
+在点击任何复制按钮**之前**，使用 `browser_evaluate` 注入剪贴板拦截脚本，以兼容 HTTP 站点：
+```json
+{ “function”: “() => { window.__clipboardData = ''; if (navigator.clipboard && navigator.clipboard.writeText) { const orig = navigator.clipboard.writeText.bind(navigator.clipboard); navigator.clipboard.writeText = (t) => { window.__clipboardData = t; return orig(t); }; } const origExec = document.execCommand.bind(document); document.execCommand = (cmd, ...args) => { if (cmd === 'copy') { const s = window.getSelection(); if (s) window.__clipboardData = s.toString(); } return origExec(cmd, ...args); }; return 'clipboard shim installed'; }” }
+```
+- 此步骤只需执行**一次**，之后可多次点击复制按钮并读取。
+- 如果结果返回 `clipboard shim installed` 则说明注入成功。
 
-### 4. 读取剪贴板
-使用 `browser_evaluate` 执行以下代码读取剪贴板：`{ "function": "() => navigator.clipboard.readText()" }`
+### 4. 触发复制
+- 如果看到直接复制类按钮，直接 `browser_click` 它，然后稍等片刻（可 0.5s）便于剪贴板写入。
+- 如果入口会打开弹窗，先点击入口，再在弹窗内寻找”复制订阅地址/复制/复制Clash订阅”等按钮并点击。
+- 禁止跳步：未经过”看起来会触发复制”的点击，不要直接读取剪贴板。
+- 若出现”点击被遮罩/弹窗拦截”的情况，先回到第 1 步。
+
+### 5. 读取剪贴板
+使用 `browser_evaluate` 执行以下代码读取剪贴板：
+```json
+{ “function”: “() => { if (window.__clipboardData) return window.__clipboardData; if (navigator.clipboard && navigator.clipboard.readText) return navigator.clipboard.readText(); return ''; }” }
+```
+- 优先从拦截器捕获的 `window.__clipboardData` 取值（兼容 HTTP 站点）。
+- 如果拦截器未捕获到内容，则回退到 `navigator.clipboard.readText()`（适用于 HTTPS 站点）。
 
 ## 响应格式
 

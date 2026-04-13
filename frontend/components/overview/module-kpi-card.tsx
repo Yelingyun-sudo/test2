@@ -39,8 +39,6 @@ export function ModuleKPICard({
   className,
   dateRange
 }: ModuleKPICardProps) {
-  const isPayment = module === "payment";
-
   // 根据日期范围生成标签
   const dateRangeLabel = dateRange ? getDateRangeLabel(dateRange) : "总计";
   const taskCountLabel = `${dateRangeLabel}执行`;
@@ -114,34 +112,8 @@ export function ModuleKPICard({
         <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
       </div>
 
-      {isPayment ? (
-        /* Payment 占位符内容 */
-        <div className="space-y-4">
-          <div className="text-center py-8">
-            <div className="text-4xl mb-2">🚧</div>
-            <div className="text-sm font-medium text-slate-700 mb-1">
-              功能开发中，敬请期待
-            </div>
-            <div className="text-xs text-slate-500">
-              预计上线时间：2026年 Q1
-            </div>
-          </div>
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={(e) => {
-              e.preventDefault();
-              // 可以添加 toast 提示
-            }}
-            disabled
-          >
-            查看详情
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
-        </div>
-      ) : (
-        <>
-          {/* 主要指标区域：总任务数 + 成功率 */}
+      <>
+        {/* 主要指标区域：总任务数 + 成功率 */}
           <div className="mb-4 grid grid-cols-2 gap-4">
             <div>
               <div className="text-4xl font-bold text-slate-900">
@@ -231,8 +203,7 @@ export function ModuleKPICard({
               <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
             </Button>
           </Link>
-        </>
-      )}
+      </>
     </div>
   );
 }

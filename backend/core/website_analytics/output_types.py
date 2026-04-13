@@ -3,7 +3,7 @@
 from enum import Enum
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ErrorType(str, Enum):
@@ -48,6 +48,7 @@ class OperationType(str, Enum):
     REGISTER = "register"
     EVIDENCE = "evidence"
     EXTRACT = "extract"
+    PAYMENT = "payment"
 
 
 # 失败类型中文标签映射（统一配置）
@@ -118,6 +119,8 @@ def get_failure_types_ordered() -> list[dict[str, str]]:
 class LoginOutput(BaseModel):
     """登录代理的结构化输出。"""
 
+    model_config = ConfigDict(extra="ignore")
+
     success: bool = Field(description="是否登录成功")
     message: str = Field(description="详细消息")
     error_type: str | None = Field(
@@ -128,6 +131,8 @@ class LoginOutput(BaseModel):
 
 class RegisterOutput(BaseModel):
     """注册代理的结构化输出。"""
+
+    model_config = ConfigDict(extra="ignore")
 
     success: bool = Field(description="是否注册成功")
     message: str = Field(description="详细消息")
@@ -141,6 +146,8 @@ class RegisterOutput(BaseModel):
 
 class EvidenceOutput(BaseModel):
     """取证代理的结构化输出。"""
+
+    model_config = ConfigDict(extra="ignore")
 
     success: bool = Field(description="是否取证成功（至少成功一个入口）")
     message: str = Field(description="详细消息")
@@ -157,6 +164,8 @@ class EvidenceOutput(BaseModel):
 class ExtractOutput(BaseModel):
     """提取代理的结构化输出。"""
 
+    model_config = ConfigDict(extra="ignore")
+
     success: bool = Field(description="是否提取成功")
     message: str = Field(description="详细消息")
     subscription_url: str = Field(default="", description="提取到的订阅链接（成功时）")
@@ -166,8 +175,28 @@ class ExtractOutput(BaseModel):
     )
 
 
+class PaymentOutput(BaseModel):
+    """支付代理的结构化输出。"""
+
+    model_config = ConfigDict(extra="ignore")
+
+    success: bool = Field(description="是否提取到支付码")
+    message: str = Field(description="详细消息")
+    payment_code: str = Field(default="", description="支付码信息（成功时）")
+    qr_code_image: str = Field(default="", description="支付二维码图片路径（成功时）")
+    screenshot_1: str = Field(default="", description="订阅页面截图路径，包含域名和订阅/套餐购买标注（成功时）")
+    screenshot_2: str = Field(default="", description="支付方式选择页面截图路径（成功时）")
+    screenshot_3: str = Field(default="", description="支付二维码页面截图路径（成功时）")
+    error_type: str | None = Field(
+        default=None,
+        description="失败原因枚举值（success=false 时建议必填），取值范围同 CoordinatorOutput.error_type",
+    )
+
+
 class CoordinatorOutput(BaseModel):
     """协调代理的结构化输出。"""
+
+    model_config = ConfigDict(extra="ignore")
 
     status: Literal["success", "failed"] = Field(
         description="任务整体状态：success 表示成功，failed 表示失败"
@@ -186,10 +215,10 @@ class CoordinatorOutput(BaseModel):
         description="实际执行的操作列表，例如 ['login', 'evidence']",
     )
 
-    operations_results: dict[OperationType, dict[str, Any]] = Field(
+    operations_results: dict[str, Any] = Field(
         default_factory=dict,
         description="""各操作的完整结果（原始 JSON）。
-        key: 操作类型枚举（OperationType.LOGIN/EVIDENCE/EXTRACT）
+        key: 操作类型字符串（login/evidence/extract/payment）
         value: 该操作的完整输出对象（直接保存子工具返回的 JSON，不要修改）
 
         示例：login 和 evidence 的完整 JSON 对象会原样保存。

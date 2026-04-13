@@ -23,7 +23,7 @@ INSTRUCTIONS_DIR = PROJECT_ROOT / "instructions"
 LOGS_DIR = PROJECT_ROOT / "logs"
 
 BASE_PLAYWRIGHT_ARGS = (
-    "@playwright/mcp@latest",
+    "@playwright/mcp@0.0.68",
     "--browser=chrome",
     # "--browser=chromium",
     # "--executable-path=/Applications/Chromium.app/Contents/MacOS/Chromium",
@@ -49,6 +49,7 @@ def load_instruction(filename: str, replacements: dict[str, str] | None = None) 
         for key, value in replacements.items():
             text = text.replace(key, value)
     return text
+
 
 # 构建 Playwright 启动参数
 def build_playwright_args(

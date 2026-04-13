@@ -1,21 +1,67 @@
 "use client";
 
-import { DashboardShell } from "@/components/dashboard/shell";
+import dynamic from "next/dynamic";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { clearLocalAuth, isJwtExpired } from "@/lib/api";
+
+const PaymentDashboard = dynamic(
+  () =>
+    import("@/components/dashboard/payment-dashboard").then((mod) => mod.PaymentDashboard),
+  { ssr: false }
+);
 
 export default function PaymentPage() {
-  return (
-    <DashboardShell>
-      <div className="flex min-h-[400px] items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50">
-        <div className="text-center p-8">
-          <div className="text-6xl mb-4">🚧</div>
-          <h2 className="text-2xl font-semibold text-slate-900 mb-2">
-            功能开发中
-          </h2>
-          <p className="text-slate-600">
-            支付链接任务功能正在开发中，预计上线时间：2026年 Q1
-          </p>
+  const router = useRouter();
+  const [isAuthed, setIsAuthed] = useState(false);
+  const [account, setAccount] = useState<string | null>(null);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    setHydrated(true);
+    if (typeof window === "undefined") return;
+
+    const token = localStorage.getItem("access_token");
+    const savedAccount = localStorage.getItem("account_name");
+
+    if (!token) {
+      toast.error("请先登录");
+      router.push("/");
+      return;
+    }
+
+    if (isJwtExpired(token)) {
+      clearLocalAuth();
+      toast.error("登录已过期，请重新登录");
+      router.push("/");
+      return;
+    }
+
+    setIsAuthed(true);
+    if (savedAccount) setAccount(savedAccount);
+  }, [router]);
+
+  const handleLogout = () => {
+    clearLocalAuth();
+    setIsAuthed(false);
+    setAccount(null);
+    toast.success("已退出登录", { duration: 2000 });
+    router.push("/");
+  };
+
+  // 水合完成前或未认证时显示加载状态
+  if (!hydrated || !isAuthed) {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-sky-50 via-white to-slate-50">
+        <div className="flex min-h-screen items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-sky-200 border-t-sky-600" />
         </div>
-      </div>
-    </DashboardShell>
+      </main>
+    );
+  }
+
+  return (
+    <PaymentDashboard onLogout={handleLogout} account={account ?? undefined} />
   );
 }

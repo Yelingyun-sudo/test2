@@ -4,10 +4,11 @@ import asyncio
 import email
 import json
 import logging
-from email.utils import parsedate_to_datetime
 import os
 import re
+import subprocess
 from datetime import UTC, datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -20,6 +21,7 @@ if TYPE_CHECKING:
     from website_analytics.models import EmailAccount
 
 logger = logging.getLogger(__name__)
+
 
 # 创建保存页面文本工具
 def build_save_page_text_tool(task_dir: Path) -> Tool:
@@ -88,6 +90,7 @@ def build_save_entry_result_tool(task_dir: Path) -> Tool:
 
     return save_entry_result
 
+
 # 创建取证报告工具
 # 它的核心作用是：扫描所有搜集到的证据文件，生成一份人类可读的 Markdown 格式取证报告。
 """1. 核心工作流程
@@ -108,6 +111,7 @@ def build_save_entry_result_tool(task_dir: Path) -> Tool:
 总览表格：一目了然地列出所有入口的名称、状态、以及查看链接。
 详细记录：每个入口单独一个章节，直接把截图嵌入进去（Markdown 语法），方便你在阅读报告时直接看图。
 附录：列出了所有处理过的文件，以及具体的报错原因（比如哪个文件缺截图，哪个 JSON 解析失败）。"""
+
 
 def build_compile_evidence_report_tool(task_dir: Path) -> Tool:
     evidence_dir = task_dir / "evidence"
@@ -508,6 +512,7 @@ def _find_ref_by_label(snapshot_text: str, label: str) -> str | None:
 
     return None
 
+
 """2. 工作流程（八步走）
 这个工具被调用时，会按顺序执行以下步骤：
 
@@ -524,6 +529,8 @@ def _find_ref_by_label(snapshot_text: str, label: str) -> str | None:
 提取文本：抓取网页的 innerText（纯文本内容），并清理掉调试用的干扰字符，保存为 TXT。
 生成报告：最后生成一个 JSON 文件，记录这次操作是成功还是失败，以及截图和文本的路径。
 """
+
+
 # 创建程序化取证入口工具
 def build_programmatic_evidence_entry_tool(
     task_dir: Path,
@@ -952,6 +959,7 @@ def _parse_email_date(msg: email.message.Message) -> datetime | None:
     except (ValueError, TypeError, AttributeError):
         return None
 
+
 # 构建邮箱验证码获取工具
 def build_fetch_email_code_tool(account: "EmailAccount") -> Tool:
     """创建邮箱验证码获取工具（真实 IMAP 实现）。
@@ -1225,6 +1233,242 @@ def build_fetch_email_code_tool(account: "EmailAccount") -> Tool:
     return fetch_email_code
 
 
+# 创建截图标注工具
+def build_annotate_screenshot_tool() -> Tool:
+    """在截图上绘制矩形框标注。
+
+    用于支付任务中标注域名、订阅/套餐购买等关键元素。
+    """
+
+    @function_tool(
+        name_override="annotate_screenshot",
+        description_override=(
+            "在截图上绘制红色矩形框进行标注。"
+            "接收截图路径和标注列表，每个标注包含元素的文本描述和边界框。"
+            "输出标注后的截图路径。"
+        ),
+    )
+    def annotate_screenshot(
+        image_path: str,
+        annotations: list[dict[str, Any]],
+        output_path: str | None = None,
+    ) -> str:
+        from PIL import Image, ImageDraw
+
+        img = Image.open(image_path)
+        draw = ImageDraw.Draw(img)
+
+        for ann in annotations:
+            bounds = ann.get("bounds", {})
+            x = bounds.get("x", 0)
+            y = bounds.get("y", 0)
+            w = bounds.get("width", 0)
+            h = bounds.get("height", 0)
+            if w > 0 and h > 0:
+                # 绘制红色矩形框，线宽为3
+                draw.rectangle([x, y, x + w, y + h], outline="red", width=3)
+
+        result_path = output_path or image_path
+        img.save(result_path)
+        return f"标注完成: {result_path}"
+
+    return annotate_screenshot
+
+
+# 创建支付步骤截图工具
+def build_save_payment_screenshot_tool(
+    task_dir: Path,
+) -> Tool:
+    """构建支付步骤截图工具。
+
+    该工具允许支付代理在关键步骤截图，并自动保存为标准命名格式：
+    - screenshot_1.png: 订阅页面截图
+    - screenshot_2.png: 支付方式选择页面截图
+    - screenshot_3.png: 支付二维码页面截图
+
+    三张截图均使用系统级截图工具（scrot + xdotool）截取整个 Chrome 窗口，
+    以包含浏览器地址栏显示域名信息，保持截图风格统一。
+
+    Args:
+        task_dir: 任务目录路径
+
+    Returns:
+        截图工具函数
+    """
+    captures_dir = task_dir / "captures"
+    captures_dir.mkdir(parents=True, exist_ok=True)
+
+    def _get_tool_path(name: str) -> str:
+        """获取系统工具路径，优先使用 ~/.local/bin 下的版本。"""
+        local_path = os.path.expanduser(f"~/.local/bin/{name}")
+        return local_path if os.path.exists(local_path) else name
+
+    def _find_chrome_window(xdotool_path: str) -> str:
+        """查找 Chrome 浏览器窗口 ID。
+
+        Args:
+            xdotool_path: xdotool 工具路径
+
+        Returns:
+            窗口 ID 字符串
+
+        Raises:
+            RuntimeError: 未找到窗口时抛出
+        """
+        # 按优先级尝试查找 Chrome 窗口
+        search_patterns = ["google-chrome", "chromium"]
+
+        for pattern in search_patterns:
+            result = subprocess.run(
+                [xdotool_path, "search", "--class", pattern],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                # 返回最后一个窗口（通常是最近活动的）
+                window_ids = result.stdout.strip().split("\n")
+                window_id = window_ids[-1].strip()
+                logger.info(f"找到 Chrome 窗口 (class={pattern}): {window_id}")
+                return window_id
+
+        raise RuntimeError("无法找到 Chrome 浏览器窗口，请确保 Chrome 已启动")
+
+    def _activate_chrome_window(xdotool_path: str, window_id: str) -> None:
+        """激活 Chrome 窗口。
+
+        Args:
+            xdotool_path: xdotool 工具路径
+            window_id: 窗口 ID
+        """
+        try:
+            subprocess.run(
+                [xdotool_path, "windowactivate", window_id],
+                check=True,
+                timeout=5,
+            )
+            logger.info(f"已激活 Chrome 窗口: {window_id}")
+            # 等待窗口完全激活
+            import time
+            time.sleep(0.5)
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+            logger.warning(f"激活窗口失败或超时: {e}，继续尝试截图")
+
+    def _take_scrot_screenshot(scrot_path: str, screenshot_path: Path) -> None:
+        """使用 scrot 截取当前活动窗口。
+
+        Args:
+            scrot_path: scrot 工具路径
+            screenshot_path: 截图保存路径
+
+        Raises:
+            RuntimeError: 截图失败时抛出
+        """
+        try:
+            subprocess.run(
+                [scrot_path, "-u", str(screenshot_path)],
+                check=True,
+                timeout=10,
+            )
+            logger.info(f"已使用 scrot -u 截取 Chrome 窗口: {screenshot_path}")
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+            raise RuntimeError(f"scrot 截图失败: {e}")
+
+    def _validate_screenshot(screenshot_path: Path) -> None:
+        """验证截图文件是否成功创建且有效。
+
+        Args:
+            screenshot_path: 截图文件路径
+
+        Raises:
+            RuntimeError: 验证失败时抛出
+        """
+        if not screenshot_path.exists():
+            raise RuntimeError("截图文件未成功创建")
+
+        file_size = screenshot_path.stat().st_size
+        if file_size < 1024:
+            raise RuntimeError(f"截图文件异常（大小: {file_size} bytes），可能是空截图")
+
+        logger.info(f"系统级截图成功保存: {screenshot_path} ({file_size} bytes)")
+
+    def _capture_chrome_window(screenshot_path: Path) -> None:
+        """使用系统级工具截取 Chrome 窗口。
+
+        使用 xdotool 查找并激活 Chrome 窗口，然后使用 scrot 截图。
+        这样可以截取到浏览器地址栏，显示当前网站域名。
+
+        Args:
+            screenshot_path: 截图保存路径
+
+        Raises:
+            RuntimeError: 截图失败时抛出
+        """
+        xdotool_path = _get_tool_path("xdotool")
+        scrot_path = _get_tool_path("scrot")
+
+        try:
+            # 1. 查找 Chrome 窗口
+            window_id = _find_chrome_window(xdotool_path)
+
+            # 2. 确保目录存在
+            screenshot_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # 3. 激活窗口并截图
+            _activate_chrome_window(xdotool_path, window_id)
+            _take_scrot_screenshot(scrot_path, screenshot_path)
+            _validate_screenshot(screenshot_path)
+
+        except FileNotFoundError as e:
+            if "scrot" in str(e) or "xdotool" in str(e):
+                raise RuntimeError(
+                    "系统截图工具未安装。请运行: sudo apt-get install scrot xdotool"
+                ) from e
+            raise
+
+    @function_tool(
+        name_override="save_payment_screenshot",
+        description_override=(
+            "在支付流程的关键步骤截取页面截图（包含浏览器地址栏），保存为标准命名的文件。"
+            "步骤1: 登录后显示订阅/套餐购买的页面；"
+            "步骤2: 显示支付方式选择（微信/支付宝）的页面；"
+            "步骤3: 显示支付二维码的页面。"
+        ),
+    )
+    async def save_payment_screenshot(
+        step: int,
+        description: str,
+    ) -> str:
+        """保存支付流程指定步骤的截图。
+
+        Args:
+            step: 步骤编号（1=订阅页面, 2=支付方式选择, 3=二维码页面）
+            description: 截图描述说明
+
+        Returns:
+            截图文件的相对路径
+        """
+        if step not in (1, 2, 3):
+            raise ValueError("step 必须是 1、2 或 3")
+
+        screenshot_path = captures_dir / f"screenshot_{step}.png"
+
+        try:
+            # 所有步骤统一使用系统级截图工具截取整个 Chrome 窗口（包含地址栏）
+            logger.info(f"步骤{step}：使用系统级截图工具（scrot + xdotool）截取 Chrome 窗口")
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, _capture_chrome_window, screenshot_path)
+
+            relative_path = screenshot_path.relative_to(task_dir)
+            return f"步骤{step}截图已保存: captures/{relative_path.name} ({description})"
+
+        except Exception as exc:
+            logger.error("支付截图保存失败 (step=%s): %s", step, exc)
+            raise RuntimeError(f"截图保存失败: {exc}") from exc
+
+    return save_payment_screenshot
+
+
 __all__ = [
     "build_save_page_text_tool",
     "build_save_entry_result_tool",
@@ -1233,4 +1477,6 @@ __all__ = [
     "build_capture_page_data_tool",
     "build_programmatic_evidence_entry_tool",
     "build_fetch_email_code_tool",
+    "build_annotate_screenshot_tool",
+    "build_save_payment_screenshot_tool",
 ]

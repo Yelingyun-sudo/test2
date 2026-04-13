@@ -24,6 +24,7 @@ from website_analytics.agent_factory import (
     build_evidence_agent,
     build_extract_agent,
     build_login_agent,
+    build_payment_agent,
     build_register_agent,
 )
 from website_analytics.batch_reporter import (
@@ -32,25 +33,29 @@ from website_analytics.batch_reporter import (
     print_batch_summary,
     print_task_complete,
     print_task_start,
-    save_task_summary, ##
+    save_task_summary,  ##
 )
 from website_analytics.cloudflare_bypass import build_bypass_cloudflare_tool
 from website_analytics.filters import build_call_model_input_filter
 from website_analytics.formatter import format_execution_result
 from website_analytics.llm_logging import LLMTranscriptLoggerHooks
 from website_analytics.output_types import ErrorType, OperationType
-from website_analytics.playwright_server import AutoSwitchingPlaywrightServer #上下文管理器，启动/管理 Playwright
+from website_analytics.playwright_server import (
+    AutoSwitchingPlaywrightServer,
+)  # 上下文管理器，启动/管理 Playwright
 from website_analytics.settings import get_settings
 from website_analytics.tools import (
+    build_annotate_screenshot_tool,
     build_compile_evidence_report_tool,
     build_fetch_email_code_tool,
     build_programmatic_evidence_entry_tool,
     build_save_page_text_tool,
+    build_save_payment_screenshot_tool,
 )
 from website_analytics.utils import (
     LOGS_DIR,
     build_playwright_args,
-    generate_task_directory, #生成任务目录（backend/logs/{task_i
+    generate_task_directory,  # 生成任务目录（backend/logs/{task_i
     load_instruction,
     to_project_relative,
 )
@@ -60,6 +65,8 @@ from website_analytics.utils import (
 包含：是否成功、退出码、任务目录、AI 输出、Token 消耗
 提供 message 属性：安全提取用户提示信息
 """
+
+
 @dataclass
 class ExecutionResult:
     success: bool
@@ -75,11 +82,14 @@ class ExecutionResult:
             return self.coordinator_output["message"]
         return "无输出信息"
 
+
 """
 作用：统计 AI 大模型 Token 消耗
 统计项：输入 / 输出 / 缓存 / 推理 Token、总调用次数
 提供 to_dict()：转为 JSON 可存储格式
 """
+
+
 @dataclass
 class LLMUsageStats:
     """LLM token 使用统计（运行时累加）。"""
@@ -116,11 +126,14 @@ class LLMUsageStats:
 
         return result
 
+
 """
 作用：任务全局上下文，贯穿整个执行过程
 存储：任务目录、ID、指令、开始时间、Token 统计
 让所有代理 / 工具都能访问任务公共信息
 """
+
+
 @dataclass
 class TaskContext:
     """任务执行上下文，贯穿整个任务生命周期。"""
@@ -143,7 +156,7 @@ class TaskContext:
 settings = get_settings()
 
 # Playwright 工具白名单配置
-#注册代理工具白名单，只允许5个浏览器操作，目的是安全加固，防止注册AI执行危险操作
+# 注册代理工具白名单，只允许5个浏览器操作，目的是安全加固，防止注册AI执行危险操作
 # registerAgent 只能使用指令中明确提到的 5 个核心工具
 REGISTER_AGENT_ALLOWED_TOOLS = {
     "browser_navigate",  # 访问 URL
@@ -159,6 +172,8 @@ normalize_error_type + _infer_error_type_from_operations
 从子任务失败中自动推断错误原因
 让错误报告标准化、易排查
 """
+
+
 def _normalize_error_type(value: Any) -> str | None:
     """将任意输入规范化为合法的 ErrorType 字符串值。"""
     if value is None:
@@ -194,6 +209,7 @@ def _infer_error_type_from_operations(output: dict[str, Any]) -> str | None:
 
     return None
 
+
 # _playwright_tool_filter（核心安全函数）
 
 """
@@ -202,6 +218,8 @@ def _infer_error_type_from_operations(output: dict[str, Any]) -> str | None:
 注册代理白名单：仅允许 5 个基础操作
 其他代理：放行所有合法工具
 """
+
+
 async def _playwright_tool_filter(context: ToolFilterContext, tool) -> bool:
     """屏蔽特定的 Playwright 工具（黑名单 + 白名单）。
 
@@ -235,9 +253,10 @@ async def _playwright_tool_filter(context: ToolFilterContext, tool) -> bool:
     # 其他 Agent 允许所有工具（除全局黑名单外）
     return True
 
+
 # 核心主函数，协调整个流程
 # 这是整个文件的入口与核心，接收指令 → 执行全流程 → 返回结果。
-#使用 Runner.run() 运行 coordinatorAgent
+# 使用 Runner.run() 运行 coordinatorAgent
 """
 执行流程（分步拆解）
 1初始化任务环境
@@ -270,6 +289,8 @@ async def _playwright_tool_filter(context: ToolFilterContext, tool) -> bool:
 8返回最终结果
     前端 / 调用方直接使用结构化结果
 """
+
+
 async def execute(
     instruction: str,
     *,
@@ -408,11 +429,24 @@ async def execute(
                     compile_evidence_report_tool,
                 ],
             )
+            # 构建支付代理，添加专用截图工具
+            save_payment_screenshot_tool = build_save_payment_screenshot_tool(
+                working_dir,
+            )
+            payment_agent = build_payment_agent(
+                playwright_server,
+                load_instruction(
+                    "payment_agent.md",
+                    replacements={"{TASK_DIR}": str(working_dir)},
+                ),
+                extra_tools=[save_payment_screenshot_tool],
+            )
             coordinator_agent = build_coordinator_agent(
                 login_agent,
                 register_agent,
                 extract_agent,
                 evidence_agent,
+                payment_agent,
                 load_instruction("coordinator_agent.md"),
                 child_hooks=llm_hooks,
                 run_config=run_config,
@@ -420,7 +454,7 @@ async def execute(
 
             coordinator_result = await Runner.run(
                 coordinator_agent,
-                instruction,
+                instruction,  # 这里的这个就是就是具体的命令
                 max_turns=50,
                 hooks=llm_hooks,
                 context=task_context,
@@ -454,6 +488,31 @@ async def execute(
                 }
             if success:
                 coordinator_output["error_type"] = None
+                # 验证 payment 操作的三张截图和二维码图片是否都存在
+                _ops_results = coordinator_output.get("operations_results", {})
+                payment_result = _ops_results.get(OperationType.PAYMENT.value)
+                if isinstance(payment_result, dict) and payment_result.get("success"):
+                    missing_files = []
+                    for screenshot_key in [
+                        "screenshot_1",
+                        "screenshot_2",
+                        "screenshot_3",
+                        "qr_code_image",
+                    ]:
+                        screenshot_path = payment_result.get(screenshot_key)
+                        if screenshot_path:
+                            if not (working_dir / screenshot_path).exists():
+                                missing_files.append(screenshot_key)
+                    if missing_files:
+                        success = False
+                        coordinator_output["status"] = "failed"
+                        coordinator_output["error_type"] = ErrorType.UNKNOWN_ERROR.value
+                        payment_result["success"] = False
+                        payment_result["error_type"] = "screenshot_missing"
+                        payment_result["message"] = (
+                            f"截图文件缺失: {', '.join(missing_files)}"
+                        )
+                        exit_code = 1
             else:
                 inferred = _infer_error_type_from_operations(coordinator_output)
                 coordinator_output["error_type"] = (
@@ -524,6 +583,19 @@ async def execute(
                         if first_screenshot:
                             evidence_result["cover_image_path"] = first_screenshot
 
+            payment_result = operations_results.get(OperationType.PAYMENT.value)
+            if isinstance(payment_result, dict):
+                # 验证三张截图和二维码图片的存在性
+                # 如果文件不存在，将该字段设为 None（前端会显示"不存在"）
+                for screenshot_key in ["screenshot_1", "screenshot_2", "screenshot_3", "qr_code_image"]:
+                    screenshot_path = payment_result.get(screenshot_key)
+                    if screenshot_path:
+                        if not (working_dir / screenshot_path).exists():
+                            payment_result[screenshot_key] = None
+                    else:
+                        # 没有该截图，设为 None
+                        payment_result[screenshot_key] = None
+
         coordinator_output["video_path"] = await _find_video_with_retry(working_dir)
         seek_seconds = getattr(llm_hooks, "get_video_seek_seconds", lambda: None)()
         coordinator_output["video_seek_seconds"] = (
@@ -591,6 +663,19 @@ async def execute(
                         first_screenshot = entries_detail[0].get("screenshot")
                         if first_screenshot:
                             evidence_result["cover_image_path"] = first_screenshot
+
+            payment_result = operations_results.get("payment")
+            if isinstance(payment_result, dict):
+                # 验证三张截图和二维码图片的存在性
+                # 如果文件不存在，将该字段设为 None（前端会显示"不存在"）
+                for screenshot_key in ["screenshot_1", "screenshot_2", "screenshot_3", "qr_code_image"]:
+                    screenshot_path = payment_result.get(screenshot_key)
+                    if screenshot_path:
+                        if not (working_dir / screenshot_path).exists():
+                            payment_result[screenshot_key] = None
+                    else:
+                        payment_result[screenshot_key] = None
+
         coordinator_output["video_path"] = await _find_video_with_retry(working_dir)
         seek_seconds = getattr(llm_hooks, "get_video_seek_seconds", lambda: None)()
         coordinator_output["video_seek_seconds"] = (
@@ -619,6 +704,7 @@ async def execute(
 
 
 _CAPTURE_PREFIX_RE = re.compile(r"^(?P<seq>\\d+)-")
+
 
 # 查找截图路径
 # 查找任务目录中最后一张截图，用于报告封面
@@ -753,6 +839,7 @@ def _find_last_video_relative_path(task_dir: Path) -> str | None:
 
 
 _EVIDENCE_ENTRY_PREFIX_RE = re.compile(r"^(?P<index>\d{2})_(?P<label>.+)$")
+
 
 # 扫描取证目录，收集所有取证条目（文本 + 截图）
 def _scan_evidence_entries(task_dir: Path) -> list[dict[str, str]]:

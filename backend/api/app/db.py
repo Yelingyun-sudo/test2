@@ -151,6 +151,27 @@ def _ensure_columns() -> None:
             if not has_column:
                 conn.exec_driver_sql(alter_sql)
 
+        # payment_tasks 表的列迁移
+        payment_columns = {
+            "account": "ALTER TABLE payment_tasks ADD COLUMN account VARCHAR(255) NOT NULL DEFAULT ''",
+            "password": "ALTER TABLE payment_tasks ADD COLUMN password VARCHAR(255) NOT NULL DEFAULT ''",
+            "status": "ALTER TABLE payment_tasks ADD COLUMN status VARCHAR(16) DEFAULT 'PENDING' NOT NULL",
+            "duration_seconds": "ALTER TABLE payment_tasks ADD COLUMN duration_seconds INTEGER DEFAULT 0 NOT NULL",
+            "executed_at": "ALTER TABLE payment_tasks ADD COLUMN executed_at DATETIME",
+            "task_dir": "ALTER TABLE payment_tasks ADD COLUMN task_dir VARCHAR(1024)",
+            "result": "ALTER TABLE payment_tasks ADD COLUMN result TEXT",
+            "failure_type": "ALTER TABLE payment_tasks ADD COLUMN failure_type VARCHAR(255)",
+            "report_status": "ALTER TABLE payment_tasks ADD COLUMN report_status VARCHAR(16)",
+            "llm_usage": "ALTER TABLE payment_tasks ADD COLUMN llm_usage JSON",
+        }
+
+        for col_name, alter_sql in payment_columns.items():
+            has_column = conn.exec_driver_sql(
+                f"SELECT name FROM pragma_table_info('payment_tasks') WHERE name='{col_name}'"
+            ).fetchone()
+            if not has_column:
+                conn.exec_driver_sql(alter_sql)
+
 
 def _seed_admin_user() -> None:
     """按环境变量播种管理员账号（幂等）。"""

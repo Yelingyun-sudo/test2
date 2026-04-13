@@ -75,7 +75,9 @@ class Settings(BaseSettings):
     # 任务调度
     task_runner_enabled_subscription: bool = True
     task_runner_enabled_evidence: bool = True
+    task_runner_enabled_payment: bool = True  # 支付任务调度开关
     task_runner_interval_seconds: int = 5
+    # 浏览器的运行模式，是不是有头模式，true是无头，False是有头
     task_runner_headless: bool = True
     task_runner_timeout_seconds: int = 600
     task_runner_max_concurrent: int = 1

@@ -11,6 +11,7 @@ import { ModuleKPICard } from "@/components/overview/module-kpi-card";
 import { RecentTasksList } from "@/components/overview/recent-tasks-list";
 import type { EvidenceItem } from "@/types/evidence";
 import type { SubscriptionItem } from "@/types/subscription";
+import type { PaymentItem } from "@/types/payment";
 import type { FailureTypeItem, FailureTypesResponse } from "@/types/common";
 
 interface SummaryData {
@@ -40,20 +41,28 @@ export function SystemOverview() {
   const [subscriptionRecentTasks, setSubscriptionRecentTasks] = useState<SubscriptionItem[]>([]);
   const [subscriptionFailureTypes, setSubscriptionFailureTypes] = useState<FailureTypeItem[]>([]);
 
+  // Payment 数据
+  const [paymentSummary, setPaymentSummary] = useState<SummaryData | null>(null);
+  const [paymentRecentTasks, setPaymentRecentTasks] = useState<PaymentItem[]>([]);
+  const [paymentFailureTypes, setPaymentFailureTypes] = useState<FailureTypeItem[]>([]);
+
   // 获取失败类型列表（只需获取一次）
   useEffect(() => {
     const fetchFailureTypes = async () => {
       try {
-        const [evidenceRes, subscriptionRes] = await Promise.all([
+        const [evidenceRes, subscriptionRes, paymentRes] = await Promise.all([
           apiFetch("/evidence/failure-types"),
-          apiFetch("/subscription/failure-types")
+          apiFetch("/subscription/failure-types"),
+          apiFetch("/payment/failure-types")
         ]);
-        const [evidenceData, subscriptionData] = await Promise.all([
+        const [evidenceData, subscriptionData, paymentData] = await Promise.all([
           evidenceRes.json() as Promise<FailureTypesResponse>,
-          subscriptionRes.json() as Promise<FailureTypesResponse>
+          subscriptionRes.json() as Promise<FailureTypesResponse>,
+          paymentRes.json() as Promise<FailureTypesResponse>
         ]);
         setEvidenceFailureTypes(evidenceData.items);
         setSubscriptionFailureTypes(subscriptionData.items);
+        setPaymentFailureTypes(paymentData.items);
       } catch (error) {
         console.error("获取失败类型列表失败:", error);
       }
@@ -80,12 +89,16 @@ export function SystemOverview() {
           evidenceSummaryRes,
           evidenceRecentTasksRes,
           subscriptionSummaryRes,
-          subscriptionRecentTasksRes
+          subscriptionRecentTasksRes,
+          paymentSummaryRes,
+          paymentRecentTasksRes
         ] = await Promise.all([
           apiFetch(`/evidence/stats/summary${queryString}`),
           apiFetch(`/evidence/stats/recent-tasks`),
           apiFetch(`/subscription/stats/summary${queryString}`),
-          apiFetch(`/subscription/stats/recent-tasks`)
+          apiFetch(`/subscription/stats/recent-tasks`),
+          apiFetch(`/payment/stats/summary${queryString}`),
+          apiFetch(`/payment/stats/recent-tasks`)
         ]);
 
         // 解析响应
@@ -93,12 +106,16 @@ export function SystemOverview() {
           evidenceSummaryData,
           evidenceRecentTasksData,
           subscriptionSummaryData,
-          subscriptionRecentTasksData
+          subscriptionRecentTasksData,
+          paymentSummaryData,
+          paymentRecentTasksData
         ] = await Promise.all([
           evidenceSummaryRes.json(),
           evidenceRecentTasksRes.json() as Promise<{ recent_tasks: EvidenceItem[] }>,
           subscriptionSummaryRes.json(),
-          subscriptionRecentTasksRes.json() as Promise<{ recent_tasks: SubscriptionItem[] }>
+          subscriptionRecentTasksRes.json() as Promise<{ recent_tasks: SubscriptionItem[] }>,
+          paymentSummaryRes.json(),
+          paymentRecentTasksRes.json() as Promise<{ recent_tasks: PaymentItem[] }>
         ]);
 
         // 设置数据
@@ -106,6 +123,8 @@ export function SystemOverview() {
         setEvidenceRecentTasks(evidenceRecentTasksData.recent_tasks);
         setSubscriptionSummary(subscriptionSummaryData.summary);
         setSubscriptionRecentTasks(subscriptionRecentTasksData.recent_tasks);
+        setPaymentSummary(paymentSummaryData.summary);
+        setPaymentRecentTasks(paymentRecentTasksData.recent_tasks);
       } catch (error) {
         console.error("Failed to fetch overview data:", error);
         toast.error("加载概览数据失败");
@@ -134,14 +153,20 @@ export function SystemOverview() {
       return acc;
     }, {} as Record<string, string>);
 
-    // 合并失败类型标签（subscription 的标签会覆盖 evidence 的相同 key，但标签应该一致）
+    const paymentFailureTypeLabel = paymentFailureTypes.reduce((acc, item) => {
+      acc[item.value] = item.label;
+      return acc;
+    }, {} as Record<string, string>);
+
+    // 合并失败类型标签（后面的标签会覆盖前面的相同 key，但标签应该一致）
     return {
       ...evidenceFailureTypeLabel,
-      ...subscriptionFailureTypeLabel
+      ...subscriptionFailureTypeLabel,
+      ...paymentFailureTypeLabel
     };
-  }, [evidenceFailureTypes, subscriptionFailureTypes]);
+  }, [evidenceFailureTypes, subscriptionFailureTypes, paymentFailureTypes]);
 
-  if (loading && !evidenceSummary && !subscriptionSummary) {
+  if (loading && !evidenceSummary && !subscriptionSummary && !paymentSummary) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-sky-200 border-t-sky-600" />
@@ -175,7 +200,7 @@ export function SystemOverview() {
           module="payment"
           title="支付链接任务"
           icon={<CreditCard className="h-5 w-5" />}
-          summary={null}
+          summary={paymentSummary}
           detailUrl="/payment"
           dateRange={dateRange}
         />
@@ -185,6 +210,7 @@ export function SystemOverview() {
       <RecentTasksList
         evidenceTasks={evidenceRecentTasks}
         subscriptionTasks={subscriptionRecentTasks}
+        paymentTasks={paymentRecentTasks}
         failureTypeLabel={allFailureTypeLabel}
       />
     </div>

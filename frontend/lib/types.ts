@@ -1,5 +1,6 @@
 import type { TaskStatus } from "@/types/common";
 import type { SubscriptionItem } from "@/types/subscription";
+import type { PaymentItem } from "@/types/payment";
 
 export interface StatsSummary {
   total_tasks: number;
@@ -124,6 +125,53 @@ export interface EvidenceRecentTasksResponse {
 }
 
 export interface EvidenceFailureTypesStatsResponse {
+  failure_type_distribution: FailureTypeDistributionItem[];
+  failure_summary: FailureSummary;
+}
+
+// ===== Payment 统计类型 =====
+
+export interface PaymentStatsSummary {
+  total_tasks: number;
+  pending_count: number;
+  running_count: number;
+  today_success_count: number;
+  today_failed_count: number;
+  today_tokens: number;
+  today_avg_success_tokens: number;
+  today_avg_failed_tokens: number;
+  today_avg_success_duration_seconds: number;
+  today_avg_failed_duration_seconds: number;
+}
+
+export interface PaymentStatsResponse {
+  summary: PaymentStatsSummary;
+  daily_trend: DailyTrendItem[];
+  status_distribution: StatusDistributionItem[];
+  recent_tasks: PaymentItem[];
+  failure_type_distribution: FailureTypeDistributionItem[];
+  failure_summary: FailureSummary;
+}
+
+// Payment 专用端点响应类型
+
+export interface PaymentSummaryResponse {
+  summary: PaymentStatsSummary;
+}
+
+export interface PaymentDailyTrendResponse {
+  daily_trend: DailyTrendItem[];
+}
+
+export interface PaymentStatusDistributionResponse {
+  status_distribution: StatusDistributionItem[];
+}
+
+export interface PaymentRecentTasksResponse {
+  recent_tasks: PaymentItem[];
+}
+
+export interface PaymentFailureTypesStatsResponse {
   failure_type_distribution: FailureTypeDistributionItem[];
   failure_summary: FailureSummary;
 }

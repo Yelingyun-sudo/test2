@@ -39,8 +39,8 @@ export const dashboardNavItems: DashboardNavItem[] = [
   {
     title: "支付链接任务",
     href: "/payment",
-    desc: "支付链接任务列表（开发中）",
-    status: "规划中",
+    desc: "支付二维码提取任务统计与汇总。",
+    status: "可用",
     icon: CreditCard
   }
 ];
