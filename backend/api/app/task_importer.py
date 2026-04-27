@@ -196,9 +196,11 @@ def _sync_kafka_consumer_loop(stop_event: threading.Event) -> None:
     """同步阻塞的 Kafka 消费循环，在独立线程中运行"""
     settings = get_settings()
 
-    logger.info(f"正在连接 Kafka: {settings.kafka_bootstrap_servers}, topic: {settings.kafka_topic_task}")
+    logger.info(
+        f"正在连接 Kafka: {settings.kafka_bootstrap_servers}, topic: {settings.kafka_topic_task}"
+    )
 
-    #修改前（带 SASL 认证），使用阿里云服务器上面的kafka
+    # 修改前（带 SASL 认证），使用阿里云服务器上面的kafka
     # consumer = KafkaConsumer(
     #     settings.kafka_topic_task,
     #     bootstrap_servers=[settings.kafka_bootstrap_servers],

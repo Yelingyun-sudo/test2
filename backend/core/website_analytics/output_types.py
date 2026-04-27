@@ -184,9 +184,16 @@ class PaymentOutput(BaseModel):
     message: str = Field(description="详细消息")
     payment_code: str = Field(default="", description="支付码信息（成功时）")
     qr_code_image: str = Field(default="", description="支付二维码图片路径（成功时）")
-    screenshot_1: str = Field(default="", description="订阅页面截图路径，包含域名和订阅/套餐购买标注（成功时）")
-    screenshot_2: str = Field(default="", description="支付方式选择页面截图路径（成功时）")
-    screenshot_3: str = Field(default="", description="支付二维码页面截图路径（成功时）")
+    screenshot_1: str = Field(
+        default="",
+        description="订阅页面截图路径，包含域名和订阅/套餐购买标注（成功时）",
+    )
+    screenshot_2: str = Field(
+        default="", description="支付方式选择页面截图路径（成功时）"
+    )
+    screenshot_3: str = Field(
+        default="", description="支付二维码页面截图路径（成功时）"
+    )
     error_type: str | None = Field(
         default=None,
         description="失败原因枚举值（success=false 时建议必填），取值范围同 CoordinatorOutput.error_type",

@@ -553,9 +553,15 @@ def compute_task_summary(
 
     # 执行查询
     summary_result = db.query(
-        func.sum(case((task_model.status == TaskStatus.PENDING, 1), else_=0)).label(
-            "pending_count"
-        ),
+        func.sum(
+            case(
+                (
+                    task_model.status.in_([TaskStatus.PENDING, TaskStatus.RETRYING]),
+                    1,
+                ),
+                else_=0,
+            )
+        ).label("pending_count"),
         func.sum(case((task_model.status == TaskStatus.RUNNING, 1), else_=0)).label(
             "running_count"
         ),
@@ -649,5 +655,6 @@ def build_task_item(
         task_dir=rec.task_dir,
         result=rec.result,
         failure_type=rec.failure_type,
+        execution_count=getattr(rec, "execution_count", 0) or 0,
         llm_usage=llm_usage_value,
     )

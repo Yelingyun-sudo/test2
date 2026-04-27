@@ -1278,6 +1278,7 @@ def build_annotate_screenshot_tool() -> Tool:
 # 创建支付步骤截图工具
 def build_save_payment_screenshot_tool(
     task_dir: Path,
+    playwright_server: Any | None = None,
 ) -> Tool:
     """构建支付步骤截图工具。
 
@@ -1286,11 +1287,17 @@ def build_save_payment_screenshot_tool(
     - screenshot_2.png: 支付方式选择页面截图
     - screenshot_3.png: 支付二维码页面截图
 
-    三张截图均使用系统级截图工具（scrot + xdotool）截取整个 Chrome 窗口，
-    以包含浏览器地址栏显示域名信息，保持截图风格统一。
+    截图逻辑分三层：
+    1. 截图前：通过 Playwright 注入 JS，在页面关键元素（订阅文字、支付方式、
+       二维码）周围动态插入红色边框 div，精准标注网页内容。
+    2. 截图时：使用系统级截图工具（scrot + xdotool）截取整个 Chrome 窗口，
+       以包含浏览器地址栏显示域名信息。
+    3. 截图后：使用 Pillow 在图片顶部画红框覆盖地址栏区域，完成地址栏标注。
 
     Args:
         task_dir: 任务目录路径
+        playwright_server: Playwright MCP 服务器实例，用于注入 JS 标注。
+            如果为 None，则跳过 JS 标注和地址栏后处理，仅保留系统级截图。
 
     Returns:
         截图工具函数
@@ -1350,6 +1357,7 @@ def build_save_payment_screenshot_tool(
             logger.info(f"已激活 Chrome 窗口: {window_id}")
             # 等待窗口完全激活
             import time
+
             time.sleep(0.5)
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
             logger.warning(f"激活窗口失败或超时: {e}，继续尝试截图")
@@ -1426,6 +1434,260 @@ def build_save_payment_screenshot_tool(
                 ) from e
             raise
 
+    def _build_highlight_js(step: int) -> str:
+        """根据步骤编号生成对应的 JS 标注代码。
+
+        在页面中动态插入红色边框 div，精准框选关键元素。
+        红框使用 fixed 定位，基于 getBoundingClientRect() 获取的视口坐标，
+        零坐标转换误差。
+
+        Args:
+            step: 步骤编号（1=订阅页面, 2=支付方式选择, 3=二维码页面）
+
+        Returns:
+            可注入浏览器执行的 JavaScript 函数字符串
+        """
+        base_js = """
+        () => {
+            // 清理已有的标注框
+            document.querySelectorAll('.auto-highlight-box').forEach(el => el.remove());
+
+            function createBox(rect) {
+                if (rect.width <= 0 || rect.height <= 0) return false;
+                const div = document.createElement('div');
+                div.className = 'auto-highlight-box';
+                div.style.cssText = (
+                    'position:fixed;'
+                    + 'left:' + rect.left + 'px;'
+                    + 'top:' + rect.top + 'px;'
+                    + 'width:' + rect.width + 'px;'
+                    + 'height:' + rect.height + 'px;'
+                    + 'border:3px solid red;'
+                    + 'z-index:99999;'
+                    + 'pointer-events:none;'
+                    + 'box-sizing:border-box;'
+                    + 'border-radius:2px;'
+                );
+                document.body.appendChild(div);
+                return true;
+            }
+
+            let highlighted = 0;
+            %s
+
+            return {
+                highlighted: highlighted,
+                chromeUIHeight: window.outerHeight - window.innerHeight,
+                dpr: window.devicePixelRatio || 1,
+            };
+        }
+        """
+
+        if step == 1:
+            # 步骤1：标注订阅/套餐/购买/VIP 等相关文字
+            body = """
+            const keywords = ['订阅','套餐','购买','充值','VIP','会员','Plan','Subscribe','Pricing','Upgrade'];
+            const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+            let node;
+            const seen = new Set();
+            while (node = walker.nextNode()) {
+                for (const kw of keywords) {
+                    if (node.textContent.includes(kw)) {
+                        try {
+                            const range = document.createRange();
+                            range.selectNode(node);
+                            const rect = range.getBoundingClientRect();
+                            const key = Math.round(rect.left) + ',' + Math.round(rect.top);
+                            if (!seen.has(key) && rect.width > 10 && rect.height > 8) {
+                                seen.add(key);
+                                if (createBox(rect)) highlighted++;
+                            }
+                        } catch (e) {}
+                        break;
+                    }
+                }
+            }
+            """
+        elif step == 2:
+            # 步骤2：标注支付方式选择按钮（微信/支付宝）
+            body = """
+            const keywords = ['微信支付','支付宝','微信','支付宝','WeChat Pay','Alipay','WeChat','PayPal'];
+            const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+            let node;
+            const seen = new Set();
+            while (node = walker.nextNode()) {
+                for (const kw of keywords) {
+                    if (node.textContent.includes(kw)) {
+                        try {
+                            // 向上查找可点击容器（按钮、label、div）
+                            let el = node.parentElement;
+                            let bestRect = null;
+                            for (let i = 0; i < 6 && el; i++) {
+                                const rect = el.getBoundingClientRect();
+                                if (rect.width >= 40 && rect.height >= 20) {
+                                    bestRect = rect;
+                                    // 如果元素看起来像个按钮或标签，就停止向上
+                                    const tag = el.tagName.toLowerCase();
+                                    const role = el.getAttribute('role') || '';
+                                    if (tag === 'button' || tag === 'label' || tag === 'a'
+                                        || role === 'button' || role === 'tab'
+                                        || el.className.toLowerCase().includes('btn')
+                                        || el.className.toLowerCase().includes('pay')
+                                        || el.className.toLowerCase().includes('method')) {
+                                        break;
+                                    }
+                                }
+                                el = el.parentElement;
+                            }
+                            if (bestRect) {
+                                const key = Math.round(bestRect.left) + ',' + Math.round(bestRect.top);
+                                if (!seen.has(key)) {
+                                    seen.add(key);
+                                    if (createBox(bestRect)) highlighted++;
+                                }
+                            }
+                        } catch (e) {}
+                        break;
+                    }
+                }
+            }
+            """
+        else:
+            # 步骤3：标注二维码
+            body = """
+            // 策略1：通过常见选择器查找
+            const selectors = [
+                'img[src*="qr" i]', 'img[src*="QR" i]',
+                '.qrcode', '#qrcode', '.qr-code', '#qr-code',
+                'img[alt*="二维码" i]', 'img[alt*="QR" i]',
+                'img[alt*="微信" i]', 'img[alt*="支付宝" i]',
+            ];
+            const seen = new Set();
+            for (const sel of selectors) {
+                try {
+                    const el = document.querySelector(sel);
+                    if (el) {
+                        const rect = el.getBoundingClientRect();
+                        const key = Math.round(rect.left) + ',' + Math.round(rect.top);
+                        if (!seen.has(key) && rect.width > 40 && rect.height > 40) {
+                            seen.add(key);
+                            if (createBox(rect)) highlighted++;
+                        }
+                    }
+                } catch (e) {}
+            }
+
+            // 策略2：查找 canvas 元素（有些网站用 canvas 绘制二维码）
+            if (highlighted === 0) {
+                document.querySelectorAll('canvas').forEach(el => {
+                    const rect = el.getBoundingClientRect();
+                    const key = Math.round(rect.left) + ',' + Math.round(rect.top);
+                    if (!seen.has(key) && rect.width > 80 && rect.height > 80 && rect.width < 400 && rect.height < 400) {
+                        seen.add(key);
+                        if (createBox(rect)) highlighted++;
+                    }
+                });
+            }
+
+            // 策略3：查找包含二维码相关文字的区域
+            if (highlighted === 0) {
+                const qrKeywords = ['扫码','扫一扫','二维码','QR Code'];
+                const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+                let node;
+                while (node = walker.nextNode()) {
+                    for (const kw of qrKeywords) {
+                        if (node.textContent.includes(kw)) {
+                            try {
+                                let el = node.parentElement;
+                                for (let i = 0; i < 4 && el; i++) {
+                                    const rect = el.getBoundingClientRect();
+                                    const key = Math.round(rect.left) + ',' + Math.round(rect.top);
+                                    if (!seen.has(key) && rect.width > 80 && rect.height > 80) {
+                                        seen.add(key);
+                                        if (createBox(rect)) highlighted++;
+                                        break;
+                                    }
+                                    el = el.parentElement;
+                                }
+                            } catch (e) {}
+                            break;
+                        }
+                    }
+                }
+            }
+            """
+
+        return base_js % body.strip()
+
+    #标注地址栏的红框
+    def _annotate_address_bar(
+        image_path: Path,
+        chrome_ui_height: int,
+        dpr: float,
+    ) -> None:
+        """使用 Pillow 在截图顶部画红框，覆盖地址栏区域。
+
+        地址栏高度通过 JS 动态获取的 chromeUIHeight 估算：
+        顶部地址栏 + 标签页约占 Chrome UI 总高度的 80%。
+
+        Args:
+            image_path: 截图文件路径（原地修改）
+            chrome_ui_height: window.outerHeight - window.innerHeight 的值
+            dpr: 设备像素比（devicePixelRatio）
+        """
+        try:
+            from PIL import Image, ImageDraw
+
+            img = Image.open(image_path)
+            draw = ImageDraw.Draw(img)
+            width, height = img.size
+
+            # 估算顶部地址栏高度：chrome_ui_height 的 80%，再乘 DPR
+            bar_height = int(chrome_ui_height * 0.65 * dpr)
+            # 安全边界：不能太小也不能太大
+            bar_height = max(min(bar_height, int(height * 0.15)), 55)
+
+            # 画红框覆盖整个顶部地址栏区域
+            #（左右，上下，左右，上下）
+            draw.rectangle([150, 55, width-80, bar_height+40], outline="red", width=3)
+            img.save(image_path)
+            logger.info(
+                "地址栏标注完成: %s (高度=%dpx, dpr=%.1f)",
+                image_path,
+                bar_height,
+                dpr,
+            )
+        except Exception as exc:
+            # 标注失败不应阻断整个截图流程
+            logger.warning("地址栏标注失败: %s", exc)
+
+    def _parse_browser_evaluate_result(text: str) -> dict[str, Any]:
+        """解析 browser_evaluate 返回的文本，提取 JSON 结果。
+
+        Playwright MCP 的 browser_evaluate 返回格式通常为：
+        ### Result\n{...JSON...}
+
+        Args:
+            text: browser_evaluate 返回的原始文本
+
+        Returns:
+            解析后的字典，解析失败返回空字典
+        """
+        clean = text
+        if clean.startswith('### Result\n"') and clean.endswith('"'):
+            clean = clean[12:-1]
+        elif clean.startswith("### Result\n"):
+            clean = clean[11:]
+
+        # 去除可能的换行和引号包裹
+        clean = clean.strip().strip('"')
+
+        try:
+            return json.loads(clean)
+        except json.JSONDecodeError:
+            logger.debug("无法解析 browser_evaluate 结果: %s", clean[:200])
+            return {}
+
     @function_tool(
         name_override="save_payment_screenshot",
         description_override=(
@@ -1452,15 +1714,68 @@ def build_save_payment_screenshot_tool(
             raise ValueError("step 必须是 1、2 或 3")
 
         screenshot_path = captures_dir / f"screenshot_{step}.png"
+        chrome_ui_height = 90  # 默认值，用于 PIL 地址栏标注
+        dpr = 1.0
 
         try:
-            # 所有步骤统一使用系统级截图工具截取整个 Chrome 窗口（包含地址栏）
-            logger.info(f"步骤{step}：使用系统级截图工具（scrot + xdotool）截取 Chrome 窗口")
+            # === 阶段 A：注入 JS 红框标注网页元素 ===
+            if playwright_server is not None:
+                try:
+                    js_code = _build_highlight_js(step)
+                    eval_result = await playwright_server.call_tool(
+                        "browser_evaluate", {"function": js_code}
+                    )
+                    if eval_result and getattr(eval_result, "content", None):
+                        eval_text = eval_result.content[0].text
+                        js_data = _parse_browser_evaluate_result(eval_text)
+                        chrome_ui_height = js_data.get("chromeUIHeight", 90)
+                        dpr = js_data.get("dpr", 1.0)
+                        highlighted = js_data.get("highlighted", 0)
+                        logger.info(
+                            "步骤%d：JS 注入标注完成，高亮 %d 个元素 "
+                            "(chromeUIHeight=%d, dpr=%.1f)",
+                            step,
+                            highlighted,
+                            chrome_ui_height,
+                            dpr,
+                        )
+                    # 等待浏览器渲染红框
+                    await asyncio.sleep(0.3)
+                except Exception as js_exc:
+                    logger.warning(
+                        "步骤%d：JS 标注注入失败，跳过网页元素标注: %s",
+                        step,
+                        js_exc,
+                    )
+
+            # === 阶段 B：系统级截图（scrot + xdotool）===
+            logger.info(
+                "步骤%d：使用系统级截图工具（scrot + xdotool）截取 Chrome 窗口",
+                step,
+            )
             loop = asyncio.get_event_loop()
             await loop.run_in_executor(None, _capture_chrome_window, screenshot_path)
 
+            # === 阶段 C：PIL 后处理，标注地址栏 ===
+            _annotate_address_bar(screenshot_path, chrome_ui_height, dpr)
+
+            # === 阶段 D：清理页面内的 JS 红框（可选）===
+            if playwright_server is not None:
+                try:
+                    cleanup_js = (
+                        "() => { document.querySelectorAll('.auto-highlight-box')"
+                        ".forEach(el => el.remove()); }"
+                    )
+                    await playwright_server.call_tool(
+                        "browser_evaluate", {"function": cleanup_js}
+                    )
+                except Exception:
+                    pass  # 清理失败不影响结果
+
             relative_path = screenshot_path.relative_to(task_dir)
-            return f"步骤{step}截图已保存: captures/{relative_path.name} ({description})"
+            return (
+                f"步骤{step}截图已保存: captures/{relative_path.name} ({description})"
+            )
 
         except Exception as exc:
             logger.error("支付截图保存失败 (step=%s): %s", step, exc)

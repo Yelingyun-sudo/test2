@@ -221,7 +221,7 @@ export function TaskDetailModal({ task, onClose, failureTypeLabel }: TaskDetailM
   };
 
   const formatTaskDuration = (durationSeconds: number, status?: string) => {
-    if (status === "PENDING" || status === "RUNNING") {
+    if (status === "PENDING" || status === "RUNNING" || status === "RETRYING") {
       return "-";
     }
     return formatDurationSeconds(durationSeconds);
@@ -376,7 +376,7 @@ export function TaskDetailModal({ task, onClose, failureTypeLabel }: TaskDetailM
     setArtifactUrls(artifactUrlsRef.current);
     setArtifacts(null);
 
-    if (task.status === "PENDING" || task.status === "RUNNING") {
+    if (task.status === "PENDING" || task.status === "RUNNING" || task.status === "RETRYING") {
       setArtifacts({
         status: task.status,
         login_image_path: null,
@@ -653,7 +653,7 @@ export function TaskDetailModal({ task, onClose, failureTypeLabel }: TaskDetailM
         <div className="px-6 pb-6">
           <div className="mb-2 flex items-center gap-2">
             <div className="text-sm font-semibold text-slate-700">任务结果</div>
-            {task.status === "FAILED" && task.failure_type && (
+            {(task.status === "FAILED" || task.status === "RETRYING") && task.failure_type && (
               <span className="inline-flex items-center rounded-md bg-rose-50 px-2 py-1 text-xs font-medium text-rose-700 ring-1 ring-inset ring-rose-600/10">
                 {failureTypeLabel[task.failure_type] || task.failure_type}
               </span>

@@ -27,6 +27,7 @@ class SubscriptionItem(BaseModel):
     task_dir: Optional[str] = Field(None, description="任务目录（相对 backend 根目录）")
     result: Optional[str] = Field(None, description="任务结果")
     failure_type: Optional[str] = Field(None, description="失败类型（仅失败任务）")
+    execution_count: int = Field(0, description="执行次数")
     llm_usage: Optional[LLMUsage] = Field(None, description="LLM token 使用统计")
 
 

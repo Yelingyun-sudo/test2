@@ -99,13 +99,13 @@ export function TaskListRecent({
                     {task.executed_at ? formatDateTime(task.executed_at) : "-"}
                   </td>
                   <td className="p-2 text-sm text-slate-700">
-                    {task.status === "RUNNING" || task.status === "PENDING"
+                    {task.status === "RUNNING" || task.status === "PENDING" || task.status === "RETRYING"
                       ? "-"
                       : formatDurationSeconds(task.duration_seconds)}
                   </td>
                   <td className="p-2 text-sm text-slate-700">
                     <div className="flex items-center gap-2 min-w-0 max-w-[270px]">
-                      {task.status === "FAILED" && task.failure_type && (
+                      {(task.status === "FAILED" || task.status === "RETRYING") && task.failure_type && (
                         <span className="inline-flex items-center rounded-md bg-rose-50 px-2 py-1 text-xs font-medium text-rose-700 ring-1 ring-inset ring-rose-600/10 flex-shrink-0">
                           {failureTypeLabel[task.failure_type] || task.failure_type}
                         </span>

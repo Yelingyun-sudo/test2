@@ -80,6 +80,36 @@ def _get_stale_evidence_task(db: Session, cutoff: datetime) -> EvidenceTask | No
 def _mark_cleaned(
     db: Session, task: TaskModel, *, timeout_seconds: int, now: datetime
 ) -> None:
+    # 对 SubscriptionTask 支持重试
+    if isinstance(task, SubscriptionTask):
+        settings = get_settings()
+        if task.execution_count <= settings.subscription_retry_max_count:
+            task.status = TaskStatus.RETRYING
+            task.retry_at = now + timedelta(
+                minutes=settings.subscription_retry_interval_minutes
+            )
+            task.failure_type = "task_cleaned"
+            task.result = f"任务被清理：超过 {timeout_seconds}s 未完成，已安排重试"
+            task.report_status = None
+
+            started_at = (
+                _normalize_dt(task.executed_at)
+                or _normalize_dt(task.created_at)
+                or now
+            )
+            duration = max(0, int((now - started_at).total_seconds()))
+            task.duration_seconds = duration
+
+            db.add(task)
+            db.commit()
+            logger.info(
+                "清理超时订阅任务，已安排重试: id=%s, execution_count=%s, retry_at=%s",
+                task.id,
+                task.execution_count,
+                task.retry_at,
+            )
+            return
+
     task.status = TaskStatus.FAILED
     task.failure_type = "task_cleaned"
     task.result = f"任务被清理：超过 {timeout_seconds}s 未完成"

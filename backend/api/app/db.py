@@ -132,6 +132,22 @@ def _ensure_columns() -> None:
                 "ALTER TABLE subscription_tasks ADD COLUMN llm_usage JSON"
             )
 
+        has_execution_count = conn.exec_driver_sql(
+            "SELECT name FROM pragma_table_info('subscription_tasks') WHERE name='execution_count'"
+        ).fetchone()
+        if not has_execution_count:
+            conn.exec_driver_sql(
+                "ALTER TABLE subscription_tasks ADD COLUMN execution_count INTEGER DEFAULT 0 NOT NULL"
+            )
+
+        has_retry_at = conn.exec_driver_sql(
+            "SELECT name FROM pragma_table_info('subscription_tasks') WHERE name='retry_at'"
+        ).fetchone()
+        if not has_retry_at:
+            conn.exec_driver_sql(
+                "ALTER TABLE subscription_tasks ADD COLUMN retry_at DATETIME"
+            )
+
         # evidence_tasks 表的列迁移
         evidence_columns = {
             "status": "ALTER TABLE evidence_tasks ADD COLUMN status VARCHAR(16) DEFAULT 'PENDING' NOT NULL",

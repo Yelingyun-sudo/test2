@@ -55,9 +55,10 @@ def _get_producer() -> KafkaProducer:
         # 修改后（无 SASL 认证），使用本机的kafka
         _producer = KafkaProducer(
             bootstrap_servers=[settings.kafka_bootstrap_servers],
-            value_serializer=lambda v: json.dumps(v, ensure_ascii=False).encode("utf-8"),
+            value_serializer=lambda v: json.dumps(v, ensure_ascii=False).encode(
+                "utf-8"
+            ),
         )
-
 
     return _producer
 

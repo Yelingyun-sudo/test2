@@ -112,11 +112,11 @@ def list_subscription(
 
             # 如果结束时间 >= 今天的结束时间（UTC），说明包含今天
             if end_time >= today_end_utc:
-                # 包含今天：显示所有任务，包括 PENDING 和 RUNNING
+                # 包含今天：显示所有任务，包括 PENDING、RUNNING 和 RETRYING
                 query = query.filter(
                     or_(
                         SubscriptionTask.status.in_(
-                            [TaskStatus.PENDING, TaskStatus.RUNNING]
+                            [TaskStatus.PENDING, TaskStatus.RUNNING, TaskStatus.RETRYING]
                         ),
                         and_(
                             SubscriptionTask.executed_at.isnot(None),
@@ -138,7 +138,7 @@ def list_subscription(
     status_priority = case(
         (SubscriptionTask.status == TaskStatus.RUNNING, 0),
         (SubscriptionTask.status.in_([TaskStatus.SUCCESS, TaskStatus.FAILED]), 1),
-        else_=2,
+        else_=2,  # PENDING / RETRYING
     )
 
     records: List[SubscriptionTask] = (

@@ -44,12 +44,8 @@ class PaymentArtifactsResponse(BaseModel):
     screenshot_1: str | None = Field(
         default=None, description="订阅页面截图（含域名和订阅/套餐购买标注）"
     )
-    screenshot_2: str | None = Field(
-        default=None, description="支付方式选择页面截图"
-    )
-    screenshot_3: str | None = Field(
-        default=None, description="支付二维码页面截图"
-    )
+    screenshot_2: str | None = Field(default=None, description="支付方式选择页面截图")
+    screenshot_3: str | None = Field(default=None, description="支付二维码页面截图")
 
 
 # 用途：封装 /stats/summary 接口的返回数据。

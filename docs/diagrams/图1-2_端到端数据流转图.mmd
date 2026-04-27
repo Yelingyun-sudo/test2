@@ -1,0 +1,69 @@
+---
+title: 图 1-2 端到端数据流转图
+---
+
+graph TD
+    Source["📝 外部任务源
+    （上游系统 / 手动提交 / 批量导入）"]
+
+    TaskTopic[(Kafka
+    任务导入 Topic
+    格式: {task_type, website_url, params...})]
+
+    Importer["📥 任务导入器
+    (Task Importer)
+
+    操作: 消息解析 → 数据校验 →
+    数据库写入 → 状态初始化 (PENDING)"]
+
+    SQLite[(🗄️ SQLite 数据库
+
+    状态: PENDING → RUNNING → COMPLETED/FAILED
+    记录: 任务元数据、执行参数、
+    结果数据、LLM Token 统计)]
+
+    Runner["⚙️ 任务执行器
+    (Task Runner)
+
+    操作: 状态检查 → 并发控制 →
+    Agent 调用 → 浏览器自动化 → 结果捕获"]
+
+    Reporter["📤 任务报告器
+    (Task Reporter)
+
+    操作: 结果组装 → 成功/失败分类 →
+    Kafka Topic 发送
+
+    格式: {task_id, status, result,
+    duration, llm_usage, error_type...}"]
+
+    ReportTopic[(Kafka
+    结果上报 Topic)]
+
+    SuccessTopic["✅ Report-Success Topic"]
+    FailedTopic["❌ Report-Failed Topic"]
+    Consumers["👥 下游消费者
+    (数据分析等)"]
+
+    Source -->|JSON 任务指令| TaskTopic
+    TaskTopic -->|消费| Importer
+    Importer -->|状态变更| SQLite
+
+    SQLite -->|轮询/事件触发| Runner
+    Runner -->|更新状态| SQLite
+
+    SQLite --> Reporter
+    Reporter -->|生产消息| ReportTopic
+
+    ReportTopic --> SuccessTopic
+    ReportTopic --> FailedTopic
+    SuccessTopic --> Consumers
+    FailedTopic --> Consumers
+
+    style Source fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    style TaskTopic fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    style SQLite fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    style ReportTopic fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    style SuccessTopic fill:#c8e6c9,stroke:#388e3c
+    style FailedTopic fill:#ffcdd2,stroke:#c62828
+    style Consumers fill:#e3f2fd,stroke:#1976d2

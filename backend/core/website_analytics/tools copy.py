@@ -1373,17 +1373,27 @@ def build_save_payment_screenshot_tool(
                                     # 解析窗口大小
                                     for line in geo_result.stdout.split("\n"):
                                         if "Geometry:" in line:
-                                            parts = line.split("Geometry:")[-1].strip().split("x")
+                                            parts = (
+                                                line.split("Geometry:")[-1]
+                                                .strip()
+                                                .split("x")
+                                            )
                                             if len(parts) == 2:
                                                 try:
                                                     w, h = int(parts[0]), int(parts[1])
                                                     area = w * h
-                                                    if area > largest_area and area > 500000:  # 至少 800x600
+                                                    if (
+                                                        area > largest_area
+                                                        and area > 500000
+                                                    ):  # 至少 800x600
                                                         largest_area = area
                                                         largest_window = wid.strip()
                                                 except ValueError:
                                                     continue
-                            except (subprocess.TimeoutExpired, subprocess.SubprocessError):
+                            except (
+                                subprocess.TimeoutExpired,
+                                subprocess.SubprocessError,
+                            ):
                                 continue
                         if largest_window:
                             window_id = largest_window
@@ -1396,7 +1406,9 @@ def build_save_payment_screenshot_tool(
 
             # 2. 确保目标目录存在
             screenshot_path.parent.mkdir(parents=True, exist_ok=True)
-            logger.info(f"确保目录存在: {screenshot_path.parent}, 目录存在: {screenshot_path.parent.exists()}")
+            logger.info(
+                f"确保目录存在: {screenshot_path.parent}, 目录存在: {screenshot_path.parent.exists()}"
+            )
 
             # 3. 激活 Chrome 窗口（如果窗口被最小化，需要激活）并截图
             # 注意：scrot 1.7 不支持 -w 参数，我们使用 -u 参数截取当前活动窗口
@@ -1440,7 +1452,9 @@ def build_save_payment_screenshot_tool(
             # 检查文件大小（至少 1KB，否则可能是空截图）
             file_size = screenshot_path.stat().st_size
             if file_size < 1024:
-                raise RuntimeError(f"截图文件异常（大小: {file_size} bytes），可能是空截图")
+                raise RuntimeError(
+                    f"截图文件异常（大小: {file_size} bytes），可能是空截图"
+                )
 
             logger.info(f"系统级截图成功保存: {screenshot_path} ({file_size} bytes)")
 
@@ -1481,10 +1495,14 @@ def build_save_payment_screenshot_tool(
         try:
             if step == 1:
                 # 步骤1：使用系统级截图工具截取整个 Chrome 窗口（包含地址栏）
-                logger.info("步骤1：使用系统级截图工具（scrot + xdotool）截取 Chrome 窗口")
+                logger.info(
+                    "步骤1：使用系统级截图工具（scrot + xdotool）截取 Chrome 窗口"
+                )
                 # 在线程池中运行同步的系统调用，避免阻塞事件循环
                 loop = asyncio.get_event_loop()
-                await loop.run_in_executor(None, _capture_chrome_window, screenshot_path)
+                await loop.run_in_executor(
+                    None, _capture_chrome_window, screenshot_path
+                )
             else:
                 # 步骤2和3：使用 Playwright 截图
                 logger.info(f"步骤{step}：使用 Playwright 截图")

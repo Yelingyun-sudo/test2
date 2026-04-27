@@ -1,0 +1,69 @@
+---
+title: 图 3-1 调度组件协作关系图
+---
+
+flowchart TB
+    subgraph KafkaIn["📥 Kafka 任务导入 Topic"]
+        TaskTopic[(任务消息队列)]
+    end
+
+    subgraph Scheduler["⏱️ 任务调度层"]
+        Importer["📥 任务导入器
+(Task Importer)
+
+职责: 消费 Kafka 消息
+解析任务类型
+写入数据库"]
+
+        Runner["⚙️ 任务执行器
+(Task Runner)
+
+职责: 轮询 PENDING 任务
+调用 AI Agent 执行
+更新执行结果"]
+
+        Cleaner["🧹 任务清理器
+(Task Cleaner)
+
+职责: 检测超时 RUNNING 任务
+强制标记为 FAILED
+释放执行资源"]
+
+        Reporter["📤 任务报告器
+(Task Reporter)
+
+职责: 轮询已完成任务
+发送到 Kafka 结果 Topic
+更新报告状态"]
+    end
+
+    subgraph Database["🗄️ SQLite 数据库"]
+        TaskTable[(任务表)]
+    end
+
+    subgraph KafkaOut["📤 Kafka 结果上报 Topic"]
+        SuccessTopic[(成功 Topic)]
+        FailedTopic[(失败 Topic)]
+    end
+
+    TaskTopic -->|消费消息| Importer
+    Importer -->|写入新任务
+状态: PENDING| TaskTable
+
+    TaskTable -->|查询 PENDING| Runner
+    Runner -->|状态更新
+RUNNING → SUCCESS/FAILED| TaskTable
+
+    TaskTable -->|检测超时| Cleaner
+    Cleaner -->|状态更新
+RUNNING → FAILED| TaskTable
+
+    TaskTable -->|查询已完成
+report_status: PENDING| Reporter
+    Reporter -->|发送结果| SuccessTopic
+    Reporter -->|发送结果| FailedTopic
+    Reporter -->|更新状态
+report_status: SUCCESS| TaskTable
+
+    style Scheduler fill:#f5f5f5,stroke:#333,stroke-width:2px
+    style Runner fill:#e3f2fd,stroke:#1976d2,stroke-width:3px

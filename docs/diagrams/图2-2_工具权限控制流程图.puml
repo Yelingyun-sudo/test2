@@ -1,0 +1,57 @@
+@startuml 工具权限控制流程图
+!theme plain
+skinparam backgroundColor #FEFEFE
+
+ title 图 2-2 工具权限控制流程图
+
+ start
+ :工具调用请求
+ context: {agent}, tool: {name};
+
+ partition "第一层：全局黑名单检查" {
+    if (tool.name 在黑名单中?) then (是)
+        :屏蔽工具:
+        • browser_handle_dialog
+          (无法处理页面内 DOM 弹窗)
+        • browser_run_code
+          (允许执行任意代码，存在安全风险);
+        :拒绝执行
+        return False;
+        stop
+    else (否)
+        :通过黑名单检查;
+    endif
+ }
+
+ partition "第二层：Agent 级别白名单检查" {
+    if (agent_name == "registerAgent"?) then (是)
+        if (tool.name 在白名单中?) then (是)
+            :白名单工具（仅5个）:
+            • browser_navigate
+              (访问 URL)
+            • browser_snapshot
+              (获取页面状态)
+            • browser_click
+              (点击元素)
+            • browser_fill_form
+              (填写表单)
+            • browser_press_key
+              (按键提交);
+            :允许执行
+            return True;
+            stop
+        else (否)
+            :拒绝执行
+            return False;
+            stop
+        endif
+    else (否)
+        :其他 Agent 放行
+        (除黑名单外所有工具);
+        :允许执行
+        return True;
+        stop
+    endif
+ }
+
+@enduml

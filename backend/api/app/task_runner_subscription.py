@@ -17,10 +17,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from sqlalchemy import or_
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from website_analytics.cli import run_single_instruction_async
@@ -141,10 +141,12 @@ def _format_failure_type(
 
 
 # 作用：将任务状态更新为 RUNNING，并记录执行开始时间（UTC），然后提交到数据库。
-# 用途：在任务真正开始执行前，将该任务标记为“运行中”，防止其他调度器重复拾取，也用于恢复检测。
+# 用途：在任务真正开始执行前，将该任务标记为”运行中”，防止其他调度器重复拾取，也用于恢复检测。
 def _mark_running(db: Session, task: SubscriptionTask) -> None:
     task.status = TaskStatus.RUNNING
     task.executed_at = datetime.now(timezone.utc)
+    task.execution_count += 1
+    task.retry_at = None  # 开始执行后清除重试时间
     db.add(task)
     db.commit()
     db.refresh(task)
@@ -171,6 +173,7 @@ def _update_task_success(
     task.task_dir = task_dir
     task.failure_type = None
     task.report_status = TaskReportStatus.PENDING
+    task.retry_at = None  # 成功后清除重试时间
     task.llm_usage = llm_usage
     db.add(task)
     db.commit()
@@ -192,12 +195,29 @@ def _update_task_failure(
     task_dir: str | None,
     llm_usage: dict[str, Any] | None = None,
 ) -> None:
-    task.status = TaskStatus.FAILED
+    settings = get_settings()
+    # 检查是否还可以重试（execution_count 已在 _mark_running 时递增）
+    if task.execution_count <= settings.subscription_retry_max_count:
+        task.status = TaskStatus.RETRYING
+        task.retry_at = datetime.now(timezone.utc) + timedelta(
+            minutes=settings.subscription_retry_interval_minutes
+        )
+        task.report_status = None  # 尚未到达最终状态，不汇报
+        logger.info(
+            "任务失败已安排重试: id=%s, url=%s, execution_count=%s, retry_at=%s",
+            task.id,
+            task.url,
+            task.execution_count,
+            task.retry_at,
+        )
+    else:
+        task.status = TaskStatus.FAILED
+        task.report_status = TaskReportStatus.PENDING
+
     task.duration_seconds = int(duration)
     task.result = result
     task.task_dir = task_dir
     task.failure_type = failure_type
-    task.report_status = TaskReportStatus.PENDING
     task.llm_usage = llm_usage
     db.add(task)
     db.commit()
@@ -210,9 +230,19 @@ def _update_task_failure(
 
 
 def _get_pending_batch(db: Session, limit: int = 1) -> list[SubscriptionTask]:
+    now = datetime.now(timezone.utc)
     return (
         db.query(SubscriptionTask)
-        .filter(SubscriptionTask.status == TaskStatus.PENDING)
+        .filter(
+            or_(
+                SubscriptionTask.status == TaskStatus.PENDING,
+                and_(
+                    SubscriptionTask.status == TaskStatus.RETRYING,
+                    SubscriptionTask.retry_at.isnot(None),
+                    SubscriptionTask.retry_at <= now,
+                ),
+            )
+        )
         .order_by(SubscriptionTask.id.asc())
         .limit(limit)
         .all()

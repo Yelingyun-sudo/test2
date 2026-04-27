@@ -1,0 +1,72 @@
+---
+title: 图 2-2 工具权限控制流程图
+---
+
+flowchart TD
+    Start([工具调用请求
+    context: {agent}, tool: {name}])
+
+    subgraph Blacklist["🔴 第一层：全局黑名单检查"]
+        CheckBlack{tool.name
+        在黑名单中?}
+
+        BlacklistDetail["黑名单工具:
+        • browser_handle_dialog
+        (无法处理页面内 DOM 弹窗，仅支持原生对话框)
+        • browser_run_code
+        (允许执行任意代码，存在安全风险)"]
+
+        Reject1["❌ 拒绝执行
+        return False"]
+    end
+
+    subgraph Whitelist["🟢 第二层：Agent 级别白名单检查"]
+        CheckAgent{agent_name ==
+        'registerAgent'?}
+
+        CheckWhite{tool.name
+        在白名单中?}
+
+        WhitelistDetail["白名单工具（仅5个）:
+        • browser_navigate - 访问 URL
+        • browser_snapshot - 获取页面状态
+        • browser_click - 点击元素
+        • browser_fill_form - 填写表单
+        • browser_press_key - 按键提交"]
+
+        Allow1["✅ 允许执行
+        return True"]
+
+        Reject2["❌ 拒绝执行
+        return False"]
+
+        Allow2["✅ 其他 Agent 放行
+        (除黑名单外所有工具)
+        return True"]
+    end
+
+    Start --> CheckBlack
+
+    CheckBlack -->|是| BlacklistDetail
+    BlacklistDetail --> Reject1
+    Reject1 --> End1([结束])
+
+    CheckBlack -->|否| CheckAgent
+
+    CheckAgent -->|是| CheckWhite
+    CheckWhite -->|是| WhitelistDetail
+    WhitelistDetail --> Allow1
+    Allow1 --> End2([结束])
+
+    CheckWhite -->|否| Reject2
+    Reject2 --> End3([结束])
+
+    CheckAgent -->|否| Allow2
+    Allow2 --> End4([结束])
+
+    style Blacklist fill:#ffebee,stroke:#c62828,stroke-width:2px
+    style Whitelist fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    style Reject1 fill:#ffcdd2,stroke:#c62828
+    style Reject2 fill:#ffcdd2,stroke:#c62828
+    style Allow1 fill:#c8e6c9,stroke:#388e3c
+    style Allow2 fill:#c8e6c9,stroke:#388e3c

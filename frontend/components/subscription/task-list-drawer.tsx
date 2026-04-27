@@ -231,6 +231,7 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
     { value: "SUCCESS", label: "成功" },
     { value: "FAILED", label: "失败" },
     { value: "RUNNING", label: "执行中" },
+    { value: "RETRYING", label: "等待重试" },
     { value: "PENDING", label: "待执行" }
   ];
 
@@ -266,6 +267,7 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
     const icon: Record<string, JSX.Element | null> = {
       PENDING: null,
       RUNNING: <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />,
+      RETRYING: null,
       SUCCESS: null,
       FAILED: null
     };
@@ -281,7 +283,7 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
   };
 
   const formatTaskDuration = (durationSeconds: number, status?: string) => {
-    if (status === "PENDING" || status === "RUNNING") {
+    if (status === "PENDING" || status === "RUNNING" || status === "RETRYING") {
       return "-";
     }
     return formatDurationSeconds(durationSeconds);
@@ -320,9 +322,9 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
   const handleStatusChange = (value: string) => {
     const newFailureType = value !== "FAILED" ? "ALL" : failureTypeFilter;
 
-    // 如果切换到 PENDING 或 RUNNING，清空日期范围
-    const newDateRange = (value === "PENDING" || value === "RUNNING") 
-      ? { from: undefined, to: undefined } 
+    // 如果切换到 PENDING、RUNNING 或 RETRYING，清空日期范围
+    const newDateRange = (value === "PENDING" || value === "RUNNING" || value === "RETRYING")
+      ? { from: undefined, to: undefined }
       : dateRangeFilter;
 
     // 更新状态
@@ -330,7 +332,7 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
     if (value !== "FAILED") {
       setFailureTypeFilter("ALL");
     }
-    if (value === "PENDING" || value === "RUNNING") {
+    if (value === "PENDING" || value === "RUNNING" || value === "RETRYING") {
       setDateRangeFilter({ from: undefined, to: undefined });
     }
     setPage(1);
@@ -349,8 +351,8 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
     } else if (newFailureType !== "ALL") {
       params.set("failure_type", newFailureType);
     }
-    // 如果状态是 PENDING 或 RUNNING，删除时间范围参数
-    if (value === "PENDING" || value === "RUNNING") {
+    // 如果状态是 PENDING、RUNNING 或 RETRYING，删除时间范围参数
+    if (value === "PENDING" || value === "RUNNING" || value === "RETRYING") {
       params.delete("start_date");
       params.delete("end_date");
     } else if (newDateRange.from && newDateRange.to) {
@@ -508,7 +510,7 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
               </Select>
             </div>
           )}
-          {/* 只在 SUCCESS 或 FAILED 状态时显示时间范围选择框 */}
+          {/* 只在 ALL、SUCCESS 或 FAILED 状态时显示时间范围选择框 */}
           {(statusFilter === "ALL" || statusFilter === "SUCCESS" || statusFilter === "FAILED") && (
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold text-slate-700">时间范围</span>
@@ -547,10 +549,11 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
       {/* 主内容区域 */}
       <div className="flex-1 overflow-y-auto">
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="grid grid-cols-[70px_1.4fr_0.65fr_1.1fr_1.1fr_0.8fr_2fr] bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
+        <div className="grid grid-cols-[70px_1.4fr_0.65fr_0.5fr_1.1fr_1.1fr_0.8fr_2fr] bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
           <div>ID</div>
           <div>网址</div>
           <div>任务状态</div>
+          <div>执行次数</div>
           <div>任务创建时间</div>
           <div>任务执行时间</div>
           <div>任务时长</div>
@@ -569,7 +572,7 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
               <div
                 key={`${item.id}-${idx}`}
                 className={cn(
-                  "grid grid-cols-[70px_1.4fr_0.65fr_1.1fr_1.1fr_0.8fr_2fr] items-center px-4 py-3 text-sm text-slate-700",
+                  "grid grid-cols-[70px_1.4fr_0.65fr_0.5fr_1.1fr_1.1fr_0.8fr_2fr] items-center px-4 py-3 text-sm text-slate-700",
                   idx % 2 === 0 ? "bg-white" : "bg-slate-50/70",
                   "cursor-pointer transition-colors hover:bg-slate-100/80"
                 )}
@@ -584,6 +587,9 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
                 <div className="truncate pr-4 text-slate-600">
                   {renderStatus(item.status)}
                 </div>
+                <div className="truncate pr-4 text-slate-600">
+                  {item.execution_count ? item.execution_count : "-"}
+                </div>
                 <div className="truncate pr-4" title={item.created_at || undefined}>
                   {formatDateTime(item.created_at)}
                 </div>
@@ -592,7 +598,7 @@ function SubscriptionContent({ failureTypes, failureTypeLabel }: SubscriptionCon
                 </div>
                 <div className="truncate pr-4">{formatTaskDuration(item.duration_seconds, item.status)}</div>
                 <div className="flex items-center gap-2 min-w-0" title={item.result || undefined}>
-                  {item.status === "FAILED" && item.failure_type && (
+                  {(item.status === "FAILED" || item.status === "RETRYING") && item.failure_type && (
                     <span className="inline-flex items-center rounded-md bg-rose-50 px-2 py-1 text-xs font-medium text-rose-700 ring-1 ring-inset ring-rose-600/10 flex-shrink-0">
                       {failureTypeLabel[item.failure_type] || item.failure_type}
                     </span>

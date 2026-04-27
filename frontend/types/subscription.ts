@@ -12,6 +12,7 @@ export type SubscriptionItem = {
   task_dir?: string | null;
   result?: string | null;
   failure_type?: string | null;
+  execution_count?: number | null;
   llm_usage?: LLMUsage | null;
 };
 

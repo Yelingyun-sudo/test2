@@ -82,6 +82,10 @@ class Settings(BaseSettings):
     task_runner_timeout_seconds: int = 600
     task_runner_max_concurrent: int = 1
 
+    # 订阅任务重试配置
+    subscription_retry_max_count: int = 2
+    subscription_retry_interval_minutes: int = 1
+
     # 任务清理
     task_cleaner_enabled: bool = True
     task_cleaner_interval_seconds: int = 5

@@ -10,6 +10,7 @@ class TaskStatus(str, Enum):
 
     PENDING = "PENDING"  # 待执行
     RUNNING = "RUNNING"  # 执行中
+    RETRYING = "RETRYING"  # 等待重试
     SUCCESS = "SUCCESS"  # 成功
     FAILED = "FAILED"  # 失败
 

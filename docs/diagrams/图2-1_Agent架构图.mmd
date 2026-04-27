@@ -1,0 +1,89 @@
+---
+title: 图 2-1 Agent 架构图
+---
+
+graph TB
+    UserInstruction["📝 用户任务指令
+    示例: '登录 example.com 并提取订阅链接'"]
+
+    subgraph Coordinator["🎯 CoordinatorAgent
+    （协调代理 - 总指挥）"]
+        CoordDuty["职责:
+        • 解析用户指令，识别需要执行的操作序列
+        • 按依赖顺序调用子代理工具
+        • 汇总各子代理的执行结果
+        • 生成统一的结构化输出"]
+        CoordOutput["输出: CoordinatorOutput
+        {status, message, error_type,
+        operations_executed, operations_results}"]
+    end
+
+    subgraph SubAgents["🤖 子代理群"]
+        LoginAgent["LoginAgent
+        （登录）
+
+        职责: 网站登录、凭证填充、状态确认
+        输出: LoginOutput"]
+
+        RegisterAgent["RegisterAgent
+        （注册）
+
+        职责: 账号注册、邮箱验证、信息保存
+        输出: RegisterOutput"]
+
+        ExtractAgent["ExtractAgent
+        （数据提取）
+
+        职责: 订阅提取、链接解析、结果返回
+        输出: ExtractOutput"]
+
+        EvidenceAgent["EvidenceAgent
+        （取证）
+
+        职责: 菜单遍历、截图取证、报告生成
+        输出: EvidenceOutput"]
+
+        PaymentAgent["PaymentAgent
+        （支付）
+
+        职责: 支付导航、二维码定位、截图保存
+        输出: PaymentOutput"]
+    end
+
+    subgraph ExternalTools["🔧 外部工具"]
+        Playwright["🌐 Playwright
+        MCP Server
+
+        提供浏览器
+        自动化能力"]
+        Email["📧 Email
+        IMAP
+
+        验证码获取
+        邮件解析"]
+    end
+
+    UserInstruction --> Coordinator
+
+    Coordinator -.->|as_tool()| LoginAgent
+    Coordinator -.->|as_tool()| RegisterAgent
+    Coordinator -.->|as_tool()| ExtractAgent
+    Coordinator -.->|as_tool()| EvidenceAgent
+    Coordinator -.->|as_tool()| PaymentAgent
+
+    LoginAgent --> Playwright
+    RegisterAgent --> Playwright
+    RegisterAgent --> Email
+    ExtractAgent --> Playwright
+    EvidenceAgent --> Playwright
+    PaymentAgent --> Playwright
+
+    style UserInstruction fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    style Coordinator fill:#f3e5f5,stroke:#7b1fa2,stroke-width:3px
+    style Playwright fill:#ffebee,stroke:#c62828,stroke-width:2px
+    style Email fill:#ffebee,stroke:#c62828,stroke-width:2px
+    style LoginAgent fill:#e1f5fe,stroke:#0277bd,stroke-width:2px
+    style RegisterAgent fill:#e1f5fe,stroke:#0277bd,stroke-width:2px
+    style ExtractAgent fill:#e1f5fe,stroke:#0277bd,stroke-width:2px
+    style EvidenceAgent fill:#e1f5fe,stroke:#0277bd,stroke-width:2px
+    style PaymentAgent fill:#e1f5fe,stroke:#0277bd,stroke-width:2px

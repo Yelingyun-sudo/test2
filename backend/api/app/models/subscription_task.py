@@ -42,6 +42,11 @@ class SubscriptionTask(Base):
     failure_type = Column(String(255), nullable=True)
     report_status = Column(SAEnum(TaskReportStatus), nullable=True, default=None)
 
+    # 执行次数（每次开始执行时递增，用于控制重试次数和前端展示）
+    execution_count = Column(Integer, nullable=False, default=0)
+    # 下次重试时间（RETRYING 状态时有效）
+    retry_at = Column(DateTime(timezone=True), nullable=True)
+
     # LLM token 使用统计（存储为 JSON）
     llm_usage = Column(JSON, nullable=True, comment="LLM token 使用统计")
 

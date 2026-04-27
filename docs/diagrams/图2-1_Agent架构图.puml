@@ -1,0 +1,58 @@
+@startuml Agent架构图
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam componentStyle rectangle
+
+ title 图 2-1 Agent 架构图
+
+ component "用户任务指令\n示例: \"登录 example.com 并提取订阅链接\"" as UserInstruction #E3F2FD
+
+ component "CoordinatorAgent\n（协调代理 - 总指挥）" as Coordinator #F3E5F5 {
+    component "职责:\n• 解析用户指令，识别需要执行的操作序列\n• 按依赖顺序调用子代理工具\n• 汇总各子代理的执行结果\n• 生成统一的结构化输出" as CoordDuty
+    component "输出: CoordinatorOutput\n{status, message, error_type,\noperations_executed, operations_results}" as CoordOutput
+ }
+
+ component "LoginAgent\n（登录）" as LoginAgent #E1F5FE {
+    component "职责:\n• 网站登录\n• 凭证填充\n• 状态确认" as LoginDuty
+    component "输出:\nLoginOutput" as LoginOutput
+ }
+
+ component "RegisterAgent\n（注册）" as RegisterAgent #E1F5FE {
+    component "职责:\n• 账号注册\n• 邮箱验证\n• 信息保存" as RegisterDuty
+    component "输出:\nRegisterOutput" as RegisterOutput
+ }
+
+ component "ExtractAgent\n（数据提取）" as ExtractAgent #E1F5FE {
+    component "职责:\n• 订阅提取\n• 链接解析\n• 结果返回" as ExtractDuty
+    component "输出:\nExtractOutput" as ExtractOutput
+ }
+
+ component "EvidenceAgent\n（取证）" as EvidenceAgent #E1F5FE {
+    component "职责:\n• 菜单遍历\n• 截图取证\n• 报告生成" as EvidenceDuty
+    component "输出:\nEvidenceOutput" as EvidenceOutput
+ }
+
+ component "PaymentAgent\n（支付）" as PaymentAgent #E1F5FE {
+    component "职责:\n• 支付导航\n• 二维码定位\n• 截图保存" as PaymentDuty
+    component "输出:\nPaymentOutput" as PaymentOutput
+ }
+
+ component "Playwright\nMCP Server" as Playwright #FFEBEE
+ component "Email\nIMAP" as Email #FFEBEE
+
+ UserInstruction --> Coordinator
+
+ Coordinator --> LoginAgent : as_tool()
+ Coordinator --> RegisterAgent : as_tool()
+ Coordinator --> ExtractAgent : as_tool()
+ Coordinator --> EvidenceAgent : as_tool()
+ Coordinator --> PaymentAgent : as_tool()
+
+ LoginAgent --> Playwright
+ RegisterAgent --> Playwright
+ RegisterAgent --> Email
+ ExtractAgent --> Playwright
+ EvidenceAgent --> Playwright
+ PaymentAgent --> Playwright
+
+@enduml

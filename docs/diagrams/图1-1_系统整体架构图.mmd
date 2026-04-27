@@ -1,0 +1,46 @@
+---
+title: 图 1-1 系统整体架构图
+---
+
+flowchart TB
+    subgraph Frontend["🖥️ 前端展示层"]
+        WebApp["数据可视化控制台
+Dashboard | 订阅管理 | 取证管理 | 支付管理"]
+    end
+
+    subgraph APIGateway["🔌 API 网关层"]
+        FastAPI["后端服务与数据管理
+REST API | 任务管理 | 数据持久化"]
+    end
+
+    subgraph Scheduler["⏱️ 任务调度层"]
+        SchedulerCore["调度器核心
+Importer | Runner | Cleaner | Reporter"]
+        Kafka[(Kafka 消息队列)]
+    end
+
+    subgraph AIAgent["🤖 AI Agent 层"]
+        Coordinator["CoordinatorAgent
+协调代理"]
+        SubAgents["LoginAgent | RegisterAgent | ExtractAgent
+EvidenceAgent | PaymentAgent"]
+    end
+
+    subgraph Browser["🌐 浏览器驱动层"]
+        Playwright["浏览器自动化引擎
+页面控制 | 截图录制 | 反检测"]
+    end
+
+    WebApp <-->|HTTPS/REST| FastAPI
+    FastAPI <-->|内部调用| SchedulerCore
+    SchedulerCore <-->|任务导入/结果上报| Kafka
+    SchedulerCore <-->|协调调用| Coordinator
+    Coordinator <-->|as_tool 包装| SubAgents
+    SubAgents <-->|MCP 协议| Playwright
+
+    style Frontend fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    style APIGateway fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    style Scheduler fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    style AIAgent fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    style Browser fill:#ffebee,stroke:#c62828,stroke-width:2px
+    style Coordinator fill:#c8e6c9,stroke:#2e7d32,stroke-width:3px

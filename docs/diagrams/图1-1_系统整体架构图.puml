@@ -1,0 +1,116 @@
+@startuml 系统整体架构图
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam componentStyle rectangle
+skinparam linetype ortho
+
+ title 图 1-1 系统整体架构图
+
+package "前端展示层" as Frontend #E3F2FD {
+    component "数据概览\nDashboard" as Dashboard
+    component "订阅管理\nSubscription" as SubUI
+    component "取证管理\nEvidence" as EvidUI
+    component "支付管理\nPayment" as PayUI
+    component "Next.js 14 + React 18" as NextJS #BBDEFB
+}
+
+package "API 网关层" as API #E8F5E9 {
+    component "RESTful API 路由层" as Router #C8E6C9
+    component "任务管理" as TaskRouter
+    component "订阅任务" as SubRouter
+    component "取证任务" as EvidRouter
+    component "支付任务" as PayRouter
+    component "系统管理" as AdminRouter
+    component "数据访问层\n(SQLAlchemy + SQLite)" as DAL #C8E6C9
+}
+
+package "任务调度层" as Scheduler #FFF3E0 {
+    component "调度器组件\n(asyncio + Semaphore)" as SchedulerCore #FFE0B2
+    component "任务导入器\nImporter" as Importer
+    component "任务执行器\nRunner" as Runner
+    component "任务清理器\nCleaner" as Cleaner
+    component "任务报告器\nReporter" as Reporter
+    component "消息队列\n(Kafka)" as Kafka #FFE0B2
+}
+
+package "AI Agent 层" as AgentLayer #F3E5F5 {
+    component "协调代理\nCoordinatorAgent" as Coordinator #E1BEE7
+
+    component "LoginAgent\n(登录)" as LoginAgent #D1C4E9
+    component "RegisterAgent\n(注册)" as RegisterAgent #D1C4E9
+    component "ExtractAgent\n(数据提取)" as ExtractAgent #D1C4E9
+    component "EvidenceAgent\n(取证)" as EvidenceAgent #D1C4E9
+    component "PaymentAgent\n(支付)" as PaymentAgent #D1C4E9
+
+    component "结构化输出\n(Pydantic)" as PydanticOutput #E1BEE7
+}
+
+package "浏览器驱动层" as BrowserLayer #FFEBEE {
+    component "浏览器控制能力" as BrowserCtrl #FFCDD2
+    component "页面导航" as Navigate
+    component "元素操作" as Click
+    component "表单填写" as FillForm
+    component "截图录制" as Capture
+    component "验证码绕过" as Bypass
+    component "Chromium 浏览器实例\n(视频录制 / Cookie 持久化 / 反检测)" as Chromium #FFCDD2
+}
+
+' 层间连接
+Dashboard --> NextJS
+SubUI --> NextJS
+EvidUI --> NextJS
+PayUI --> NextJS
+
+NextJS --> Router : HTTPS/REST
+
+Router --> TaskRouter
+Router --> SubRouter
+Router --> EvidRouter
+Router --> PayRouter
+Router --> AdminRouter
+
+TaskRouter --> DAL
+SubRouter --> DAL
+EvidRouter --> DAL
+PayRouter --> DAL
+AdminRouter --> DAL
+
+DAL --> SchedulerCore : 内部调用
+
+SchedulerCore --> Importer
+SchedulerCore --> Runner
+SchedulerCore --> Cleaner
+SchedulerCore --> Reporter
+
+Importer --> Kafka
+Reporter --> Kafka
+
+Runner --> Coordinator : 协调调用
+
+Coordinator --> LoginAgent : as_tool()
+Coordinator --> RegisterAgent : as_tool()
+Coordinator --> ExtractAgent : as_tool()
+Coordinator --> EvidenceAgent : as_tool()
+Coordinator --> PaymentAgent : as_tool()
+
+LoginAgent --> PydanticOutput
+RegisterAgent --> PydanticOutput
+ExtractAgent --> PydanticOutput
+EvidenceAgent --> PydanticOutput
+PaymentAgent --> PydanticOutput
+
+AgentLayer --> BrowserCtrl : MCP 协议
+
+BrowserCtrl --> Navigate
+BrowserCtrl --> Click
+BrowserCtrl --> FillForm
+BrowserCtrl --> Capture
+BrowserCtrl --> Bypass
+
+Navigate --> Chromium
+Click --> Chromium
+FillForm --> Chromium
+Capture --> Chromium
+Bypass --> Chromium
+
+@enduml

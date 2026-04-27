@@ -45,7 +45,6 @@ from website_analytics.playwright_server import (
 )  # 上下文管理器，启动/管理 Playwright
 from website_analytics.settings import get_settings
 from website_analytics.tools import (
-    build_annotate_screenshot_tool,
     build_compile_evidence_report_tool,
     build_fetch_email_code_tool,
     build_programmatic_evidence_entry_tool,
@@ -432,6 +431,7 @@ async def execute(
             # 构建支付代理，添加专用截图工具
             save_payment_screenshot_tool = build_save_payment_screenshot_tool(
                 working_dir,
+                playwright_server=playwright_server,
             )
             payment_agent = build_payment_agent(
                 playwright_server,
@@ -587,7 +587,12 @@ async def execute(
             if isinstance(payment_result, dict):
                 # 验证三张截图和二维码图片的存在性
                 # 如果文件不存在，将该字段设为 None（前端会显示"不存在"）
-                for screenshot_key in ["screenshot_1", "screenshot_2", "screenshot_3", "qr_code_image"]:
+                for screenshot_key in [
+                    "screenshot_1",
+                    "screenshot_2",
+                    "screenshot_3",
+                    "qr_code_image",
+                ]:
                     screenshot_path = payment_result.get(screenshot_key)
                     if screenshot_path:
                         if not (working_dir / screenshot_path).exists():
@@ -668,7 +673,12 @@ async def execute(
             if isinstance(payment_result, dict):
                 # 验证三张截图和二维码图片的存在性
                 # 如果文件不存在，将该字段设为 None（前端会显示"不存在"）
-                for screenshot_key in ["screenshot_1", "screenshot_2", "screenshot_3", "qr_code_image"]:
+                for screenshot_key in [
+                    "screenshot_1",
+                    "screenshot_2",
+                    "screenshot_3",
+                    "qr_code_image",
+                ]:
                     screenshot_path = payment_result.get(screenshot_key)
                     if screenshot_path:
                         if not (working_dir / screenshot_path).exists():
